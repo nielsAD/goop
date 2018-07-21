@@ -1,0 +1,31 @@
+# Author:  Niels A.D.
+# Project: goop (https://github.com/nielsAD/goop)
+# License: Mozilla Public License, v2.0
+
+language: go
+go: 1.10.x
+
+os:
+  - linux
+  - osx
+
+notifications:
+  email:
+    on_success: false
+    on_failure: change
+
+install:
+  # Install OS dependencies
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]];   then brew update            ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]];   then brew install md5sha1sum; fi
+
+  # Install test dependencies
+  - go get github.com/golang/lint/golint
+
+script:
+  - make test
+  - make release
+  - md5sum ./bin/*
+
+before_deploy:
+  - tar -czf release_$TRAVIS_OS_NAME.tar.gz bin LICENSE
