@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -135,8 +136,10 @@ func (d *DiscordSession) onPresenceUpdate(s *discordgo.Session, msg *discordgo.P
 	}
 }
 
+var patternEmotiji = regexp.MustCompile("<a?:([^:]*):[^>]>")
+
 func (d *DiscordSession) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCreate) {
-	if msg.Author.Bot {
+	if msg.Content == "" || msg.Author.Bot {
 		return
 	}
 
@@ -158,12 +161,34 @@ func (d *DiscordSession) onMessageCreate(s *discordgo.Session, msg *discordgo.Me
 		chat.Content = c
 	}
 
+	// Replace emojis
+	chat.Content = patternEmotiji.ReplaceAllString(chat.Content, ":$1:")
+
 	var channel = d.Channels[msg.ChannelID]
 	if channel != nil {
 		chat.User.Rank = channel.RankTalk
 	}
 
 	if ch, err := s.State.Channel(msg.ChannelID); err == nil {
+		if member, err := s.State.Member(ch.GuildID, msg.Author.ID); err == nil {
+			if member.Nick != "" {
+				chat.User.Name = member.Nick
+			}
+
+			if channel != nil && channel.RankRole != nil {
+				for _, rid := range member.Roles {
+					r, err := s.State.Role(ch.GuildID, rid)
+					if err != nil {
+						continue
+					}
+					var rank, ok = channel.RankRole[strings.ToLower(r.Name)]
+					if ok {
+						chat.User.Rank = rank
+					}
+				}
+			}
+		}
+
 		if channel == nil && ch.Type == discordgo.ChannelTypeDM {
 			chat.User.Rank = d.RankDM
 			d.Fire(&PrivateChat{
@@ -177,19 +202,6 @@ func (d *DiscordSession) onMessageCreate(s *discordgo.Session, msg *discordgo.Me
 			chat.Channel.Name = fmt.Sprintf("%s.%s", g.Name, ch.Name)
 		} else {
 			chat.Channel.Name = ch.Name
-		}
-
-		if channel != nil && channel.RankRole != nil {
-			if m, err := s.State.Member(ch.GuildID, msg.Author.ID); err == nil {
-				for _, rid := range m.Roles {
-					if r, err := s.State.Role(ch.GuildID, rid); err == nil {
-						var rank, ok = channel.RankRole[strings.ToLower(r.Name)]
-						if ok {
-							chat.User.Rank = rank
-						}
-					}
-				}
-			}
 		}
 	}
 

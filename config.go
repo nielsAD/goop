@@ -40,6 +40,7 @@ var DefaultConfig = Config{
 			DiscordConfig: DiscordConfig{
 				Presence:      "Battle.net",
 				RankNoChannel: RankIgnore,
+				RankDM:        RankWhitelist,
 			},
 			DiscordChannelConfig: DiscordChannelConfig{
 				CommandTrigger: "!",

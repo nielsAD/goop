@@ -220,6 +220,9 @@ func (b *BNetRealm) onUserLeft(ev *network.Event) {
 
 func (b *BNetRealm) onChat(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.Chat)
+	if msg.Content == "" {
+		return
+	}
 
 	var chat = Chat{
 		User:    b.user(&msg.User),
@@ -239,6 +242,9 @@ func (b *BNetRealm) onChat(ev *network.Event) {
 
 func (b *BNetRealm) onWhisper(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.Whisper)
+	if msg.Content == "" {
+		return
+	}
 
 	if msg.Username[:1] == "#" {
 		b.Fire(&SystemMessage{Content: fmt.Sprintf("[%s] %s", msg.Username, msg.Content)})
