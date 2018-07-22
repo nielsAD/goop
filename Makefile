@@ -2,7 +2,8 @@
 # Project: goop (https://github.com/nielsAD/goop)
 # License: Mozilla Public License, v2.0
 
-VENDOR=vendor/github.com/nielsAD/gowarcraft3/vendor
+GOW3=vendor/github.com/nielsAD/gowarcraft3
+VENDOR=$(GOW3)/vendor/StormLib/build/libstorm.a $(GOW3)/vendor/bncsutil/build/libbncsutil_static.a
 
 GO_FLAGS=
 GOTEST_FLAGS=-cover -cpu=1,2,4 -timeout=2m
@@ -26,7 +27,7 @@ ifeq ($(TEST_RACE),1)
 	TEST_FLAGS+= -race
 endif
 
-.PHONY: all release check test fmt lint vet list clean $(VENDOR)
+.PHONY: all release check test fmt lint vet list clean
 
 all: test release
 
@@ -36,8 +37,8 @@ $(DIR_BIN):
 $(PKG): $(VENDOR)
 	$(GO) build $@
 
-vendor/%:
-	$(MAKE) -C $@
+$(GOW3)/vendor/%:
+	$(MAKE) -C $(GOW3)/vendor $(subst $(GOW3)/vendor/,,$@)
 
 release: $(VENDOR) $(DIR_BIN)
 	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) $(DIR_PRE)
@@ -61,5 +62,6 @@ list:
 	@echo $(PKG) | tr ' ' '\n'
 
 clean:
-	go clean $(PKG)
 	rm -r $(DIR_BIN)
+	go clean $(PKG)
+	$(MAKE) -C $(GOW3)/vendor clean

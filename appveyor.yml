@@ -49,3 +49,11 @@ test_script:
 after_test:
   - md5sum ./bin/*
   - 7z a release_windows_%MSYS2_ARCH%.zip bin LICENSE
+
+deploy:
+  provider: GitHub
+  auth_token:
+    secure: wDwXLoUDnL32TSi+DpnwB4o+8LitFI6eIoyOqjm6//LiGMBMpkLiu/PaIZdCw4G/
+  artifact: /release_.*/
+  on:
+    appveyor_repo_tag: true
