@@ -2,43 +2,74 @@
 // Project: goop (https://github.com/nielsAD/goop)
 // License: Mozilla Public License, v2.0
 
-package main
+package bnet
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
 	"github.com/nielsAD/gowarcraft3/network/bnet"
 	"github.com/nielsAD/gowarcraft3/protocol/bncs"
 	"github.com/nielsAD/gowarcraft3/protocol/w3gs"
 )
 
-// BNetRealm manages a BNet connection
-type BNetRealm struct {
+// Errors
+var (
+	ErrSayBufferFull = errors.New("gw-bnet: Say buffer full")
+)
+
+// Config stores the configuration of a single BNet server
+type Config struct {
+	GatewayConfig
+	bnet.Config
+}
+
+// GatewayConfig stores the config additions of bnet.Gateway over bnet.Client
+type GatewayConfig struct {
+	ReconnectDelay   time.Duration
+	HomeChannel      string
+	CommandTrigger   string
+	BufSize          uint8
+	AvatarIconURL    string
+	AvatarDefaultURL string
+
+	AccessWhisper    gateway.AccessLevel
+	AccessTalk       gateway.AccessLevel
+	AccessNoWarcraft gateway.AccessLevel
+	AccessOperator   *gateway.AccessLevel
+	AccessLevel      map[int]gateway.AccessLevel
+	AccessClanTag    map[string]gateway.AccessLevel
+	AccessUser       map[string]gateway.AccessLevel
+}
+
+// Gateway manages a BNet connection
+type Gateway struct {
 	*bnet.Client
 
 	smut sync.Mutex
 	say  chan string
 
 	// Set once before Run(), read-only after that
-	*BNetRealmConfig
+	*GatewayConfig
 }
 
-// NewBNetRealm initializes a new BNetRealm struct
-func NewBNetRealm(conf *BNetConfig) (*BNetRealm, error) {
+// New initializes a new Gateway struct
+func New(conf *Config) (*Gateway, error) {
 	c, err := bnet.NewClient(&conf.Config)
 	if err != nil {
 		return nil, err
 	}
 
-	var b = BNetRealm{
-		Client:          c,
-		BNetRealmConfig: &conf.BNetRealmConfig,
+	var b = Gateway{
+		Client:        c,
+		GatewayConfig: &conf.GatewayConfig,
 	}
 
 	b.InitDefaultHandlers()
@@ -47,14 +78,17 @@ func NewBNetRealm(conf *BNetConfig) (*BNetRealm, error) {
 }
 
 // Say sends a chat message
-func (b *BNetRealm) Say(s string) error {
+func (b *Gateway) Say(s string) error {
 	b.smut.Lock()
 	if b.say == nil {
-		b.say = make(chan string, 16)
+		b.say = make(chan string, b.BufSize)
 
 		go func() {
 			for s := range b.say {
-				b.Client.Say(s)
+				err := b.Client.Say(s)
+				if err != nil {
+					b.Fire(&network.AsyncError{Src: "Say", Err: err})
+				}
 			}
 		}()
 	}
@@ -64,12 +98,12 @@ func (b *BNetRealm) Say(s string) error {
 	case b.say <- s:
 		return nil
 	default:
-		return ErrChanBufferFull
+		return ErrSayBufferFull
 	}
 }
 
 // Run reads packets and emits an event for each received packet
-func (b *BNetRealm) Run(ctx context.Context) error {
+func (b *Gateway) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		b.Client.Close()
@@ -77,7 +111,9 @@ func (b *BNetRealm) Run(ctx context.Context) error {
 
 	var backoff = b.ReconnectDelay
 	for ctx.Err() == nil {
-		if backoff > 4*time.Hour {
+		if backoff < 10*time.Second {
+			backoff = 10 * time.Second
+		} else if backoff > 4*time.Hour {
 			backoff = 4 * time.Hour
 		}
 
@@ -106,7 +142,7 @@ func (b *BNetRealm) Run(ctx context.Context) error {
 			return err
 		}
 
-		b.Fire(Connected{})
+		b.Fire(gateway.Connected{})
 
 		var channel = b.Channel()
 		if channel == "" {
@@ -121,28 +157,30 @@ func (b *BNetRealm) Run(ctx context.Context) error {
 			b.Fire(&network.AsyncError{Src: "Run[Client]", Err: err})
 		}
 
-		b.Fire(Disconnected{})
+		b.Fire(gateway.Disconnected{})
 	}
 
 	return ctx.Err()
 }
 
-func (b *BNetRealm) channel() Channel {
+func (b *Gateway) channel() gateway.Channel {
 	var name = b.Client.Channel()
-	return Channel{
+	return gateway.Channel{
 		ID:   name,
 		Name: name,
 	}
 }
 
-func (b *BNetRealm) user(u *bnet.User) User {
-	var res = User{
-		Name: u.Name,
-		Rank: b.RankTalk,
+func (b *Gateway) user(u *bnet.User) gateway.User {
+	var res = gateway.User{
+		ID:        u.Name,
+		Name:      u.Name,
+		Access:    b.AccessTalk,
+		AvatarURL: b.AvatarDefaultURL,
 	}
 
-	if b.RankOperator != nil && u.Operator() {
-		res.Rank = *b.RankOperator
+	if b.AccessOperator != nil && u.Operator() {
+		res.Access = *b.AccessOperator
 	}
 
 	var prod, icon, lvl, tag = u.Stat()
@@ -151,39 +189,41 @@ func (b *BNetRealm) user(u *bnet.User) User {
 		case w3gs.ProductDemo, w3gs.ProductROC, w3gs.ProductTFT:
 			// Expected
 		default:
-			res.Rank = b.RankNoWarcraft
+			res.Access = b.AccessNoWarcraft
 			return res
 		}
 
-		if lvl > 0 && b.RankLevel != nil {
+		if lvl > 0 && b.AccessLevel != nil {
 			var max = 0
-			for l, r := range b.RankLevel {
+			for l, a := range b.AccessLevel {
 				if l >= max && lvl >= l {
 					max = l
-					res.Rank = r
+					res.Access = a
 				}
 			}
 		}
-		if tag != 0 && b.RankClanTag != nil {
-			var rank, ok = b.RankClanTag[tag.String()]
+		if tag != 0 && b.AccessClanTag != nil {
+			var access, ok = b.AccessClanTag[tag.String()]
 			if ok {
-				res.Rank = rank
+				res.Access = access
 			}
 		}
 
-		res.AvatarURL = strings.Replace(b.AvatarURL, "${ICON}", icon.String(), -1)
+		if b.AvatarIconURL != "" {
+			res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
+		}
 	}
 
-	var rank, ok = b.RankUser[u.Name]
+	var access, ok = b.AccessUser[u.Name]
 	if ok {
-		res.Rank = rank
+		res.Access = access
 	}
 
 	return res
 }
 
 // InitDefaultHandlers adds the default callbacks for relevant packets
-func (b *BNetRealm) InitDefaultHandlers() {
+func (b *Gateway) InitDefaultHandlers() {
 	b.On(&bnet.UserJoined{}, b.onUserJoined)
 	b.On(&bnet.UserLeft{}, b.onUserLeft)
 	b.On(&bnet.Chat{}, b.onChat)
@@ -194,37 +234,37 @@ func (b *BNetRealm) InitDefaultHandlers() {
 	b.On(&bncs.FloodDetected{}, b.onFloodDetected)
 }
 
-func (b *BNetRealm) onUserJoined(ev *network.Event) {
+func (b *Gateway) onUserJoined(ev *network.Event) {
 	var user = ev.Arg.(*bnet.UserJoined)
 	if user.Name == b.UniqueName {
 		return
 	}
 
-	b.Fire(&Join{
+	b.Fire(&gateway.Join{
 		User:    b.user(&user.User),
 		Channel: b.channel(),
 	})
 }
 
-func (b *BNetRealm) onUserLeft(ev *network.Event) {
+func (b *Gateway) onUserLeft(ev *network.Event) {
 	var user = ev.Arg.(*bnet.UserLeft)
 	if user.Name == b.UniqueName {
 		return
 	}
 
-	b.Fire(&Leave{
+	b.Fire(&gateway.Leave{
 		User:    b.user(&user.User),
 		Channel: b.channel(),
 	})
 }
 
-func (b *BNetRealm) onChat(ev *network.Event) {
+func (b *Gateway) onChat(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.Chat)
 	if msg.Content == "" {
 		return
 	}
 
-	var chat = Chat{
+	var chat = gateway.Chat{
 		User:    b.user(&msg.User),
 		Channel: b.channel(),
 		Content: msg.Content,
@@ -240,82 +280,84 @@ func (b *BNetRealm) onChat(ev *network.Event) {
 	b.Fire(&chat)
 }
 
-func (b *BNetRealm) onWhisper(ev *network.Event) {
+func (b *Gateway) onWhisper(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.Whisper)
 	if msg.Content == "" {
 		return
 	}
 
 	if msg.Username[:1] == "#" {
-		b.Fire(&SystemMessage{Content: fmt.Sprintf("[%s] %s", msg.Username, msg.Content)})
+		b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("[%s] %s", msg.Username, msg.Content)})
 		return
 	}
 
-	var chat = PrivateChat{
-		User: User{
-			Name: msg.Username,
-			Rank: b.RankWhisper,
+	var chat = gateway.PrivateChat{
+		User: gateway.User{
+			ID:        msg.Username,
+			Name:      msg.Username,
+			Access:    b.AccessWhisper,
+			AvatarURL: b.AvatarDefaultURL,
 		},
 		Content: msg.Content,
 	}
 
-	var rank, ok = b.RankUser[msg.Username]
+	var access, ok = b.AccessUser[msg.Username]
 	if ok {
-		chat.User.Rank = rank
+		chat.User.Access = access
 	}
 
 	b.Fire(&chat)
 }
 
-func (b *BNetRealm) onJoinError(ev *network.Event) {
+func (b *Gateway) onJoinError(ev *network.Event) {
 	var err = ev.Arg.(*bnet.JoinError)
-	b.Fire(&SystemMessage{Content: fmt.Sprintf("Could not join %s (%s)", err.Channel, err.Error.String())})
+	b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("Could not join %s (%s)", err.Channel, err.Error.String())})
 }
 
-func (b *BNetRealm) onChannel(ev *network.Event) {
+func (b *Gateway) onChannel(ev *network.Event) {
 	var c = ev.Arg.(*bnet.Channel)
-	b.Fire(&Channel{ID: c.Name, Name: c.Name})
+	b.Fire(&gateway.Channel{ID: c.Name, Name: c.Name})
 }
 
-func (b *BNetRealm) onSystemMessage(ev *network.Event) {
+func (b *Gateway) onSystemMessage(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.SystemMessage)
 
 	if msg.Type == bncs.ChatInfo && msg.Content == "No one hears you." {
 		return
 	}
 
-	b.Fire(&SystemMessage{Content: fmt.Sprintf("[%s] %s", strings.ToUpper(msg.Type.String()), msg.Content)})
+	b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("[%s] %s", strings.ToUpper(msg.Type.String()), msg.Content)})
 }
 
-func (b *BNetRealm) onFloodDetected(ev *network.Event) {
-	b.Fire(&SystemMessage{Content: "FLOOD DETECTED"})
+func (b *Gateway) onFloodDetected(ev *network.Event) {
+	b.Fire(&gateway.SystemMessage{Content: "FLOOD DETECTED"})
 }
 
 // Relay dumps the event content in current channel
-func (b *BNetRealm) Relay(ev *network.Event, sender string) {
+func (b *Gateway) Relay(ev *network.Event, sender string) {
 	var err error
 
-	sender = strings.SplitN(sender, RealmDelimiter, 2)[0]
+	sender = strings.SplitN(sender, gateway.Delimiter, 2)[0]
 
 	switch msg := ev.Arg.(type) {
-	case Connected:
+	case gateway.Connected:
 		err = b.Say(fmt.Sprintf("Established connection to %s", sender))
-	case Disconnected:
+	case gateway.Disconnected:
 		err = b.Say(fmt.Sprintf("Connection to %s closed", sender))
-	case *Channel:
+	case *gateway.Channel:
 		err = b.Say(fmt.Sprintf("Joined %s on %s", msg.Name, sender))
-	case *SystemMessage:
+	case *gateway.SystemMessage:
 		err = b.Say(fmt.Sprintf("[%s] %s", sender, msg.Content))
-	case *Join:
+	case *gateway.Join:
 		err = b.Say(fmt.Sprintf("%s@%s has joined the channel", msg.User.Name, sender))
-	case *Leave:
+	case *gateway.Leave:
 		err = b.Say(fmt.Sprintf("%s@%s has left the channel", msg.User.Name, sender))
-	case *Chat:
+	case *gateway.Chat:
 		err = b.Say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, sender, msg.Content))
-	case *PrivateChat:
+	case *gateway.PrivateChat:
 		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sender, msg.Content))
 	default:
-		err = ErrUnknownEvent
+		err = gateway.ErrUnknownEvent
 	}
 
 	if err != nil && !network.IsConnClosedError(err) {

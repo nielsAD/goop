@@ -14,37 +14,44 @@ import (
 
 	"github.com/imdario/mergo"
 
-	"github.com/nielsAD/gowarcraft3/network/bnet"
+	bnetc "github.com/nielsAD/gowarcraft3/network/bnet"
+
+	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/gateway/bnet"
+	"github.com/nielsAD/goop/gateway/discord"
+	"github.com/nielsAD/goop/gateway/stdio"
 )
 
 // DefaultConfig values used as fallback
 var DefaultConfig = Config{
-	StdIO: StdIOConfig{
+	StdIO: stdio.Config{
 		Read:           true,
-		Rank:           RankOwner,
+		Access:         gateway.AccessOwner,
 		CommandTrigger: "/",
 	},
 	BNet: BNetConfigWithDefault{
-		Default: BNetConfig{
-			BNetRealmConfig: BNetRealmConfig{
+		Default: bnet.Config{
+			GatewayConfig: bnet.GatewayConfig{
 				ReconnectDelay: 30 * time.Second,
 				CommandTrigger: "!",
+				BufSize:        16,
 			},
-			Config: bnet.Config{
-				BinPath: bnet.DefaultConfig.BinPath,
+			Config: bnetc.Config{
+				BinPath: bnetc.DefaultConfig.BinPath,
 			},
 		},
 	},
 	Discord: DiscordConfigWithDefault{
 		Default: DefaultDiscordConfig{
-			DiscordConfig: DiscordConfig{
-				Presence:      "Battle.net",
-				RankNoChannel: RankIgnore,
-				RankDM:        RankWhitelist,
+			Config: discord.Config{
+				Presence:        "Battle.net",
+				AccessNoChannel: gateway.AccessIgnore,
+				AccessDM:        gateway.AccessWhitelist,
 			},
-			DiscordChannelConfig: DiscordChannelConfig{
+			ChannelConfig: discord.ChannelConfig{
 				CommandTrigger: "!",
-				RankMentions:   RankWhitelist,
+				BufSize:        32,
+				AccessMentions: gateway.AccessWhitelist,
 			},
 		},
 	},
@@ -52,77 +59,28 @@ var DefaultConfig = Config{
 
 // Config struct maps the layout of main configuration file
 type Config struct {
-	StdIO   StdIOConfig
+	StdIO   stdio.Config
 	BNet    BNetConfigWithDefault
 	Discord DiscordConfigWithDefault
 	Relay   []Relay
 }
 
-// StdIOConfig struct maps the layout of StdIO configuration section
-type StdIOConfig struct {
-	Read           bool
-	Rank           Rank
-	CommandTrigger string
-	AvatarURL      string
-}
-
 // BNetConfigWithDefault struct maps the layout of the BNet configuration section
 type BNetConfigWithDefault struct {
-	Default BNetConfig
-	Realms  map[string]*BNetConfig
-}
-
-// BNetConfig stores the configuration of a single BNet server
-type BNetConfig struct {
-	BNetRealmConfig
-	bnet.Config
-}
-
-// BNetRealmConfig stores the config additions of goop.BNetRealm next to bnet.Client
-type BNetRealmConfig struct {
-	ReconnectDelay time.Duration
-	HomeChannel    string
-	CommandTrigger string
-	AvatarURL      string
-
-	RankWhisper    Rank
-	RankTalk       Rank
-	RankNoWarcraft Rank
-	RankOperator   *Rank
-	RankLevel      map[int]Rank
-	RankClanTag    map[string]Rank
-	RankUser       map[string]Rank
+	Default  bnet.Config
+	Gateways map[string]*bnet.Config
 }
 
 // DiscordConfigWithDefault struct maps the layout of the Discord configuration section
 type DiscordConfigWithDefault struct {
 	Default  DefaultDiscordConfig
-	Sessions map[string]*DiscordConfig
+	Gateways map[string]*discord.Config
 }
 
 // DefaultDiscordConfig struct maps the layout of the Discord.Default configuration section
 type DefaultDiscordConfig struct {
-	DiscordConfig
-	DiscordChannelConfig
-}
-
-// DiscordConfig stores the configuration of a Discord session
-type DiscordConfig struct {
-	AuthToken     string
-	Channels      map[string]*DiscordChannelConfig
-	Presence      string
-	RankDM        Rank
-	RankNoChannel Rank
-}
-
-// DiscordChannelConfig stores the configuration of a single Discord channel
-type DiscordChannelConfig struct {
-	CommandTrigger string
-	Webhook        string
-	RankMentions   Rank
-	RankTalk       Rank
-	RankRole       map[string]Rank
-	RankUser       map[string]Rank
+	discord.Config
+	discord.ChannelConfig
 }
 
 // Relay struct maps the layout of Relay configuration section
@@ -136,9 +94,9 @@ type Relay struct {
 	Chat        bool
 	PrivateChat bool
 
-	JoinRank        Rank
-	ChatRank        Rank
-	PrivateChatRank Rank
+	JoinAccess        gateway.AccessLevel
+	ChatAccess        gateway.AccessLevel
+	PrivateChatAccess gateway.AccessLevel
 }
 
 func deleteDefaults(def map[string]interface{}, dst map[string]interface{}) {
@@ -247,18 +205,18 @@ func flatten(prf string, val reflect.Value, dst map[string]reflect.Value) {
 
 // MergeDefaults applies default configuration for unset fields
 func (c *Config) MergeDefaults() error {
-	for _, r := range c.BNet.Realms {
+	for _, r := range c.BNet.Gateways {
 		if err := mergo.Merge(r, c.BNet.Default); err != nil {
 			return err
 		}
 	}
 
-	for _, s := range c.Discord.Sessions {
-		if err := mergo.Merge(s, c.Discord.Default.DiscordConfig); err != nil {
+	for _, g := range c.Discord.Gateways {
+		if err := mergo.Merge(g, c.Discord.Default.Config); err != nil {
 			return err
 		}
-		for _, n := range s.Channels {
-			if err := mergo.Merge(n, c.Discord.Default.DiscordChannelConfig); err != nil {
+		for _, n := range g.Channels {
+			if err := mergo.Merge(n, c.Discord.Default.ChannelConfig); err != nil {
 				return err
 			}
 		}
@@ -275,16 +233,16 @@ func (c *Config) Map() map[string]interface{} {
 	var m = imap(c).(mi)
 
 	var bn = m["BNet"].(mi)["Default"].(mi)
-	for _, r := range m["BNet"].(mi)["Realms"].(mi) {
-		deleteDefaults(bn, r.(mi))
+	for _, g := range m["BNet"].(mi)["Gateways"].(mi) {
+		deleteDefaults(bn, g.(mi))
 	}
 
 	var dc = m["Discord"].(mi)["Default"].(mi)
-	for _, a := range m["Discord"].(mi)["Sessions"].(mi) {
-		for _, c := range a.(mi)["Channels"].(mi) {
+	for _, g := range m["Discord"].(mi)["Gateways"].(mi) {
+		for _, c := range g.(mi)["Channels"].(mi) {
 			deleteDefaults(dc, c.(mi))
 		}
-		deleteDefaults(dc, a.(mi))
+		deleteDefaults(dc, g.(mi))
 	}
 
 	return m

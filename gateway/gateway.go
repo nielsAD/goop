@@ -2,31 +2,37 @@
 // Project: goop (https://github.com/nielsAD/goop)
 // License: Mozilla Public License, v2.0
 
-package main
+package gateway
 
 import (
 	"context"
+	"errors"
 
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
-// RealmDelimiter between main/sub realm name (i.e. discord.{CHANNELID})
-const RealmDelimiter = "."
-
-// Rank for user
-type Rank int32
-
-// Rank constants
-const (
-	RankOwner     Rank = 1000000
-	RankWhitelist Rank = 1
-	RankDefault   Rank = 0
-	RankIgnore    Rank = -1
-	RankBan       Rank = -1000000
+// Errors
+var (
+	ErrUnknownEvent = errors.New("gw: Unknown event")
 )
 
-// Realm interface
-type Realm interface {
+// Delimiter between main/sub gateway name (i.e. discord.{CHANNELID})
+const Delimiter = "."
+
+// AccessLevel for user
+type AccessLevel int32
+
+// Access constants
+const (
+	AccessOwner     AccessLevel = 1000000
+	AccessWhitelist AccessLevel = 1
+	AccessDefault   AccessLevel = 0
+	AccessIgnore    AccessLevel = -1
+	AccessBan       AccessLevel = -1000000
+)
+
+// Gateway interface
+type Gateway interface {
 	network.Emitter
 	Run(ctx context.Context) error
 	Relay(ev *network.Event, sender string)
@@ -47,7 +53,7 @@ type SystemMessage struct {
 type User struct {
 	ID        string
 	Name      string
-	Rank      Rank
+	Access    AccessLevel
 	AvatarURL string
 }
 
@@ -62,7 +68,6 @@ type Chat struct {
 	User
 	Channel
 	Content string
-	Self    bool
 }
 
 // PrivateChat event
@@ -81,4 +86,16 @@ type Join struct {
 type Leave struct {
 	User
 	Channel
+}
+
+// Events types
+var Events = []interface{}{
+	Connected{},
+	Disconnected{},
+	&SystemMessage{},
+	&Channel{},
+	&Chat{},
+	&PrivateChat{},
+	&Join{},
+	&Leave{},
 }

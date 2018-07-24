@@ -5,21 +5,25 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
+	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/gateway/bnet"
+	"github.com/nielsAD/goop/gateway/discord"
+	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
 // Errors
 var (
 	ErrUnkownRealm      = errors.New("goop: Unknown realm")
-	ErrUnknownEvent     = errors.New("goop: Unknown event")
 	ErrUnknownConfigKey = errors.New("goop: Unknown config key")
 	ErrInvalidType      = errors.New("goop: Type mismatch")
-	ErrChanBufferFull   = errors.New("goop: Channel buffer full")
 )
 
 // Goop main
@@ -27,63 +31,63 @@ type Goop struct {
 	network.EventEmitter
 
 	// Read-only
-	Realms map[string]Realm
-	Config Config
+	Gateways map[string]gateway.Gateway
+	Config   Config
 }
 
 // New initializes a Goop struct
 func New(conf *Config) (*Goop, error) {
-	var g = Goop{
+	var res = Goop{
 		Config: *conf,
-		Realms: map[string]Realm{
-			"STDIO": &StdIO{StdIOConfig: &conf.StdIO},
+		Gateways: map[string]gateway.Gateway{
+			"STDIO": stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO),
 		},
 	}
 
-	var realms = []string{"STDIO"}
+	var gateways = []string{"STDIO"}
 
-	for k, r := range g.Config.BNet.Realms {
-		realm, err := NewBNetRealm(r)
+	for k, g := range res.Config.BNet.Gateways {
+		gw, err := bnet.New(g)
 		if err != nil {
 			return nil, err
 		}
 
-		g.Realms[k] = realm
-		realms = append(realms, k)
+		res.Gateways[k] = gw
+		gateways = append(gateways, k)
 	}
 
-	for k, r := range g.Config.Discord.Sessions {
-		discord, err := NewDiscordSession(r)
+	for k, g := range res.Config.Discord.Gateways {
+		gw, err := discord.New(g)
 		if err != nil {
 			return nil, err
 		}
 
-		g.Realms[k] = discord
-		realms = append(realms, k)
+		res.Gateways[k] = gw
+		gateways = append(gateways, k)
 
-		for cid, c := range discord.Channels {
-			var idx = k + RealmDelimiter + cid
-			g.Realms[idx] = c
-			realms = append(realms, idx)
+		for cid, c := range gw.Channels {
+			var idx = k + gateway.Delimiter + cid
+			res.Gateways[idx] = c
+			gateways = append(gateways, idx)
 		}
 	}
 
-	for i := 0; i < len(g.Config.Relay); i++ {
-		var r = g.Config.Relay[i]
+	for i := 0; i < len(res.Config.Relay); i++ {
+		var r = res.Config.Relay[i]
 		if r.In == nil {
-			r.In = realms
+			r.In = gateways
 		}
 		if r.Out == nil {
-			r.Out = realms
+			r.Out = gateways
 		}
 		for _, in := range r.In {
-			var r1 = g.Realms[in]
+			var r1 = res.Gateways[in]
 			if r1 == nil {
 				return nil, ErrUnkownRealm
 			}
 
 			for _, out := range r.Out {
-				var r2 = g.Realms[out]
+				var r2 = res.Gateways[out]
 				if r2 == nil {
 					return nil, ErrUnkownRealm
 				}
@@ -95,25 +99,25 @@ func New(conf *Config) (*Goop, error) {
 				var handler = func(ev *network.Event) { r2.Relay(ev, sender) }
 
 				if r.Log {
-					r1.On(Connected{}, handler)
-					r1.On(Disconnected{}, handler)
-					r1.On(&Channel{}, handler)
+					r1.On(gateway.Connected{}, handler)
+					r1.On(gateway.Disconnected{}, handler)
+					r1.On(&gateway.Channel{}, handler)
 				}
 				if r.System {
-					r1.On(&SystemMessage{}, handler)
+					r1.On(&gateway.SystemMessage{}, handler)
 				}
 
 				if r.Joins {
-					r1.On(&Join{}, func(ev *network.Event) {
-						var user = ev.Arg.(*Join)
-						if user.Rank < r.JoinRank {
+					r1.On(&gateway.Join{}, func(ev *network.Event) {
+						var user = ev.Arg.(*gateway.Join)
+						if user.Access < r.JoinAccess {
 							return
 						}
 						r2.Relay(ev, sender)
 					})
-					r1.On(&Leave{}, func(ev *network.Event) {
-						var user = ev.Arg.(*Leave)
-						if user.Rank < r.JoinRank {
+					r1.On(&gateway.Leave{}, func(ev *network.Event) {
+						var user = ev.Arg.(*gateway.Leave)
+						if user.Access < r.JoinAccess {
 							return
 						}
 						r2.Relay(ev, sender)
@@ -121,9 +125,9 @@ func New(conf *Config) (*Goop, error) {
 				}
 
 				if r.Chat {
-					r1.On(&Chat{}, func(ev *network.Event) {
-						var msg = ev.Arg.(*Chat)
-						if msg.User.Rank < r.ChatRank {
+					r1.On(&gateway.Chat{}, func(ev *network.Event) {
+						var msg = ev.Arg.(*gateway.Chat)
+						if msg.User.Access < r.ChatAccess {
 							return
 						}
 						r2.Relay(ev, sender)
@@ -131,9 +135,9 @@ func New(conf *Config) (*Goop, error) {
 				}
 
 				if r.PrivateChat {
-					r1.On(&PrivateChat{}, func(ev *network.Event) {
-						var msg = ev.Arg.(*PrivateChat)
-						if msg.User.Rank < r.PrivateChatRank {
+					r1.On(&gateway.PrivateChat{}, func(ev *network.Event) {
+						var msg = ev.Arg.(*gateway.PrivateChat)
+						if msg.User.Access < r.PrivateChatAccess {
 							return
 						}
 						r2.Relay(ev, sender)
@@ -143,20 +147,20 @@ func New(conf *Config) (*Goop, error) {
 		}
 	}
 
-	return &g, nil
+	return &res, nil
 }
 
 // Run connects to each realm and returns when all connections have ended
 func (g *Goop) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	for i := range g.Realms {
+	for i := range g.Gateways {
 		wg.Add(1)
 
 		var k = i
-		var r = g.Realms[k]
+		var r = g.Gateways[k]
 		go func() {
 			if err := r.Run(ctx); err != nil && err != context.Canceled {
-				g.Fire(&network.AsyncError{Src: fmt.Sprintf("Run[realm:%s]", k), Err: err})
+				g.Fire(&network.AsyncError{Src: fmt.Sprintf("Run[gw:%s]", k), Err: err})
 			}
 			wg.Done()
 		}()

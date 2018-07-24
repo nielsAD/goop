@@ -24,6 +24,9 @@ var (
 	logtime  = flag.Bool("logtime", true, "Prepend log output with time")
 )
 
+var logOut = log.New(color.Output, "", 0)
+var logErr = log.New(color.Error, "", 0)
+
 func main() {
 	flag.Parse()
 
@@ -66,9 +69,9 @@ func main() {
 		logErr.Println(color.RedString("[ERROR] %s", err.Error()))
 	})
 
-	for i, r := range g.Realms {
+	for i, g := range g.Gateways {
 		var k = i
-		r.On(&network.AsyncError{}, func(ev *network.Event) {
+		g.On(&network.AsyncError{}, func(ev *network.Event) {
 			var err = ev.Arg.(*network.AsyncError)
 			logErr.Println(color.RedString("[ERROR][%s] %s", k, err.Error()))
 		})
@@ -82,5 +85,6 @@ func main() {
 		cancel()
 	}()
 
+	logOut.Println(color.MagentaString("Starting goop.."))
 	g.Run(ctx)
 }
