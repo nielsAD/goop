@@ -158,12 +158,12 @@ func imap(val interface{}) interface{} {
 func flatten(prf string, val reflect.Value, dst map[string]reflect.Value) {
 	switch val.Kind() {
 	case reflect.Ptr:
-		if val.IsNil() {
-			dst[strings.ToLower(prf)] = val
-		} else {
+		if !val.IsNil() {
 			flatten(prf, val.Elem(), dst)
 		}
+		dst[strings.ToLower(prf)] = val
 	case reflect.Map:
+		dst[strings.ToLower(prf)] = val
 		for _, key := range val.MapKeys() {
 			var pre string
 			if prf == "" {
@@ -173,7 +173,10 @@ func flatten(prf string, val reflect.Value, dst map[string]reflect.Value) {
 			}
 			flatten(pre, val.MapIndex(key), dst)
 		}
-	case reflect.Slice, reflect.Array:
+	case reflect.Slice:
+		dst[strings.ToLower(prf)] = val
+		fallthrough
+	case reflect.Array:
 		for i := 0; i < val.Len(); i++ {
 			var pre string
 			if prf == "" {
@@ -201,6 +204,78 @@ func flatten(prf string, val reflect.Value, dst map[string]reflect.Value) {
 	default:
 		dst[strings.ToLower(prf)] = val
 	}
+}
+
+func assign(dst, src reflect.Value) error {
+	if !src.Type().AssignableTo(dst.Type()) {
+		if src.Type().ConvertibleTo(dst.Type()) {
+			src = src.Convert(dst.Type())
+		} else if dst.Kind() == reflect.Ptr {
+			if dst.IsNil() {
+				dst.Set(reflect.New(dst.Type().Elem()))
+			}
+			return assign(dst.Elem(), src)
+		} else {
+			return ErrTypeMismatch
+		}
+	}
+
+	dst.Set(src)
+	return nil
+}
+
+func assignString(dst reflect.Value, src string) error {
+	if i, ok := dst.Interface().(encoding.TextUnmarshaler); ok {
+		return i.UnmarshalText([]byte(src))
+	}
+
+	switch dst.Kind() {
+	case reflect.Ptr:
+		if dst.IsNil() {
+			dst.Set(reflect.New(dst.Type().Elem()))
+		}
+		return assignString(dst.Elem(), src)
+	case reflect.String:
+		dst.SetString(src)
+		return nil
+	case reflect.Bool:
+		b, err := strconv.ParseBool(src)
+		if err != nil {
+			return err
+		}
+		dst.SetBool(b)
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(src, 10, 64)
+		if err != nil {
+			return err
+		}
+		dst.SetInt(n)
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		n, err := strconv.ParseUint(src, 10, 64)
+		if err != nil {
+			return err
+		}
+		dst.SetUint(n)
+		return nil
+	default:
+		return ErrTypeMismatch
+	}
+}
+
+// Parent of key
+func Parent(key string) (string, string) {
+	if strings.HasSuffix(key, "[]") {
+		return key[0 : len(key)-2], "[]"
+	}
+
+	var idx = strings.LastIndexByte(key, '.')
+	if idx == -1 {
+		return "", ""
+	}
+
+	return key[0:idx], key[idx+1 : len(key)]
 }
 
 // MergeDefaults applies default configuration for unset fields
@@ -266,21 +341,92 @@ func (c *Config) Get(key string) (interface{}, error) {
 
 // Set config value via flat index string
 func (c *Config) Set(key string, val interface{}) error {
-	var dst, ok = c.Flat()[strings.ToLower(key)]
-	if !ok || !dst.CanSet() {
+	var flat = c.Flat()
+	var dst, ok = flat[strings.ToLower(key)]
+	if ok && dst.CanSet() {
+		return assign(dst, reflect.ValueOf(val))
+	}
+
+	parent, key := Parent(key)
+	if parent == "" || key == "" {
 		return ErrUnknownConfigKey
 	}
 
-	var src = reflect.ValueOf(val)
-	if !src.Type().AssignableTo(dst.Type()) {
-		if !src.Type().ConvertibleTo(dst.Type()) {
-			return ErrInvalidType
-		}
-		src = src.Convert(dst.Type())
+	dst, ok = flat[strings.ToLower(parent)]
+	if !ok {
+		return ErrUnknownConfigKey
 	}
 
-	dst.Set(src)
-	return nil
+	switch dst.Kind() {
+	case reflect.Map:
+		if dst.IsNil() {
+			dst.Set(reflect.MakeMap(dst.Type()))
+		}
+
+		var idx = reflect.New(dst.Type().Key()).Elem()
+		if err := assignString(idx, key); err != nil {
+			return err
+		}
+
+		var tmp = reflect.New(dst.Type().Elem()).Elem()
+		if err := assign(tmp, reflect.ValueOf(val)); err != nil {
+			return err
+		}
+
+		dst.SetMapIndex(idx, tmp)
+		return nil
+	case reflect.Slice:
+		if key != "[]" {
+			return ErrUnknownConfigKey
+		}
+
+		var tmp = reflect.New(dst.Type().Elem()).Elem()
+		if err := assign(tmp, reflect.ValueOf(val)); err != nil {
+			return err
+		}
+
+		dst.Set(reflect.Append(dst, tmp))
+		return nil
+	default:
+		return ErrUnknownConfigKey
+	}
+}
+
+// Unset config value via flat index string
+func (c *Config) Unset(key string) (err error) {
+	var flat = c.Flat()
+	var dst, ok = flat[strings.ToLower(key)]
+	if !ok {
+		return ErrUnknownConfigKey
+	}
+	if dst.CanSet() {
+		err = assign(dst, reflect.Zero(dst.Type()))
+	}
+
+	parent, key := Parent(key)
+	dst = flat[strings.ToLower(parent)]
+
+	switch dst.Kind() {
+	case reflect.Map:
+		var idx = reflect.New(dst.Type().Key()).Elem()
+		if err := assignString(idx, key); err != nil {
+			return err
+		}
+
+		dst.SetMapIndex(idx, reflect.Value{})
+		return nil
+	case reflect.Slice:
+		idx, err := strconv.Atoi(key)
+		if err != nil {
+			return err
+		}
+
+		var len = dst.Len()
+		dst.Set(reflect.AppendSlice(dst.Slice(0, idx), dst.Slice(idx+1, len)))
+		return nil
+	default:
+		return err
+	}
 }
 
 // GetString config value via flat index string
@@ -294,41 +440,54 @@ func (c *Config) GetString(key string) (string, error) {
 
 // SetString config value via flat index string
 func (c *Config) SetString(key string, val string) error {
-	var dst, ok = c.Flat()[strings.ToLower(key)]
-	if !ok || !dst.CanSet() {
+	var flat = c.Flat()
+	var dst, ok = flat[strings.ToLower(key)]
+	if ok && dst.CanSet() {
+		return assignString(dst, val)
+	}
+
+	parent, key := Parent(key)
+	if parent == "" || key == "" {
 		return ErrUnknownConfigKey
 	}
 
-	if i, ok := dst.Interface().(encoding.TextUnmarshaler); ok {
-		return i.UnmarshalText([]byte(val))
+	dst, ok = flat[strings.ToLower(parent)]
+	if !ok {
+		return ErrUnknownConfigKey
 	}
 
 	switch dst.Kind() {
-	case reflect.String:
-		dst.SetString(val)
-		return nil
-	case reflect.Bool:
-		b, err := strconv.ParseBool(val)
-		if err != nil {
+	case reflect.Map:
+		if dst.IsNil() {
+			dst.Set(reflect.MakeMap(dst.Type()))
+		}
+
+		var idx = reflect.New(dst.Type().Key()).Elem()
+		if err := assignString(idx, key); err != nil {
 			return err
 		}
-		dst.SetBool(b)
-		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(val, 10, 64)
-		if err != nil {
+
+		var tmp = reflect.New(dst.Type().Elem()).Elem()
+		if err := assignString(tmp, val); err != nil {
 			return err
 		}
-		dst.SetInt(n)
+
+		dst.SetMapIndex(idx, tmp)
 		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		n, err := strconv.ParseUint(val, 10, 64)
-		if err != nil {
+	case reflect.Slice:
+		if key != "[]" {
+			return ErrUnknownConfigKey
+		}
+
+		var tmp = reflect.New(dst.Type().Elem()).Elem()
+		if err := assignString(tmp, val); err != nil {
 			return err
 		}
-		dst.SetUint(n)
+
+		dst.Set(reflect.Append(dst, tmp))
 		return nil
 	default:
-		return ErrInvalidType
+		return ErrUnknownConfigKey
 	}
+
 }

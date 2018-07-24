@@ -23,7 +23,7 @@ import (
 var (
 	ErrUnkownRealm      = errors.New("goop: Unknown realm")
 	ErrUnknownConfigKey = errors.New("goop: Unknown config key")
-	ErrInvalidType      = errors.New("goop: Type mismatch")
+	ErrTypeMismatch     = errors.New("goop: Type mismatch")
 )
 
 // Goop main
