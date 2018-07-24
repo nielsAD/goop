@@ -6,7 +6,6 @@ package bnet_test
 
 import (
 	"context"
-	"syscall"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ func Test(t *testing.T) {
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	if err := gw.Run(ctx); !network.IsSysCallError(err, syscall.ECONNREFUSED) {
+	if err := gw.Run(ctx); !network.IsConnRefusedError(err) {
 		t.Fatal(err)
 	}
 	cancel()

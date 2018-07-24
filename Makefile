@@ -3,7 +3,7 @@
 # License: Mozilla Public License, v2.0
 
 GOW3=vendor/github.com/nielsAD/gowarcraft3
-VENDOR=$(GOW3)/vendor/StormLib/build/libstorm.a $(GOW3)/vendor/bncsutil/build/libbncsutil_static.a
+VENDOR=$(GOW3)/vendor/bncsutil/build/libbncsutil_static.a
 
 GO_FLAGS=
 GOTEST_FLAGS=-cover -cpu=1,2,4 -timeout=2m
