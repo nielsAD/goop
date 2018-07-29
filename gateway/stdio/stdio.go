@@ -62,12 +62,17 @@ func (o *Gateway) read() error {
 				AvatarURL: o.AvatarURL,
 			},
 			Channel: gateway.Channel{
-				ID:   "Gateway",
+				ID:   "stdio",
 				Name: "stdin",
 			},
 			Content: line,
 		})
 	}
+}
+
+// Discriminator unique among gateways
+func (o *Gateway) Discriminator() string {
+	return "stdio"
 }
 
 // Run reads packets and emits an event for each received packet
@@ -92,9 +97,9 @@ func (o *Gateway) Run(ctx context.Context) error {
 // Relay dumps the event content to stdout
 func (o *Gateway) Relay(ev *network.Event, sender string) {
 	switch msg := ev.Arg.(type) {
-	case gateway.Connected:
+	case *gateway.Connected:
 		o.Out.Println(color.MagentaString("Established connection to %s", sender))
-	case gateway.Disconnected:
+	case *gateway.Disconnected:
 		o.Out.Println(color.MagentaString("Connection to %s closed", sender))
 	case *gateway.Channel:
 		o.Out.Println(color.MagentaString("Joined %s on %s", msg.Name, sender))

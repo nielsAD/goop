@@ -33,13 +33,11 @@ func TestMergeDefaults(t *testing.T) {
 			},
 		},
 		Discord: DiscordConfigWithDefault{
-			Default: DefaultDiscordConfig{
-				Config: discord.Config{
-					Presence: "foo",
-				},
-				ChannelConfig: discord.ChannelConfig{
-					Webhook: "foo",
-				},
+			Default: discord.Config{
+				Presence: "foo",
+			},
+			ChannelDefault: discord.ChannelConfig{
+				Webhook: "foo",
 			},
 			Gateways: map[string]*discord.Config{
 				"g1": &discord.Config{},

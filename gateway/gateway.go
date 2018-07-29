@@ -16,8 +16,8 @@ var (
 	ErrUnknownEvent = errors.New("gw: Unknown event")
 )
 
-// Delimiter between main/sub gateway name (i.e. discord.{CHANNELID})
-const Delimiter = "."
+// Delimiter between main/sub gateway name (i.e. discord:{CHANNELID})
+const Delimiter = ":"
 
 // AccessLevel for user
 type AccessLevel int32
@@ -49,7 +49,7 @@ type SystemMessage struct {
 	Content string
 }
 
-// User event
+// User base
 type User struct {
 	ID        string
 	Name      string
@@ -90,8 +90,8 @@ type Leave struct {
 
 // Events types
 var Events = []interface{}{
-	Connected{},
-	Disconnected{},
+	&Connected{},
+	&Disconnected{},
 	&SystemMessage{},
 	&Channel{},
 	&Chat{},

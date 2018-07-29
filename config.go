@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -20,6 +21,12 @@ import (
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
+)
+
+// Errors
+var (
+	ErrUnknownConfigKey = errors.New("goop: Unknown config key")
+	ErrTypeMismatch     = errors.New("goop: Type mismatch")
 )
 
 // DefaultConfig values used as fallback
@@ -42,16 +49,33 @@ var DefaultConfig = Config{
 		},
 	},
 	Discord: DiscordConfigWithDefault{
-		Default: DefaultDiscordConfig{
-			Config: discord.Config{
-				Presence:        "Battle.net",
-				AccessNoChannel: gateway.AccessIgnore,
-				AccessDM:        gateway.AccessWhitelist,
-			},
-			ChannelConfig: discord.ChannelConfig{
-				CommandTrigger: "!",
-				BufSize:        32,
-				AccessMentions: gateway.AccessWhitelist,
+		Default: discord.Config{
+			Presence:   "Battle.net",
+			AccessTalk: gateway.AccessIgnore,
+			AccessDM:   gateway.AccessWhitelist,
+		},
+		ChannelDefault: discord.ChannelConfig{
+			CommandTrigger: "!",
+			BufSize:        64,
+			AccessMentions: gateway.AccessWhitelist,
+		},
+	},
+	Relay: RelayConfigWithDefault{
+		Default: RelayConfig{
+			Chat:              true,
+			PrivateChat:       true,
+			PrivateChatAccess: gateway.AccessWhitelist,
+		},
+		To: map[string]*RelayToConfig{
+			"std" + gateway.Delimiter + "io": &RelayToConfig{
+				Default: RelayConfig{
+					Log:               true,
+					System:            true,
+					Joins:             true,
+					Chat:              true,
+					PrivateChat:       true,
+					PrivateChatAccess: gateway.AccessDefault,
+				},
 			},
 		},
 	},
@@ -62,7 +86,7 @@ type Config struct {
 	StdIO   stdio.Config
 	BNet    BNetConfigWithDefault
 	Discord DiscordConfigWithDefault
-	Relay   []Relay
+	Relay   RelayConfigWithDefault
 }
 
 // BNetConfigWithDefault struct maps the layout of the BNet configuration section
@@ -73,30 +97,35 @@ type BNetConfigWithDefault struct {
 
 // DiscordConfigWithDefault struct maps the layout of the Discord configuration section
 type DiscordConfigWithDefault struct {
-	Default  DefaultDiscordConfig
-	Gateways map[string]*discord.Config
+	Default        discord.Config
+	ChannelDefault discord.ChannelConfig
+	Gateways       map[string]*discord.Config
 }
 
-// DefaultDiscordConfig struct maps the layout of the Discord.Default configuration section
-type DefaultDiscordConfig struct {
-	discord.Config
-	discord.ChannelConfig
+// RelayConfigWithDefault struct maps the layout of the Relay configuration section
+type RelayConfigWithDefault struct {
+	Default RelayConfig
+	To      map[string]*RelayToConfig
 }
 
-// Relay struct maps the layout of Relay configuration section
-type Relay struct {
-	In  []string
-	Out []string
+// RelayToConfig struct maps the layout of the inner part of the Relay matrix
+type RelayToConfig struct {
+	Default RelayConfig
+	From    map[string]*RelayConfig
+}
 
-	Log         bool
-	System      bool
-	Joins       bool
-	Chat        bool
-	PrivateChat bool
-
-	JoinAccess        gateway.AccessLevel
-	ChatAccess        gateway.AccessLevel
-	PrivateChatAccess gateway.AccessLevel
+func deleteEmpty(dst map[string]interface{}) {
+	var empty = map[string]interface{}{}
+	for k := range dst {
+		var v, ok = dst[k].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		deleteEmpty(v)
+		if reflect.DeepEqual(empty, dst[k]) {
+			delete(dst, k)
+		}
+	}
 }
 
 func deleteDefaults(def map[string]interface{}, dst map[string]interface{}) {
@@ -287,11 +316,23 @@ func (c *Config) MergeDefaults() error {
 	}
 
 	for _, g := range c.Discord.Gateways {
-		if err := mergo.Merge(g, c.Discord.Default.Config); err != nil {
+		if err := mergo.Merge(g, c.Discord.Default); err != nil {
 			return err
 		}
 		for _, n := range g.Channels {
-			if err := mergo.Merge(n, c.Discord.Default.ChannelConfig); err != nil {
+			if err := mergo.Merge(n, c.Discord.ChannelDefault); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, g1 := range c.Relay.To {
+		if err := mergo.Merge(&g1.Default, c.Relay.Default); err != nil {
+			return err
+		}
+
+		for _, g2 := range g1.From {
+			if err := mergo.Merge(g2, g1.Default); err != nil {
 				return err
 			}
 		}
@@ -312,13 +353,26 @@ func (c *Config) Map() map[string]interface{} {
 		deleteDefaults(bn, g.(mi))
 	}
 
-	var dc = m["Discord"].(mi)["Default"].(mi)
+	var dd = m["Discord"].(mi)["Default"].(mi)
+	var dc = m["Discord"].(mi)["ChannelDefault"].(mi)
 	for _, g := range m["Discord"].(mi)["Gateways"].(mi) {
 		for _, c := range g.(mi)["Channels"].(mi) {
 			deleteDefaults(dc, c.(mi))
 		}
-		deleteDefaults(dc, g.(mi))
+		deleteDefaults(dd, g.(mi))
 	}
+
+	var g1d = m["Relay"].(mi)["Default"].(mi)
+	var gto = m["Relay"].(mi)["To"].(mi)
+	for _, g1 := range gto {
+		var g2d = g1.(mi)["Default"].(mi)
+		var gfr = g1.(mi)["From"].(mi)
+		for _, g2 := range gfr {
+			deleteDefaults(g2d, g2.(mi))
+		}
+		deleteDefaults(g1d, g2d)
+	}
+	deleteEmpty(m["Relay"].(mi))
 
 	return m
 }

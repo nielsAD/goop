@@ -142,7 +142,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 			return err
 		}
 
-		b.Fire(gateway.Connected{})
+		b.Fire(&gateway.Connected{})
 
 		var channel = b.Channel()
 		if channel == "" {
@@ -157,7 +157,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 			b.Fire(&network.AsyncError{Src: "Run[Client]", Err: err})
 		}
 
-		b.Fire(gateway.Disconnected{})
+		b.Fire(&gateway.Disconnected{})
 	}
 
 	return ctx.Err()
@@ -337,12 +337,12 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 func (b *Gateway) Relay(ev *network.Event, sender string) {
 	var err error
 
-	sender = strings.SplitN(sender, gateway.Delimiter, 2)[0]
+	sender = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {
-	case gateway.Connected:
+	case *gateway.Connected:
 		err = b.Say(fmt.Sprintf("Established connection to %s", sender))
-	case gateway.Disconnected:
+	case *gateway.Disconnected:
 		err = b.Say(fmt.Sprintf("Connection to %s closed", sender))
 	case *gateway.Channel:
 		err = b.Say(fmt.Sprintf("Joined %s on %s", msg.Name, sender))

@@ -26,12 +26,12 @@ var (
 
 // Config stores the configuration of a Discord session
 type Config struct {
-	AuthToken       string
-	Channels        map[string]*ChannelConfig
-	Presence        string
-	AccessDM        gateway.AccessLevel
-	AccessNoChannel gateway.AccessLevel
-	AccessUser      map[string]gateway.AccessLevel
+	AuthToken  string
+	Channels   map[string]*ChannelConfig
+	Presence   string
+	AccessDM   gateway.AccessLevel
+	AccessTalk gateway.AccessLevel
+	AccessUser map[string]gateway.AccessLevel
 }
 
 // ChannelConfig stores the configuration of a single Discord channel
@@ -90,7 +90,7 @@ func New(conf *Config) (*Gateway, error) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	d.Once(gateway.Connected{}, func(ev *network.Event) {
+	d.Once(&gateway.Connected{}, func(ev *network.Event) {
 		go func() {
 			time.Sleep(time.Second)
 			wg.Done()
@@ -156,11 +156,11 @@ func (d *Gateway) onConnect(s *discordgo.Session, msg *discordgo.Connect) {
 			}
 		}()
 	}
-	d.Fire(gateway.Connected{})
+	d.Fire(&gateway.Connected{})
 }
 
 func (d *Gateway) onDisconnect(s *discordgo.Session, msg *discordgo.Disconnect) {
-	d.Fire(gateway.Disconnected{})
+	d.Fire(&gateway.Disconnected{})
 }
 
 func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.PresenceUpdate) {
@@ -195,7 +195,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		User: gateway.User{
 			ID:        msg.Author.ID,
 			Name:      msg.Author.Username,
-			Access:    d.AccessNoChannel,
+			Access:    d.AccessTalk,
 			AvatarURL: msg.Author.AvatarURL(""),
 		},
 		Channel: gateway.Channel{
@@ -369,12 +369,12 @@ func (c *Channel) filter(s string, r gateway.AccessLevel) string {
 func (c *Channel) Relay(ev *network.Event, sender string) {
 	var err error
 
-	sender = strings.SplitN(sender, gateway.Delimiter, 2)[0]
+	sender = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {
-	case gateway.Connected:
+	case *gateway.Connected:
 		err = c.Say(fmt.Sprintf("*Established connection to %s*", sender))
-	case gateway.Disconnected:
+	case *gateway.Disconnected:
 		err = c.Say(fmt.Sprintf("*Connection to %s closed*", sender))
 	case *gateway.Channel:
 		err = c.Say(fmt.Sprintf("*Joined %s on %s*", msg.Name, sender))

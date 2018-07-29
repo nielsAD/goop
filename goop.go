@@ -21,9 +21,8 @@ import (
 
 // Errors
 var (
-	ErrUnkownRealm      = errors.New("goop: Unknown realm")
-	ErrUnknownConfigKey = errors.New("goop: Unknown config key")
-	ErrTypeMismatch     = errors.New("goop: Type mismatch")
+	ErrUnkownRealm    = errors.New("goop: Unknown realm")
+	ErrDuplicateRealm = errors.New("goop: Duplicate realm")
 )
 
 // Goop main
@@ -32,19 +31,21 @@ type Goop struct {
 
 	// Read-only
 	Gateways map[string]gateway.Gateway
+	Relay    map[string]map[string]*Relay
 	Config   Config
 }
 
 // New initializes a Goop struct
 func New(conf *Config) (*Goop, error) {
 	var res = Goop{
-		Config: *conf,
-		Gateways: map[string]gateway.Gateway{
-			"STDIO": stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO),
-		},
+		Config:   *conf,
+		Relay:    map[string]map[string]*Relay{},
+		Gateways: map[string]gateway.Gateway{},
 	}
 
-	var gateways = []string{"STDIO"}
+	if err := res.add("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
+		return nil, err
+	}
 
 	for k, g := range res.Config.BNet.Gateways {
 		gw, err := bnet.New(g)
@@ -52,8 +53,8 @@ func New(conf *Config) (*Goop, error) {
 			return nil, err
 		}
 
-		res.Gateways[k] = gw
-		gateways = append(gateways, k)
+		k = "bnet" + gateway.Delimiter + k
+		res.add(k, gw)
 	}
 
 	for k, g := range res.Config.Discord.Gateways {
@@ -62,92 +63,62 @@ func New(conf *Config) (*Goop, error) {
 			return nil, err
 		}
 
-		res.Gateways[k] = gw
-		gateways = append(gateways, k)
+		k = "discord" + gateway.Delimiter + k
+		res.add(k, gw)
 
 		for cid, c := range gw.Channels {
-			var idx = k + gateway.Delimiter + cid
-			res.Gateways[idx] = c
-			gateways = append(gateways, idx)
+			res.add(k+gateway.Delimiter+cid, c)
 		}
 	}
 
-	for i := 0; i < len(res.Config.Relay); i++ {
-		var r = res.Config.Relay[i]
-		if r.In == nil {
-			r.In = gateways
+	for g1, r := range res.Config.Relay.To {
+		if res.Gateways[g1] == nil {
+			return nil, ErrUnkownRealm
 		}
-		if r.Out == nil {
-			r.Out = gateways
-		}
-		for _, in := range r.In {
-			var r1 = res.Gateways[in]
-			if r1 == nil {
+		for g2 := range r.From {
+			if res.Gateways[g2] == nil {
 				return nil, ErrUnkownRealm
-			}
-
-			for _, out := range r.Out {
-				var r2 = res.Gateways[out]
-				if r2 == nil {
-					return nil, ErrUnkownRealm
-				}
-				if r1 == r2 {
-					continue
-				}
-
-				var sender = in
-				var handler = func(ev *network.Event) { r2.Relay(ev, sender) }
-
-				if r.Log {
-					r1.On(gateway.Connected{}, handler)
-					r1.On(gateway.Disconnected{}, handler)
-					r1.On(&gateway.Channel{}, handler)
-				}
-				if r.System {
-					r1.On(&gateway.SystemMessage{}, handler)
-				}
-
-				if r.Joins {
-					r1.On(&gateway.Join{}, func(ev *network.Event) {
-						var user = ev.Arg.(*gateway.Join)
-						if user.Access < r.JoinAccess {
-							return
-						}
-						r2.Relay(ev, sender)
-					})
-					r1.On(&gateway.Leave{}, func(ev *network.Event) {
-						var user = ev.Arg.(*gateway.Leave)
-						if user.Access < r.JoinAccess {
-							return
-						}
-						r2.Relay(ev, sender)
-					})
-				}
-
-				if r.Chat {
-					r1.On(&gateway.Chat{}, func(ev *network.Event) {
-						var msg = ev.Arg.(*gateway.Chat)
-						if msg.User.Access < r.ChatAccess {
-							return
-						}
-						r2.Relay(ev, sender)
-					})
-				}
-
-				if r.PrivateChat {
-					r1.On(&gateway.PrivateChat{}, func(ev *network.Event) {
-						var msg = ev.Arg.(*gateway.PrivateChat)
-						if msg.User.Access < r.PrivateChatAccess {
-							return
-						}
-						r2.Relay(ev, sender)
-					})
-				}
 			}
 		}
 	}
 
 	return &res, nil
+}
+
+func (g *Goop) newRelay(to, from string) *Relay {
+	if g.Config.Relay.To[to] == nil {
+		g.Config.Relay.To[to] = &RelayToConfig{
+			Default: g.Config.Relay.Default,
+		}
+	}
+	if g.Config.Relay.To[to].From == nil {
+		g.Config.Relay.To[to].From = make(map[string]*RelayConfig)
+	}
+	if g.Config.Relay.To[to].From[from] == nil {
+		var cfg = g.Config.Relay.To[to].Default
+		g.Config.Relay.To[to].From[from] = &cfg
+	}
+	return NewRelay(from, g.Gateways[from], g.Gateways[to], g.Config.Relay.To[to].From[from])
+}
+
+func (g *Goop) add(id string, gw gateway.Gateway) error {
+	if g.Gateways[id] != nil {
+		return ErrDuplicateRealm
+	}
+
+	g.Gateways[id] = gw
+	g.Relay[id] = make(map[string]*Relay)
+
+	for wid := range g.Gateways {
+		if id == wid {
+			continue
+		}
+
+		g.Relay[id][wid] = g.newRelay(id, wid)
+		g.Relay[wid][id] = g.newRelay(wid, id)
+	}
+
+	return nil
 }
 
 // Run connects to each realm and returns when all connections have ended

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/gowarcraft3/network"
@@ -35,6 +36,6 @@ func Test(t *testing.T) {
 	cancel()
 
 	for _, e := range gateway.Events {
-		gw.Relay(&network.Event{Arg: e}, "Test")
+		gw.Relay(&network.Event{Arg: e}, "discord"+gateway.Delimiter+"test")
 	}
 }

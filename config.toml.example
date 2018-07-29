@@ -7,28 +7,21 @@
     Username   = ""
     Password   = ""
 
-    [BNet.Realms.Northrend]
+    [BNet.Gateways.Northrend]
     ServerAddr = "europe.battle.net"
 
-    [BNet.Realms.Azeroth]
+    [BNet.Gateways.Azeroth]
     ServerAddr = "useast.battle.net"
 
-    [BNet.Realms.Lordaeron]
+    [BNet.Gateways.Lordaeron]
     ServerAddr = "uswest.battle.net"
 
-    [BNet.Realms.Kalimdor]
+    [BNet.Gateways.Kalimdor]
     ServerAddr = "asia.battle.net"
 
 [Discord]
-    [Discord.Sessions.Discord]
+    [Discord.Gateways.Bridge]
     AuthToken = ""
 
-[[Relay]]
-Chat        = true
-PrivateChat = true
-
-[[Relay]]
-Out = ["STDIO"]
-Log    = true
-System = true
-Joins  = true
+    [Discord.Gateways.Bridge.Channels.111111111111111111]
+    Webhook  = ""
