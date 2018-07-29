@@ -233,7 +233,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		if channel == nil && ch.Type == discordgo.ChannelTypeDM {
 			chat.User.Access = d.AccessDM
 
-			var access, ok = d.AccessUser[msg.Author.ID]
+			var access, ok = d.AccessUser[strings.ToLower(msg.Author.String())]
 			if ok {
 				chat.User.Access = access
 			}
@@ -252,13 +252,13 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		}
 	}
 
-	var access, ok = d.AccessUser[msg.Author.ID]
+	var access, ok = d.AccessUser[strings.ToLower(msg.Author.String())]
 	if ok {
 		chat.User.Access = access
 	}
 
 	if channel != nil {
-		var access, ok = channel.AccessUser[msg.Author.ID]
+		var access, ok = channel.AccessUser[strings.ToLower(msg.Author.String())]
 		if ok {
 			chat.User.Access = access
 		}
