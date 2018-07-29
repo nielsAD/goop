@@ -1,5 +1,5 @@
 # Author:  Niels A.D.
-# Project: gowarcraft3 (https://github.com/nielsAD/goop)
+# Project: goop (https://github.com/nielsAD/goop)
 # License: Mozilla Public License, v2.0
 
 image: Visual Studio 2017
@@ -33,9 +33,6 @@ install:
   - bash -lc "pacman --needed --noconfirm -Syu"
   - bash -lc "pacman --needed --noconfirm -Sy"
   - bash -lc "pacman --needed --noconfirm -S mingw-w64-$MSYS2_ARCH-toolchain mingw-w64-$MSYS2_ARCH-cmake"
-
-  - ps: Start-FileDownload 'https://github.com/nielsAD/gowarcraft3/files/2175629/WpdPack_4_1_2.zip'
-  - 7z x WpdPack_4_1_2.zip -oC:\
 
   # Install test dependencies
   - go get github.com/golang/lint/golint
