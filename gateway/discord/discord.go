@@ -369,7 +369,7 @@ func (c *Channel) filter(s string, r gateway.AccessLevel) string {
 func (c *Channel) Relay(ev *network.Event, sender string) {
 	var err error
 
-	sender = strings.SplitN(sender, gateway.Delimiter, 3)[1]
+	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
@@ -379,21 +379,21 @@ func (c *Channel) Relay(ev *network.Event, sender string) {
 	case *gateway.Channel:
 		err = c.Say(fmt.Sprintf("*Joined %s on %s*", msg.Name, sender))
 	case *gateway.SystemMessage:
-		err = c.Say(fmt.Sprintf("📢 **%s** %s", sender, msg.Content))
+		err = c.Say(fmt.Sprintf("📢 **%s** %s", sshort, msg.Content))
 	case *gateway.Join:
-		err = c.Say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, sender))
+		err = c.Say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, sshort))
 	case *gateway.Leave:
-		err = c.Say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, sender))
+		err = c.Say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, sshort))
 	case *gateway.Chat:
 		err = c.WebhookOrSay(&discordgo.WebhookParams{
 			Content:   c.filter(msg.Content, msg.User.Access),
-			Username:  fmt.Sprintf("%s@%s", msg.User.Name, sender),
+			Username:  fmt.Sprintf("%s@%s", msg.User.Name, sshort),
 			AvatarURL: msg.User.AvatarURL,
 		})
 	case *gateway.PrivateChat:
 		err = c.WebhookOrSay(&discordgo.WebhookParams{
 			Content:   c.filter(msg.Content, msg.User.Access),
-			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, sender),
+			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, sshort),
 			AvatarURL: msg.User.AvatarURL,
 		})
 	default:

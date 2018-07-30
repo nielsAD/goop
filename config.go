@@ -15,8 +15,6 @@ import (
 
 	"github.com/imdario/mergo"
 
-	bnetc "github.com/nielsAD/gowarcraft3/network/bnet"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
@@ -31,20 +29,22 @@ var (
 
 // DefaultConfig values used as fallback
 var DefaultConfig = Config{
+	Log: LogConfig{
+		Time: true,
+	},
 	StdIO: stdio.Config{
 		Read:           true,
-		Access:         gateway.AccessOwner,
 		CommandTrigger: "/",
+		Access:         gateway.AccessOwner,
 	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
-				ReconnectDelay: 30 * time.Second,
-				CommandTrigger: "!",
 				BufSize:        16,
-			},
-			Config: bnetc.Config{
-				BinPath: bnetc.DefaultConfig.BinPath,
+				ReconnectDelay: 30 * time.Second,
+				CommandTrigger: ".",
+				AccessWhisper:  gateway.AccessIgnore,
+				AccessTalk:     gateway.AccessVoice,
 			},
 		},
 	},
@@ -52,29 +52,30 @@ var DefaultConfig = Config{
 		Default: discord.Config{
 			Presence:   "Battle.net",
 			AccessTalk: gateway.AccessIgnore,
-			AccessDM:   gateway.AccessWhitelist,
+			AccessDM:   gateway.AccessIgnore,
 		},
 		ChannelDefault: discord.ChannelConfig{
-			CommandTrigger: "!",
 			BufSize:        64,
+			CommandTrigger: ".",
 			AccessMentions: gateway.AccessWhitelist,
+			AccessTalk:     gateway.AccessVoice,
 		},
 	},
 	Relay: RelayConfigWithDefault{
 		Default: RelayConfig{
 			Chat:              true,
 			PrivateChat:       true,
+			ChatAccess:        gateway.AccessVoice,
 			PrivateChatAccess: gateway.AccessWhitelist,
 		},
 		To: map[string]*RelayToConfig{
 			"std" + gateway.Delimiter + "io": &RelayToConfig{
 				Default: RelayConfig{
-					Log:               true,
-					System:            true,
-					Joins:             true,
-					Chat:              true,
-					PrivateChat:       true,
-					PrivateChatAccess: gateway.AccessDefault,
+					Log:         true,
+					System:      true,
+					Joins:       true,
+					Chat:        true,
+					PrivateChat: true,
 				},
 			},
 		},
@@ -83,10 +84,19 @@ var DefaultConfig = Config{
 
 // Config struct maps the layout of main configuration file
 type Config struct {
+	Log     LogConfig
 	StdIO   stdio.Config
 	BNet    BNetConfigWithDefault
 	Discord DiscordConfigWithDefault
 	Relay   RelayConfigWithDefault
+}
+
+// LogConfig struct maps the layout of the Log configuration section
+type LogConfig struct {
+	Date         bool
+	Time         bool
+	Microseconds bool
+	UTC          bool
 }
 
 // BNetConfigWithDefault struct maps the layout of the BNet configuration section
@@ -112,20 +122,6 @@ type RelayConfigWithDefault struct {
 type RelayToConfig struct {
 	Default RelayConfig
 	From    map[string]*RelayConfig
-}
-
-func deleteEmpty(dst map[string]interface{}) {
-	var empty = map[string]interface{}{}
-	for k := range dst {
-		var v, ok = dst[k].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		deleteEmpty(v)
-		if reflect.DeepEqual(empty, dst[k]) {
-			delete(dst, k)
-		}
-	}
 }
 
 func deleteDefaults(def map[string]interface{}, dst map[string]interface{}) {
@@ -326,18 +322,6 @@ func (c *Config) MergeDefaults() error {
 		}
 	}
 
-	for _, g1 := range c.Relay.To {
-		if err := mergo.Merge(&g1.Default, c.Relay.Default); err != nil {
-			return err
-		}
-
-		for _, g2 := range g1.From {
-			if err := mergo.Merge(g2, g1.Default); err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -364,15 +348,24 @@ func (c *Config) Map() map[string]interface{} {
 
 	var g1d = m["Relay"].(mi)["Default"].(mi)
 	var gto = m["Relay"].(mi)["To"].(mi)
-	for _, g1 := range gto {
+	for k1, g1 := range gto {
 		var g2d = g1.(mi)["Default"].(mi)
 		var gfr = g1.(mi)["From"].(mi)
-		for _, g2 := range gfr {
-			deleteDefaults(g2d, g2.(mi))
+		for k2, g2 := range gfr {
+			if reflect.DeepEqual(g2d, g2.(mi)) {
+				delete(gfr, k2)
+			}
 		}
-		deleteDefaults(g1d, g2d)
+		if reflect.DeepEqual(g1d, g2d) {
+			delete(g1.(mi), "Default")
+		}
+		if len(gfr) == 0 {
+			delete(g1.(mi), "From")
+		}
+		if len(g1.(mi)) == 0 {
+			delete(gto, k1)
+		}
 	}
-	deleteEmpty(m["Relay"].(mi))
 
 	return m
 }

@@ -21,7 +21,6 @@ import (
 
 var (
 	makeconf = flag.Bool("makeconf", false, "Generate a configuration file")
-	logtime  = flag.Bool("logtime", true, "Prepend log output with time")
 )
 
 var logOut = log.New(color.Output, "", 0)
@@ -29,11 +28,6 @@ var logErr = log.New(color.Error, "", 0)
 
 func main() {
 	flag.Parse()
-
-	if *logtime {
-		logOut.SetFlags(log.Ltime)
-		logErr.SetFlags(log.Ltime)
-	}
 
 	var conf = DefaultConfig
 	for _, f := range flag.Args() {
@@ -50,6 +44,22 @@ func main() {
 	if err := conf.MergeDefaults(); err != nil {
 		logErr.Fatal("Merging defaults error: ", err)
 	}
+
+	var flags = 0
+	if conf.Log.Date {
+		flags |= log.Ldate
+	}
+	if conf.Log.Time {
+		flags |= log.Ltime
+		if conf.Log.Microseconds {
+			flags |= log.Lmicroseconds
+		}
+	}
+	if conf.Log.UTC {
+		flags |= log.LUTC
+	}
+	logOut.SetFlags(flags)
+	logErr.SetFlags(flags)
 
 	g, err := New(&conf)
 	if err != nil {

@@ -42,7 +42,7 @@ type GatewayConfig struct {
 
 	AccessWhisper    gateway.AccessLevel
 	AccessTalk       gateway.AccessLevel
-	AccessNoWarcraft gateway.AccessLevel
+	AccessNoWarcraft *gateway.AccessLevel
 	AccessOperator   *gateway.AccessLevel
 	AccessLevel      map[int]gateway.AccessLevel
 	AccessClanTag    map[string]gateway.AccessLevel
@@ -187,13 +187,16 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 	if prod != 0 {
 		switch prod {
 		case w3gs.ProductDemo, w3gs.ProductROC, w3gs.ProductTFT:
-			// Expected
+			if b.AvatarIconURL != "" {
+				res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
+			}
 		default:
-			res.Access = b.AccessNoWarcraft
-			return res
+			if b.AccessNoWarcraft != nil {
+				res.Access = *b.AccessNoWarcraft
+			}
 		}
 
-		if lvl > 0 && b.AccessLevel != nil {
+		if b.AccessLevel != nil {
 			var max = 0
 			for l, a := range b.AccessLevel {
 				if l >= max && lvl >= l {
@@ -207,10 +210,6 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 			if ok {
 				res.Access = access
 			}
-		}
-
-		if b.AvatarIconURL != "" {
-			res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
 		}
 	}
 
@@ -337,7 +336,7 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 func (b *Gateway) Relay(ev *network.Event, sender string) {
 	var err error
 
-	sender = strings.SplitN(sender, gateway.Delimiter, 3)[1]
+	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
@@ -347,15 +346,15 @@ func (b *Gateway) Relay(ev *network.Event, sender string) {
 	case *gateway.Channel:
 		err = b.Say(fmt.Sprintf("Joined %s on %s", msg.Name, sender))
 	case *gateway.SystemMessage:
-		err = b.Say(fmt.Sprintf("[%s] %s", sender, msg.Content))
+		err = b.Say(fmt.Sprintf("[%s] %s", sshort, msg.Content))
 	case *gateway.Join:
-		err = b.Say(fmt.Sprintf("%s@%s has joined the channel", msg.User.Name, sender))
+		err = b.Say(fmt.Sprintf("%s@%s has joined the channel", msg.User.Name, sshort))
 	case *gateway.Leave:
-		err = b.Say(fmt.Sprintf("%s@%s has left the channel", msg.User.Name, sender))
+		err = b.Say(fmt.Sprintf("%s@%s has left the channel", msg.User.Name, sshort))
 	case *gateway.Chat:
-		err = b.Say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, sender, msg.Content))
+		err = b.Say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, sshort, msg.Content))
 	case *gateway.PrivateChat:
-		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sender, msg.Content))
+		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sshort, msg.Content))
 	default:
 		err = gateway.ErrUnknownEvent
 	}
