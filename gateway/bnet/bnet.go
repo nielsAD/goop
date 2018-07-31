@@ -206,15 +206,13 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 			}
 		}
 		if tag != 0 && b.AccessClanTag != nil {
-			var access, ok = b.AccessClanTag[tag.String()]
-			if ok {
+			if access, ok := b.AccessClanTag[tag.String()]; ok {
 				res.Access = access
 			}
 		}
 	}
 
-	var access, ok = b.AccessUser[u.Name]
-	if ok {
+	if access, ok := b.AccessUser[u.Name]; ok {
 		res.Access = access
 	}
 
@@ -300,8 +298,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 		Content: msg.Content,
 	}
 
-	var access, ok = b.AccessUser[msg.Username]
-	if ok {
+	if access, ok := b.AccessUser[msg.Username]; ok {
 		chat.User.Access = access
 	}
 

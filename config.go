@@ -50,9 +50,8 @@ var DefaultConfig = Config{
 	},
 	Discord: DiscordConfigWithDefault{
 		Default: discord.Config{
-			Presence:   "Battle.net",
-			AccessTalk: gateway.AccessIgnore,
-			AccessDM:   gateway.AccessIgnore,
+			Presence: "Battle.net",
+			AccessDM: gateway.AccessIgnore,
 		},
 		ChannelDefault: discord.ChannelConfig{
 			BufSize:        64,

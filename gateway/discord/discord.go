@@ -30,7 +30,6 @@ type Config struct {
 	Channels   map[string]*ChannelConfig
 	Presence   string
 	AccessDM   gateway.AccessLevel
-	AccessTalk gateway.AccessLevel
 	AccessUser map[string]gateway.AccessLevel
 }
 
@@ -49,6 +48,10 @@ type ChannelConfig struct {
 type Gateway struct {
 	network.EventEmitter
 	*discordgo.Session
+
+	chatmut sync.Mutex
+	users   map[string]struct{}
+	guilds  map[string][]string
 
 	// Set once before Run(), read-only after that
 	*Config
@@ -86,6 +89,9 @@ func New(conf *Config) (*Gateway, error) {
 		Session:  s,
 		Config:   conf,
 		Channels: make(map[string]*Channel),
+
+		users:  make(map[string]struct{}),
+		guilds: make(map[string][]string),
 	}
 
 	var wg sync.WaitGroup
@@ -98,6 +104,12 @@ func New(conf *Config) (*Gateway, error) {
 	})
 
 	for id, c := range d.Config.Channels {
+		ch, err := d.Channel(id)
+		if err != nil {
+			return nil, err
+		}
+		d.guilds[ch.GuildID] = append(d.guilds[ch.GuildID], id)
+
 		d.Channels[id] = &Channel{
 			ChannelConfig: c,
 
@@ -139,11 +151,83 @@ func (d *Gateway) Run(ctx context.Context) error {
 	return ctx.Err()
 }
 
+func (d *Gateway) user(chanID string, userID string) (*gateway.User, error) {
+	var c = d.Channels[chanID]
+	if c == nil {
+		return nil, nil
+	}
+
+	channel, err := d.State.Channel(chanID)
+	if err != nil {
+		return nil, err
+	}
+
+	member, err := d.State.Member(channel.GuildID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if member.User.Bot {
+		return nil, nil
+	}
+
+	var res = gateway.User{
+		ID:        member.User.ID,
+		Name:      member.User.Username,
+		AvatarURL: member.User.AvatarURL(""),
+		Access:    c.AccessTalk,
+	}
+
+	if member.Nick != "" {
+		res.Name = member.Nick
+	}
+
+	if c.AccessRole != nil {
+		for _, rid := range member.Roles {
+			r, err := d.State.Role(channel.GuildID, rid)
+			if err != nil {
+				continue
+			}
+			if access, ok := c.AccessRole[strings.ToLower(r.Name)]; ok {
+				res.Access = access
+			}
+		}
+	}
+
+	if access, ok := d.AccessUser[strings.ToLower(member.User.String())]; ok {
+		res.Access = access
+	}
+	if access, ok := c.AccessUser[strings.ToLower(member.User.String())]; ok {
+		res.Access = access
+	}
+
+	return &res, nil
+}
+
+func (d *Gateway) channel(chanID string) (*gateway.Channel, error) {
+	channel, err := d.State.Channel(chanID)
+	if err != nil {
+		return nil, err
+	}
+	guild, err := d.State.Guild(channel.GuildID)
+	if err != nil {
+		return nil, err
+	}
+	return &gateway.Channel{
+		ID:   channel.ID,
+		Name: fmt.Sprintf("%s.%s", guild.Name, channel.Name),
+	}, nil
+}
+
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (d *Gateway) InitDefaultHandlers() {
 	d.AddHandler(d.onConnect)
 	d.AddHandler(d.onDisconnect)
+
 	d.AddHandler(d.onPresenceUpdate)
+	d.AddHandler(d.onGuildCreate)
+	d.AddHandler(d.onGuildUpdate)
+
 	d.AddHandler(d.onMessageCreate)
 }
 
@@ -163,10 +247,78 @@ func (d *Gateway) onDisconnect(s *discordgo.Session, msg *discordgo.Disconnect) 
 	d.Fire(&gateway.Disconnected{})
 }
 
+func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
+	d.chatmut.Lock()
+	var _, online = d.users[presence.User.ID]
+
+	if (presence.Status != discordgo.StatusOffline) == online {
+		d.chatmut.Unlock()
+		return
+	}
+
+	var track = false
+	var channels = d.guilds[guildID]
+	for _, cid := range channels {
+		perm, err := d.State.UserChannelPermissions(presence.User.ID, cid)
+		if err != nil {
+			d.Fire(&network.AsyncError{Src: "updatePresence[permissions]", Err: err})
+			continue
+		}
+		// Check if allowed to send messages to channel
+		if perm&discordgo.PermissionSendMessages == 0 {
+			continue
+		}
+
+		evUser, err := d.user(cid, presence.User.ID)
+		if err != nil {
+			d.Fire(&network.AsyncError{Src: "updatePresence[user]", Err: err})
+			continue
+		}
+		if evUser == nil {
+			continue
+		}
+
+		evChannel, err := d.channel(cid)
+		if err != nil {
+			d.Fire(&network.AsyncError{Src: "updatePresence[channel]", Err: err})
+			continue
+		}
+		track = true
+
+		if presence.Status != discordgo.StatusOffline {
+			d.Channels[cid].Fire(&gateway.Join{
+				User:    *evUser,
+				Channel: *evChannel,
+			})
+		} else {
+			d.Channels[cid].Fire(&gateway.Leave{
+				User:    *evUser,
+				Channel: *evChannel,
+			})
+		}
+	}
+
+	if presence.Status == discordgo.StatusOffline {
+		delete(d.users, presence.User.ID)
+	} else if track {
+		d.users[presence.User.ID] = struct{}{}
+	}
+	d.chatmut.Unlock()
+}
+
 func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.PresenceUpdate) {
-	old, _ := d.Session.State.Presence(msg.GuildID, msg.User.ID)
-	if old == nil || msg.Presence.Status != old.Status {
-		fmt.Println(msg)
+	d.updatePresence(msg.GuildID, &msg.Presence)
+}
+
+func (d *Gateway) onGuildCreate(s *discordgo.Session, msg *discordgo.GuildCreate) {
+	for _, p := range msg.Presences {
+		d.updatePresence(msg.Guild.ID, p)
+	}
+}
+
+func (d *Gateway) onGuildUpdate(s *discordgo.Session, msg *discordgo.GuildUpdate) {
+	for _, p := range msg.Presences {
+		d.updatePresence(msg.Guild.ID, p)
 	}
 }
 
@@ -187,86 +339,60 @@ func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) stri
 }
 
 func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCreate) {
-	if msg.Content == "" || msg.Author.Bot {
+	if msg.Content == "" {
 		return
 	}
 
-	var chat = gateway.Chat{
-		User: gateway.User{
-			ID:        msg.Author.ID,
-			Name:      msg.Author.Username,
-			Access:    d.AccessTalk,
-			AvatarURL: msg.Author.AvatarURL(""),
-		},
-		Channel: gateway.Channel{
-			ID:   msg.ChannelID,
-			Name: msg.ChannelID,
-		},
-		Content: replaceContentReferences(s, msg.Message),
-	}
-
-	var channel = d.Channels[msg.ChannelID]
-	if channel != nil {
-		chat.User.Access = channel.AccessTalk
-	}
-
-	if ch, err := s.State.Channel(msg.ChannelID); err == nil {
-		if member, err := s.State.Member(ch.GuildID, msg.Author.ID); err == nil {
-			if member.Nick != "" {
-				chat.User.Name = member.Nick
-			}
-
-			if channel != nil && channel.AccessRole != nil {
-				for _, rid := range member.Roles {
-					r, err := s.State.Role(ch.GuildID, rid)
-					if err != nil {
-						continue
-					}
-					var access, ok = channel.AccessRole[strings.ToLower(r.Name)]
-					if ok {
-						chat.User.Access = access
-					}
-				}
-			}
-		}
-
-		if channel == nil && ch.Type == discordgo.ChannelTypeDM {
-			chat.User.Access = d.AccessDM
-
-			var access, ok = d.AccessUser[strings.ToLower(msg.Author.String())]
-			if ok {
-				chat.User.Access = access
-			}
-
-			d.Fire(&gateway.PrivateChat{
-				User:    chat.User,
-				Content: chat.Content,
-			})
+	var c = d.Channels[msg.ChannelID]
+	if c == nil {
+		channel, err := s.State.Channel(msg.ChannelID)
+		if err != nil {
+			d.Fire(&network.AsyncError{Src: "onMessageCreate[Channel]", Err: err})
 			return
 		}
 
-		if g, err := s.State.Guild(ch.GuildID); err == nil {
-			chat.Channel.Name = fmt.Sprintf("%s.%s", g.Name, ch.Name)
-		} else {
-			chat.Channel.Name = ch.Name
+		// Check if private message
+		if channel.Type == discordgo.ChannelTypeDM {
+			var u = gateway.User{
+				ID:        msg.Author.ID,
+				Name:      msg.Author.Username,
+				AvatarURL: msg.Author.AvatarURL(""),
+				Access:    d.AccessDM,
+			}
+
+			if access, ok := d.AccessUser[strings.ToLower(msg.Author.String())]; ok {
+				u.Access = access
+			}
+
+			d.Fire(&gateway.PrivateChat{
+				User:    u,
+				Content: replaceContentReferences(s, msg.Message),
+			})
 		}
+
+		return
 	}
 
-	var access, ok = d.AccessUser[strings.ToLower(msg.Author.String())]
-	if ok {
-		chat.User.Access = access
+	evUser, err := d.user(msg.ChannelID, msg.Author.ID)
+	if err != nil {
+		d.Fire(&network.AsyncError{Src: "onMessageCreate[user]", Err: err})
+		return
+	}
+	if evUser == nil {
+		return
 	}
 
-	if channel != nil {
-		var access, ok = channel.AccessUser[strings.ToLower(msg.Author.String())]
-		if ok {
-			chat.User.Access = access
-		}
-
-		channel.Fire(&chat)
-	} else {
-		d.Fire(&chat)
+	evChannel, err := d.channel(msg.ChannelID)
+	if err != nil {
+		d.Fire(&network.AsyncError{Src: "onMessageCreate[channel]", Err: err})
+		return
 	}
+
+	c.Fire(&gateway.Chat{
+		User:    *evUser,
+		Channel: *evChannel,
+		Content: replaceContentReferences(s, msg.Message),
+	})
 }
 
 // Relay placeholder to implement Realm interface
