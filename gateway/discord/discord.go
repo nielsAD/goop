@@ -24,6 +24,17 @@ var (
 	ErrSayBufferFull = errors.New("gw-discord: Say buffer full")
 )
 
+// RelayJoinMode enum
+type RelayJoinMode int32
+
+// RelayJoins
+const (
+	RelayJoinsSay = 1 << iota
+	RelayJoinsList
+
+	RelayJoinsBoth = RelayJoinsSay | RelayJoinsList
+)
+
 // Config stores the configuration of a Discord session
 type Config struct {
 	AuthToken  string
@@ -38,6 +49,7 @@ type ChannelConfig struct {
 	CommandTrigger string
 	BufSize        uint8
 	Webhook        string
+	RelayJoins     RelayJoinMode
 	AccessMentions gateway.AccessLevel
 	AccessTalk     gateway.AccessLevel
 	AccessRole     map[string]gateway.AccessLevel
@@ -70,7 +82,16 @@ type Channel struct {
 	say   chan string
 	saywh chan *discordgo.WebhookParams
 
+	omut   sync.Mutex
+	ochan  chan struct{}
+	online []online
+
 	*ChannelConfig
+}
+
+type online struct {
+	Name  string
+	Since time.Time
 }
 
 // New initializes a new Gateway struct
@@ -264,8 +285,9 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 			d.Fire(&network.AsyncError{Src: "updatePresence[permissions]", Err: err})
 			continue
 		}
-		// Check if allowed to send messages to channel
-		if perm&discordgo.PermissionSendMessages == 0 {
+
+		// Check if user is allowed to read channel
+		if perm&discordgo.PermissionReadMessages == 0 {
 			continue
 		}
 
@@ -491,6 +513,72 @@ func (c *Channel) filter(s string, r gateway.AccessLevel) string {
 	return s
 }
 
+func (c *Channel) updateOnline() {
+	c.omut.Lock()
+	if c.ochan == nil {
+		c.ochan = make(chan struct{}, 1)
+
+		var t = time.NewTicker(time.Minute)
+		go func() {
+			var msg = ""
+
+			if messages, err := c.session.ChannelMessagesPinned(c.id); err == nil {
+				for _, m := range messages {
+					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(m.Content, "💬 **Online**") {
+						continue
+					}
+					msg = m.ID
+					break
+				}
+			}
+
+			var last = ""
+			for {
+				select {
+				case <-c.ochan:
+				case <-t.C:
+				}
+
+				if c.RelayJoins&RelayJoinsList == 0 {
+					continue
+				}
+
+				c.omut.Lock()
+				var content = fmt.Sprintf("💬 **Online**: %d users", len(c.online))
+				for i := len(c.online) - 1; i >= 0; i-- {
+					content += fmt.Sprintf("\n`%s` *%s*", c.online[i].Name, time.Now().Sub(c.online[i].Since).Round(time.Second).String())
+				}
+				c.omut.Unlock()
+
+				if content == last {
+					continue
+				}
+
+				last = content
+
+				if msg == "" {
+					m, err := c.session.ChannelMessageSend(c.id, content)
+					if err != nil {
+						c.Fire(&network.AsyncError{Src: "updateOnline[Send]", Err: err})
+					}
+					msg = m.ID
+					continue
+				}
+
+				if _, err := c.session.ChannelMessageEdit(c.id, msg, content); err != nil {
+					c.Fire(&network.AsyncError{Src: "updateOnline[Update]", Err: err})
+				}
+			}
+		}()
+	}
+	c.omut.Unlock()
+
+	select {
+	case c.ochan <- struct{}{}:
+	default:
+	}
+}
+
 // Relay dumps the event content in channel
 func (c *Channel) Relay(ev *network.Event, sender string) {
 	var err error
@@ -507,9 +595,39 @@ func (c *Channel) Relay(ev *network.Event, sender string) {
 	case *gateway.SystemMessage:
 		err = c.Say(fmt.Sprintf("📢 **%s** %s", sshort, msg.Content))
 	case *gateway.Join:
-		err = c.Say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, sshort))
+		if c.RelayJoins == 0 || c.RelayJoins&RelayJoinsSay != 0 {
+			err = c.Say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, sshort))
+		}
+
+		if c.RelayJoins&RelayJoinsList != 0 {
+			c.omut.Lock()
+			c.online = append(c.online, online{
+				Name:  fmt.Sprintf("%s@%s", msg.User.Name, sshort),
+				Since: time.Now(),
+			})
+			c.omut.Unlock()
+			c.updateOnline()
+		}
+
 	case *gateway.Leave:
-		err = c.Say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, sshort))
+		if c.RelayJoins == 0 || c.RelayJoins&RelayJoinsSay != 0 {
+			err = c.Say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, sshort))
+			break
+		}
+
+		if c.RelayJoins&RelayJoinsList != 0 {
+			var name = fmt.Sprintf("%s@%s", msg.User.Name, sshort)
+			c.omut.Lock()
+			for i := len(c.online) - 1; i >= 0; i-- {
+				if c.online[i].Name == name {
+					c.online = append(c.online[:i], c.online[i+1:]...)
+					break
+				}
+			}
+			c.omut.Unlock()
+			c.updateOnline()
+		}
+
 	case *gateway.Chat:
 		err = c.WebhookOrSay(&discordgo.WebhookParams{
 			Content:   c.filter(msg.Content, msg.User.Access),
