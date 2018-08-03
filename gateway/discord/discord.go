@@ -305,6 +305,7 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 			d.Fire(&network.AsyncError{Src: "updatePresence[channel]", Err: err})
 			continue
 		}
+
 		track = true
 
 		if presence.Status != discordgo.StatusOffline {

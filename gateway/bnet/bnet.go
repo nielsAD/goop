@@ -158,6 +158,12 @@ func (b *Gateway) Run(ctx context.Context) error {
 		}
 
 		b.Fire(&gateway.Disconnected{})
+		for _, u := range b.Client.Users() {
+			b.Fire(&gateway.Leave{
+				User:    b.user(&u),
+				Channel: b.channel(),
+			})
+		}
 	}
 
 	return ctx.Err()
