@@ -269,6 +269,10 @@ func (d *Gateway) onDisconnect(s *discordgo.Session, msg *discordgo.Disconnect) 
 }
 
 func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
+	if presence.User.Bot {
+		return
+	}
+
 	d.chatmut.Lock()
 	var _, online = d.users[presence.User.ID]
 
@@ -362,7 +366,7 @@ func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) stri
 }
 
 func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCreate) {
-	if msg.Content == "" {
+	if msg.Content == "" || msg.Author.Bot {
 		return
 	}
 

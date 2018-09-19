@@ -8,3 +8,4 @@ bin/
 
 # Configuration files
 *.toml
+*.toml.persist

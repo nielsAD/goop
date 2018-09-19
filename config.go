@@ -5,30 +5,22 @@
 package main
 
 import (
-	"encoding"
-	"errors"
 	"fmt"
+	"os"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/imdario/mergo"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
 )
 
-// Errors
-var (
-	ErrUnknownConfigKey = errors.New("goop: Unknown config key")
-	ErrTypeMismatch     = errors.New("goop: Type mismatch")
-)
-
 // DefaultConfig values used as fallback
 var DefaultConfig = Config{
+	Config: "./config.toml.persist",
 	Log: LogConfig{
 		Time: true,
 	},
@@ -83,6 +75,7 @@ var DefaultConfig = Config{
 
 // Config struct maps the layout of main configuration file
 type Config struct {
+	Config  string
 	Log     LogConfig
 	StdIO   stdio.Config
 	BNet    BNetConfigWithDefault
@@ -123,183 +116,31 @@ type RelayToConfig struct {
 	From    map[string]*RelayConfig
 }
 
-func deleteDefaults(def map[string]interface{}, dst map[string]interface{}) {
-	for k := range def {
-		if reflect.DeepEqual(def[k], dst[k]) {
-			delete(dst, k)
-			continue
-		}
-		var v, ok = dst[k].(map[string]interface{})
-		if ok {
-			deleteDefaults(def[k].(map[string]interface{}), v)
-		}
+// LoadConfig from DefaultConfig.Config file
+func LoadConfig() (*Config, error) {
+	var conf = DefaultConfig
+	if _, err := toml.DecodeFile(DefaultConfig.Config, &conf); err != nil && !os.IsNotExist(err) {
+		return nil, err
 	}
+	if err := conf.MergeDefaults(); err != nil {
+		return nil, err
+	}
+	return &conf, nil
 }
 
-func imap(val interface{}) interface{} {
-	var v = reflect.ValueOf(val)
-	switch v.Kind() {
-	case reflect.Ptr:
-		if v.IsNil() {
-			return nil
-		}
-		return imap(v.Elem().Interface())
-	case reflect.Map:
-		var m = make(map[string]interface{})
-		for _, key := range v.MapKeys() {
-			m[fmt.Sprintf("%v", key.Interface())] = imap(v.MapIndex(key).Interface())
-		}
-		return m
-	case reflect.Slice, reflect.Array:
-		var r = make([]interface{}, v.Len())
-		for i := 0; i < v.Len(); i++ {
-			r[i] = imap(v.Index(i).Interface())
-		}
-		return r
-	case reflect.Struct:
-		var m = make(map[string]interface{})
-		for i := 0; i < v.NumField(); i++ {
-			var f = v.Type().Field(i)
-			if f.Name == "" {
-				continue
-			}
-
-			var x = imap(v.Field(i).Interface())
-			if xx, ok := x.(map[string]interface{}); f.Anonymous && ok {
-				for k, v := range xx {
-					m[k] = v
-				}
-			} else {
-				m[f.Name] = x
-			}
-		}
-		return m
-	default:
-		return v.Interface()
+// Save configuration to DefaultConfig.Config file
+func (c *Config) Save() error {
+	file, err := os.Create(DefaultConfig.Config)
+	if err != nil {
+		return err
 	}
-}
+	defer file.Close()
 
-func flatten(prf string, val reflect.Value, dst map[string]reflect.Value) {
-	switch val.Kind() {
-	case reflect.Ptr:
-		if !val.IsNil() {
-			flatten(prf, val.Elem(), dst)
-		}
-		dst[strings.ToLower(prf)] = val
-	case reflect.Map:
-		dst[strings.ToLower(prf)] = val
-		for _, key := range val.MapKeys() {
-			var pre string
-			if prf == "" {
-				pre = fmt.Sprintf("%v", key.Interface())
-			} else {
-				pre = fmt.Sprintf("%s.%v", prf, key.Interface())
-			}
-			flatten(pre, val.MapIndex(key), dst)
-		}
-	case reflect.Slice:
-		dst[strings.ToLower(prf)] = val
-		fallthrough
-	case reflect.Array:
-		for i := 0; i < val.Len(); i++ {
-			var pre string
-			if prf == "" {
-				pre = fmt.Sprintf("%d", i)
-			} else {
-				pre = fmt.Sprintf("%s.%d", prf, i)
-			}
-			flatten(pre, val.Index(i), dst)
-		}
-	case reflect.Struct:
-		for i := 0; i < val.NumField(); i++ {
-			var f = val.Type().Field(i)
-			if f.Name == "" {
-				continue
-			}
+	var m = c.Map()
+	DeleteEqual(m, DefaultConfig.Map())
 
-			var pre = f.Name
-			if f.Anonymous {
-				pre = prf
-			} else if prf != "" {
-				pre = fmt.Sprintf("%s.%v", prf, f.Name)
-			}
-			flatten(pre, val.Field(i), dst)
-		}
-	default:
-		dst[strings.ToLower(prf)] = val
-	}
-}
-
-func assign(dst, src reflect.Value) error {
-	if !src.Type().AssignableTo(dst.Type()) {
-		if src.Type().ConvertibleTo(dst.Type()) {
-			src = src.Convert(dst.Type())
-		} else if dst.Kind() == reflect.Ptr {
-			if dst.IsNil() {
-				dst.Set(reflect.New(dst.Type().Elem()))
-			}
-			return assign(dst.Elem(), src)
-		} else {
-			return ErrTypeMismatch
-		}
-	}
-
-	dst.Set(src)
-	return nil
-}
-
-func assignString(dst reflect.Value, src string) error {
-	if i, ok := dst.Interface().(encoding.TextUnmarshaler); ok {
-		return i.UnmarshalText([]byte(src))
-	}
-
-	switch dst.Kind() {
-	case reflect.Ptr:
-		if dst.IsNil() {
-			dst.Set(reflect.New(dst.Type().Elem()))
-		}
-		return assignString(dst.Elem(), src)
-	case reflect.String:
-		dst.SetString(src)
-		return nil
-	case reflect.Bool:
-		b, err := strconv.ParseBool(src)
-		if err != nil {
-			return err
-		}
-		dst.SetBool(b)
-		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(src, 10, 64)
-		if err != nil {
-			return err
-		}
-		dst.SetInt(n)
-		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		n, err := strconv.ParseUint(src, 10, 64)
-		if err != nil {
-			return err
-		}
-		dst.SetUint(n)
-		return nil
-	default:
-		return ErrTypeMismatch
-	}
-}
-
-// Parent of key
-func Parent(key string) (string, string) {
-	if strings.HasSuffix(key, "[]") {
-		return key[0 : len(key)-2], "[]"
-	}
-
-	var idx = strings.LastIndexByte(key, '.')
-	if idx == -1 {
-		return "", ""
-	}
-
-	return key[0:idx], key[idx+1 : len(key)]
+	fmt.Fprintf(file, "# Generated at %v\n", time.Now().Format(time.RFC1123))
+	return toml.NewEncoder(file).Encode(m)
 }
 
 // MergeDefaults applies default configuration for unset fields
@@ -329,20 +170,20 @@ type mi = map[string]interface{}
 
 // Map converts Config to a map[string]interface{} representation
 func (c *Config) Map() map[string]interface{} {
-	var m = imap(c).(mi)
+	var m = Map(c).(mi)
 
 	var bn = m["BNet"].(mi)["Default"].(mi)
 	for _, g := range m["BNet"].(mi)["Gateways"].(mi) {
-		deleteDefaults(bn, g.(mi))
+		DeleteEqual(g.(mi), bn)
 	}
 
 	var dd = m["Discord"].(mi)["Default"].(mi)
 	var dc = m["Discord"].(mi)["ChannelDefault"].(mi)
 	for _, g := range m["Discord"].(mi)["Gateways"].(mi) {
 		for _, c := range g.(mi)["Channels"].(mi) {
-			deleteDefaults(dc, c.(mi))
+			DeleteEqual(c.(mi), dc)
 		}
-		deleteDefaults(dd, g.(mi))
+		DeleteEqual(g.(mi), dd)
 	}
 
 	var g1d = m["Relay"].(mi)["Default"].(mi)
@@ -369,171 +210,32 @@ func (c *Config) Map() map[string]interface{} {
 	return m
 }
 
-// Flat list all the (nested) config keys
-func (c *Config) Flat() map[string]reflect.Value {
-	var f = make(map[string]reflect.Value)
-	flatten("", reflect.ValueOf(&c), f)
-	return f
+// FlatMap list all the (nested) config keys
+func (c *Config) FlatMap() map[string]interface{} {
+	return FlatMap(&c)
 }
 
 // Get config value via flat index string
 func (c *Config) Get(key string) (interface{}, error) {
-	var f, ok = c.Flat()[strings.ToLower(key)]
-	if !ok {
-		return nil, ErrUnknownConfigKey
-	}
-	return f.Interface(), nil
+	return Get(&c, key)
 }
 
 // Set config value via flat index string
 func (c *Config) Set(key string, val interface{}) error {
-	var flat = c.Flat()
-	var dst, ok = flat[strings.ToLower(key)]
-	if ok && dst.CanSet() {
-		return assign(dst, reflect.ValueOf(val))
-	}
-
-	parent, key := Parent(key)
-	if parent == "" || key == "" {
-		return ErrUnknownConfigKey
-	}
-
-	dst, ok = flat[strings.ToLower(parent)]
-	if !ok {
-		return ErrUnknownConfigKey
-	}
-
-	switch dst.Kind() {
-	case reflect.Map:
-		if dst.IsNil() {
-			dst.Set(reflect.MakeMap(dst.Type()))
-		}
-
-		var idx = reflect.New(dst.Type().Key()).Elem()
-		if err := assignString(idx, key); err != nil {
-			return err
-		}
-
-		var tmp = reflect.New(dst.Type().Elem()).Elem()
-		if err := assign(tmp, reflect.ValueOf(val)); err != nil {
-			return err
-		}
-
-		dst.SetMapIndex(idx, tmp)
-		return nil
-	case reflect.Slice:
-		if key != "[]" {
-			return ErrUnknownConfigKey
-		}
-
-		var tmp = reflect.New(dst.Type().Elem()).Elem()
-		if err := assign(tmp, reflect.ValueOf(val)); err != nil {
-			return err
-		}
-
-		dst.Set(reflect.Append(dst, tmp))
-		return nil
-	default:
-		return ErrUnknownConfigKey
-	}
+	return Set(&c, key, val)
 }
 
 // Unset config value via flat index string
 func (c *Config) Unset(key string) (err error) {
-	var flat = c.Flat()
-	var dst, ok = flat[strings.ToLower(key)]
-	if !ok {
-		return ErrUnknownConfigKey
-	}
-	if dst.CanSet() {
-		err = assign(dst, reflect.Zero(dst.Type()))
-	}
-
-	parent, key := Parent(key)
-	dst = flat[strings.ToLower(parent)]
-
-	switch dst.Kind() {
-	case reflect.Map:
-		var idx = reflect.New(dst.Type().Key()).Elem()
-		if err := assignString(idx, key); err != nil {
-			return err
-		}
-
-		dst.SetMapIndex(idx, reflect.Value{})
-		return nil
-	case reflect.Slice:
-		idx, err := strconv.Atoi(key)
-		if err != nil {
-			return err
-		}
-
-		var len = dst.Len()
-		dst.Set(reflect.AppendSlice(dst.Slice(0, idx), dst.Slice(idx+1, len)))
-		return nil
-	default:
-		return err
-	}
+	return Unset(&c, key)
 }
 
 // GetString config value via flat index string
 func (c *Config) GetString(key string) (string, error) {
-	val, err := c.Get(key)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%v", val), nil
+	return GetString(&c, key)
 }
 
 // SetString config value via flat index string
 func (c *Config) SetString(key string, val string) error {
-	var flat = c.Flat()
-	var dst, ok = flat[strings.ToLower(key)]
-	if ok && dst.CanSet() {
-		return assignString(dst, val)
-	}
-
-	parent, key := Parent(key)
-	if parent == "" || key == "" {
-		return ErrUnknownConfigKey
-	}
-
-	dst, ok = flat[strings.ToLower(parent)]
-	if !ok {
-		return ErrUnknownConfigKey
-	}
-
-	switch dst.Kind() {
-	case reflect.Map:
-		if dst.IsNil() {
-			dst.Set(reflect.MakeMap(dst.Type()))
-		}
-
-		var idx = reflect.New(dst.Type().Key()).Elem()
-		if err := assignString(idx, key); err != nil {
-			return err
-		}
-
-		var tmp = reflect.New(dst.Type().Elem()).Elem()
-		if err := assignString(tmp, val); err != nil {
-			return err
-		}
-
-		dst.SetMapIndex(idx, tmp)
-		return nil
-	case reflect.Slice:
-		if key != "[]" {
-			return ErrUnknownConfigKey
-		}
-
-		var tmp = reflect.New(dst.Type().Elem()).Elem()
-		if err := assignString(tmp, val); err != nil {
-			return err
-		}
-
-		dst.Set(reflect.Append(dst, tmp))
-		return nil
-	default:
-		return ErrUnknownConfigKey
-	}
-
+	return SetString(&c, key, val)
 }

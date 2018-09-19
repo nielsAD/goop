@@ -24,7 +24,6 @@ type AccessLevel int32
 
 // Access constants
 const (
-	AccessMax       AccessLevel = 1000
 	AccessOwner     AccessLevel = 1000
 	AccessAdmin     AccessLevel = 300
 	AccessOperator  AccessLevel = 200
@@ -35,7 +34,6 @@ const (
 	AccessBlacklist AccessLevel = -100
 	AccessKick      AccessLevel = -200
 	AccessBan       AccessLevel = -300
-	AccessMin       AccessLevel = -1000
 )
 
 // Gateway interface

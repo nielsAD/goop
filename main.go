@@ -29,20 +29,20 @@ var logErr = log.New(color.Error, "", 0)
 func main() {
 	flag.Parse()
 
-	var conf = DefaultConfig
 	for _, f := range flag.Args() {
-		md, err := toml.DecodeFile(f, &conf)
+		md, err := toml.DecodeFile(f, &DefaultConfig)
 		if err != nil {
-			logErr.Fatal("Error reading configuration: ", err)
+			logErr.Fatalf("Error reading default configuration (%v): %v\n", f, err)
 		}
 		uk := md.Undecoded()
 		if len(uk) > 0 {
-			logErr.Printf("Undecoded configuration keys: %v\n", uk)
+			logErr.Printf("Undecoded configuration keys in %v: %v\n", f, uk)
 		}
 	}
 
-	if err := conf.MergeDefaults(); err != nil {
-		logErr.Fatal("Merging defaults error: ", err)
+	conf, err := LoadConfig()
+	if err != nil {
+		logErr.Fatal("Error reading persistent configuration: ", err)
 	}
 
 	var flags = 0
@@ -61,7 +61,7 @@ func main() {
 	logOut.SetFlags(flags)
 	logErr.SetFlags(flags)
 
-	g, err := New(&conf)
+	g, err := New(conf)
 	if err != nil {
 		logErr.Fatal("Initialization error: ", err)
 	}
@@ -97,4 +97,8 @@ func main() {
 
 	logOut.Println(color.MagentaString("Starting goop.."))
 	g.Run(ctx)
+
+	if err := conf.Save(); err != nil {
+		logErr.Println(color.RedString("[ERROR][CONFIG] %s", err.Error()))
+	}
 }

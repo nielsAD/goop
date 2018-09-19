@@ -132,6 +132,43 @@ func TestMap(t *testing.T) {
 	}
 }
 
+func TestFlatMap(t *testing.T) {
+	var cfg = Config{
+		BNet: BNetConfigWithDefault{
+			Default: bnet.Config{
+				Config: bnetc.Config{
+					Username: "foo",
+				},
+			},
+			Gateways: map[string]*bnet.Config{
+				"gw": &bnet.Config{
+					Config: bnetc.Config{
+						Password: "bar",
+					},
+				},
+			},
+		},
+	}
+
+	if err := cfg.MergeDefaults(); err != nil {
+		t.Fatal(err)
+	}
+
+	var m = cfg.FlatMap()
+	if m["bnet.default.username"] != "foo" {
+		t.Fatal("BNet.Default.Username != foo")
+	}
+	if _, ok := m["bnet.default.password"]; !ok {
+		t.Fatal("BNet.Default.Password does not exist")
+	}
+	if m["bnet.gateways.gw.username"] != "foo" {
+		t.Fatal("BNet.Gateways.gw.Username != foo")
+	}
+	if m["bnet.gateways.gw.password"] != "bar" {
+		t.Fatal("BNet.Gateways.gw.Password != bar")
+	}
+}
+
 func TestGet(t *testing.T) {
 	if v, _ := DefaultConfig.Get("StdIO.Access"); v != DefaultConfig.StdIO.Access {
 		t.Fatal("Access different from expected value")
@@ -150,34 +187,34 @@ func TestGet(t *testing.T) {
 
 func TestError(t *testing.T) {
 	var cfg Config
-	if _, err := cfg.Get("Foo"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if _, err := cfg.Get("Foo"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.Set("Foo", "Bar"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if err := cfg.Set("Foo", "Bar"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.SetString("Foo", "Bar"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
-	}
-
-	if _, err := cfg.Get("BNet.Foo"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
-	}
-	if err := cfg.Set("BNet.Foo", "bar"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
-	}
-	if err := cfg.SetString("BNet.Foo", "bar"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if err := cfg.SetString("Foo", "Bar"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
 
-	if _, err := cfg.Get("BNet.Default.CDKeys.99"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if _, err := cfg.Get("BNet.Foo"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.Set("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if err := cfg.Set("BNet.Foo", "bar"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.SetString("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownConfigKey {
-		t.Fatal("Expected ErrUnknownConfigKey, got", err)
+	if err := cfg.SetString("BNet.Foo", "bar"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+
+	if _, err := cfg.Get("BNet.Default.CDKeys.99"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+	if err := cfg.Set("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+	if err := cfg.SetString("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
 
 	if err := cfg.Set("BNet.Default.CDKeys", 123); err != ErrTypeMismatch {
