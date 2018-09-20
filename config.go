@@ -54,10 +54,8 @@ var DefaultConfig = Config{
 	},
 	Relay: RelayConfigWithDefault{
 		Default: RelayConfig{
-			Chat:              true,
-			PrivateChat:       true,
-			ChatAccess:        gateway.AccessVoice,
-			PrivateChatAccess: gateway.AccessWhitelist,
+			Chat:       true,
+			ChatAccess: gateway.AccessVoice,
 		},
 		To: map[string]*RelayToConfig{
 			"std" + gateway.Delimiter + "io": &RelayToConfig{

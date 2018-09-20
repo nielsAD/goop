@@ -40,7 +40,7 @@ const (
 type Gateway interface {
 	network.Emitter
 	Run(ctx context.Context) error
-	Relay(ev *network.Event, sender string)
+	Relay(ev *network.Event)
 }
 
 // Connected event

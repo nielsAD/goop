@@ -24,17 +24,15 @@ type RelayConfig struct {
 
 // Relay manages a relay between two gateways
 type Relay struct {
-	FromID string
-	From   gateway.Gateway
-	To     gateway.Gateway
+	From gateway.Gateway
+	To   gateway.Gateway
 
 	*RelayConfig
 }
 
 // NewRelay initializes a new GatRelayeway struct
-func NewRelay(fromID string, from, to gateway.Gateway, conf *RelayConfig) *Relay {
+func NewRelay(from, to gateway.Gateway, conf *RelayConfig) *Relay {
 	var r = Relay{
-		FromID:      fromID,
 		From:        from,
 		To:          to,
 		RelayConfig: conf,
@@ -59,14 +57,14 @@ func (r *Relay) onLog(ev *network.Event) {
 	if !r.Log {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }
 
 func (r *Relay) onSystemMessage(ev *network.Event) {
 	if !r.System {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }
 
 func (r *Relay) onJoin(ev *network.Event) {
@@ -74,7 +72,7 @@ func (r *Relay) onJoin(ev *network.Event) {
 	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }
 
 func (r *Relay) onLeave(ev *network.Event) {
@@ -82,15 +80,15 @@ func (r *Relay) onLeave(ev *network.Event) {
 	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }
 
 func (r *Relay) onChat(ev *network.Event) {
-	var user = ev.Arg.(*gateway.Chat)
-	if !r.Chat || user.Access < r.ChatAccess {
+	var msg = ev.Arg.(*gateway.Chat)
+	if !r.Chat || msg.User.Access < r.ChatAccess {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }
 
 func (r *Relay) onPrivateChat(ev *network.Event) {
@@ -98,5 +96,5 @@ func (r *Relay) onPrivateChat(ev *network.Event) {
 	if !r.PrivateChat || msg.User.Access < r.PrivateChatAccess {
 		return
 	}
-	r.To.Relay(ev, r.FromID)
+	r.To.Relay(ev)
 }

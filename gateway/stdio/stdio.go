@@ -54,16 +54,12 @@ func (o *Gateway) read() error {
 			continue
 		}
 
-		o.Fire(&gateway.Chat{
+		o.Fire(&gateway.PrivateChat{
 			User: gateway.User{
 				ID:        "stdio",
 				Name:      "stdin",
 				Access:    o.Access,
 				AvatarURL: o.AvatarURL,
-			},
-			Channel: gateway.Channel{
-				ID:   "stdio",
-				Name: "stdin",
 			},
 			Content: line,
 		})
@@ -95,7 +91,9 @@ func (o *Gateway) Run(ctx context.Context) error {
 }
 
 // Relay dumps the event content to stdout
-func (o *Gateway) Relay(ev *network.Event, sender string) {
+func (o *Gateway) Relay(ev *network.Event) {
+	var sender = ev.Opt[1].(string)
+
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
 		o.Out.Println(color.MagentaString("Established connection to %s", sender))

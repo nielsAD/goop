@@ -185,10 +185,6 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 		AvatarURL: b.AvatarDefaultURL,
 	}
 
-	if b.AccessOperator != nil && u.Operator() {
-		res.Access = *b.AccessOperator
-	}
-
 	var prod, icon, lvl, tag = u.Stat()
 	if prod != 0 {
 		switch prod {
@@ -196,26 +192,29 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 			if b.AvatarIconURL != "" {
 				res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
 			}
+			if b.AccessLevel != nil {
+				var max = 0
+				for l, a := range b.AccessLevel {
+					if l >= max && lvl >= l {
+						max = l
+						res.Access = a
+					}
+				}
+			}
+			if tag != 0 && b.AccessClanTag != nil {
+				if access, ok := b.AccessClanTag[tag.String()]; ok {
+					res.Access = access
+				}
+			}
 		default:
 			if b.AccessNoWarcraft != nil {
 				res.Access = *b.AccessNoWarcraft
 			}
 		}
+	}
 
-		if b.AccessLevel != nil {
-			var max = 0
-			for l, a := range b.AccessLevel {
-				if l >= max && lvl >= l {
-					max = l
-					res.Access = a
-				}
-			}
-		}
-		if tag != 0 && b.AccessClanTag != nil {
-			if access, ok := b.AccessClanTag[tag.String()]; ok {
-				res.Access = access
-			}
-		}
+	if b.AccessOperator != nil && u.Operator() && *b.AccessOperator > res.Access {
+		res.Access = *b.AccessOperator
 	}
 
 	if access, ok := b.AccessUser[u.Name]; ok {
@@ -336,9 +335,10 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 }
 
 // Relay dumps the event content in current channel
-func (b *Gateway) Relay(ev *network.Event, sender string) {
+func (b *Gateway) Relay(ev *network.Event) {
 	var err error
 
+	var sender = ev.Opt[1].(string)
 	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {

@@ -36,6 +36,6 @@ func Test(t *testing.T) {
 	cancel()
 
 	for _, e := range gateway.Events {
-		gw.Relay(&network.Event{Arg: e}, "discord"+gateway.Delimiter+"test")
+		gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "discord" + gateway.Delimiter + "test"}})
 	}
 }

@@ -98,7 +98,7 @@ func (g *Goop) newRelay(to, from string) *Relay {
 		var cfg = g.Config.Relay.To[to].Default
 		g.Config.Relay.To[to].From[from] = &cfg
 	}
-	return NewRelay(from, g.Gateways[from], g.Gateways[to], g.Config.Relay.To[to].From[from])
+	return NewRelay(g.Gateways[from], g.Gateways[to], g.Config.Relay.To[to].From[from])
 }
 
 func (g *Goop) add(id string, gw gateway.Gateway) error {
@@ -117,6 +117,11 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 		g.Relay[id][wid] = g.newRelay(id, wid)
 		g.Relay[wid][id] = g.newRelay(wid, id)
 	}
+
+	// Add sender and sender_id info to all events
+	gw.On(nil, func(ev *network.Event) {
+		ev.Opt = append(ev.Opt, gw, id)
+	})
 
 	return nil
 }

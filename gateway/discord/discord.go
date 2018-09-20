@@ -424,7 +424,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 // Relay placeholder to implement Realm interface
 // Events should instead be relayed directly to a Channel
-func (d *Gateway) Relay(ev *network.Event, sender string) {
+func (d *Gateway) Relay(ev *network.Event) {
 }
 
 // Run placeholder to implement Realm interface
@@ -585,9 +585,9 @@ func (c *Channel) updateOnline() {
 }
 
 // Relay dumps the event content in channel
-func (c *Channel) Relay(ev *network.Event, sender string) {
+func (c *Channel) Relay(ev *network.Event) {
 	var err error
-
+	var sender = ev.Opt[1].(string)
 	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
 
 	switch msg := ev.Arg.(type) {
