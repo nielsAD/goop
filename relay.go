@@ -16,10 +16,12 @@ type RelayConfig struct {
 	Joins       bool
 	Chat        bool
 	PrivateChat bool
+	Command     bool
 
 	JoinAccess        gateway.AccessLevel
 	ChatAccess        gateway.AccessLevel
 	PrivateChatAccess gateway.AccessLevel
+	CommandAccess     gateway.AccessLevel
 }
 
 // Relay manages a relay between two gateways
@@ -51,6 +53,7 @@ func (r *Relay) InitDefaultHandlers() {
 	r.From.On(&gateway.Leave{}, r.onLeave)
 	r.From.On(&gateway.Chat{}, r.onChat)
 	r.From.On(&gateway.PrivateChat{}, r.onPrivateChat)
+	r.From.On(&gateway.Command{}, r.onCommand)
 }
 
 func (r *Relay) onLog(ev *network.Event) {
@@ -94,6 +97,14 @@ func (r *Relay) onChat(ev *network.Event) {
 func (r *Relay) onPrivateChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.PrivateChat)
 	if !r.PrivateChat || msg.User.Access < r.PrivateChatAccess {
+		return
+	}
+	r.To.Relay(ev)
+}
+
+func (r *Relay) onCommand(ev *network.Event) {
+	var cmd = ev.Arg.(*gateway.Command)
+	if !r.Command || cmd.User.Access < r.CommandAccess {
 		return
 	}
 	r.To.Relay(ev)

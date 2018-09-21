@@ -76,16 +76,15 @@ func main() {
 
 	g.On(&network.AsyncError{}, func(ev *network.Event) {
 		var err = ev.Arg.(*network.AsyncError)
+		if len(ev.Opt) > 1 {
+			if id, ok := ev.Opt[1].(string); ok {
+				logErr.Println(color.RedString("[ERROR][%s] %s", id, err.Error()))
+				return
+			}
+		}
+
 		logErr.Println(color.RedString("[ERROR] %s", err.Error()))
 	})
-
-	for i, g := range g.Gateways {
-		var k = i
-		g.On(&network.AsyncError{}, func(ev *network.Event) {
-			var err = ev.Arg.(*network.AsyncError)
-			logErr.Println(color.RedString("[ERROR][%s] %s", k, err.Error()))
-		})
-	}
 
 	var ctx, cancel = context.WithCancel(context.Background())
 	go func() {

@@ -365,6 +365,20 @@ func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) stri
 	return res
 }
 
+func findCommand(t, s string) (bool, string, []string) {
+	if len(t) == 0 || !strings.HasPrefix(s, t) {
+		return false, "", nil
+	}
+
+	s = s[len(t):]
+	if len(s) < 1 || s[0] == ' ' {
+		return false, "", nil
+	}
+
+	f := strings.Fields(s)
+	return true, f[0], f[1:]
+}
+
 func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCreate) {
 	if msg.Content == "" || msg.Author.Bot {
 		return
@@ -391,10 +405,20 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 				u.Access = access
 			}
 
-			d.Fire(&gateway.PrivateChat{
+			var chat = gateway.PrivateChat{
 				User:    u,
 				Content: replaceContentReferences(s, msg.Message),
-			})
+			}
+
+			d.Fire(&chat)
+
+			if r, cmd, arg := findCommand(".", chat.Content); r {
+				c.Fire(&gateway.Command{
+					User: chat.User,
+					Cmd:  cmd,
+					Arg:  arg,
+				}, chat)
+			}
 		}
 
 		return
@@ -415,11 +439,21 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		return
 	}
 
-	c.Fire(&gateway.Chat{
+	var chat = gateway.Chat{
 		User:    *evUser,
 		Channel: *evChannel,
 		Content: replaceContentReferences(s, msg.Message),
-	})
+	}
+
+	c.Fire(&chat)
+
+	if r, cmd, arg := c.findCommand(chat.Content); r {
+		c.Fire(&gateway.Command{
+			User: chat.User,
+			Cmd:  cmd,
+			Arg:  arg,
+		}, chat)
+	}
 }
 
 // Relay placeholder to implement Realm interface
@@ -451,6 +485,16 @@ func (c *Channel) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *Channel) findCommand(s string) (bool, string, []string) {
+	if r, cmd, arg := findCommand(c.CommandTrigger, s); r {
+		return r, cmd, arg
+	}
+	if r, cmd, arg := findCommand(fmt.Sprintf("@%s ", c.session.State.User.Username), s); r {
+		return r, cmd, arg
+	}
+	return false, "", nil
 }
 
 // Say sends a chat message
@@ -645,6 +689,9 @@ func (c *Channel) Relay(ev *network.Event) {
 			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, sshort),
 			AvatarURL: msg.User.AvatarURL,
 		})
+
+	case *gateway.Command:
+		err = c.Say(fmt.Sprintf("⚙️ *%s@%s* triggered %s (arg: %s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
 	default:
 		err = gateway.ErrUnknownEvent
 	}

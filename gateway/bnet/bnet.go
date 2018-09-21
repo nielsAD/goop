@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -75,6 +76,14 @@ func New(conf *Config) (*Gateway, error) {
 	b.InitDefaultHandlers()
 
 	return &b, nil
+}
+
+// Operator in chat
+func (b *Gateway) Operator() bool {
+	if u, ok := b.Client.User(b.UniqueName); ok {
+		return u.Operator()
+	}
+	return false
 }
 
 // Say sends a chat message
@@ -159,6 +168,9 @@ func (b *Gateway) Run(ctx context.Context) error {
 
 		b.Fire(&gateway.Disconnected{})
 		for _, u := range b.Client.Users() {
+			if u.Name == b.UniqueName {
+				continue
+			}
 			b.Fire(&gateway.Leave{
 				User:    b.user(&u),
 				Channel: b.channel(),
@@ -260,6 +272,34 @@ func (b *Gateway) onUserLeft(ev *network.Event) {
 	})
 }
 
+func extractCmdAndArgs(s string) (bool, string, []string) {
+	if len(s) < 1 || s[0] == ' ' {
+		return false, "", nil
+	}
+	f := strings.Fields(s)
+	return true, f[0], f[1:]
+}
+
+func (b *Gateway) findCommand(s string) (bool, string, []string) {
+	if len(b.CommandTrigger) > 0 && strings.HasPrefix(s, b.CommandTrigger) {
+		return extractCmdAndArgs(s[len(b.CommandTrigger):])
+	}
+
+	idx := strings.IndexAny(s, ",:")
+	if idx <= 0 || idx+2 >= len(s) || s[idx+1] != ' ' {
+		return false, "", nil
+	}
+
+	pat := s[:idx]
+	if !strings.EqualFold(pat, "goop") || strings.EqualFold(pat, "all") || (strings.EqualFold(pat, "ops") && b.Operator()) {
+		if m, _ := filepath.Match(pat, b.UniqueName); !m {
+			return false, "", nil
+		}
+	}
+
+	return extractCmdAndArgs(s[idx+2:])
+}
+
 func (b *Gateway) onChat(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.Chat)
 	if msg.Content == "" {
@@ -280,6 +320,14 @@ func (b *Gateway) onChat(ev *network.Event) {
 	}
 
 	b.Fire(&chat)
+
+	if r, cmd, arg := b.findCommand(chat.Content); r {
+		b.Fire(&gateway.Command{
+			User: chat.User,
+			Cmd:  cmd,
+			Arg:  arg,
+		}, chat)
+	}
 }
 
 func (b *Gateway) onWhisper(ev *network.Event) {
@@ -308,6 +356,14 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 	}
 
 	b.Fire(&chat)
+
+	if r, cmd, arg := b.findCommand(chat.Content); r {
+		b.Fire(&gateway.Command{
+			User: chat.User,
+			Cmd:  cmd,
+			Arg:  arg,
+		}, chat)
+	}
 }
 
 func (b *Gateway) onJoinError(ev *network.Event) {
@@ -358,6 +414,8 @@ func (b *Gateway) Relay(ev *network.Event) {
 		err = b.Say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, sshort, msg.Content))
 	case *gateway.PrivateChat:
 		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sshort, msg.Content))
+	case *gateway.Command:
+		err = b.Say(fmt.Sprintf("[CMD] <%s@%s> triggered %s (arg: %s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
 	default:
 		err = gateway.ErrUnknownEvent
 	}

@@ -25,9 +25,8 @@ var DefaultConfig = Config{
 		Time: true,
 	},
 	StdIO: stdio.Config{
-		Read:           true,
-		CommandTrigger: "/",
-		Access:         gateway.AccessOwner,
+		Read:   true,
+		Access: gateway.AccessOwner,
 	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
@@ -65,6 +64,7 @@ var DefaultConfig = Config{
 					Joins:       true,
 					Chat:        true,
 					PrivateChat: true,
+					Command:     true,
 				},
 			},
 		},

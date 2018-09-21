@@ -82,6 +82,8 @@ func New(conf *Config) (*Goop, error) {
 		}
 	}
 
+	res.InitDefaultHandlers()
+
 	return &res, nil
 }
 
@@ -109,6 +111,10 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 	g.Gateways[id] = gw
 	g.Relay[id] = make(map[string]*Relay)
 
+	// These handlers are called with lowest priority
+	gw.On(&gateway.Chat{}, checkTriggerChat)
+	gw.On(&gateway.PrivateChat{}, checkTriggerPrivateChat)
+
 	for wid := range g.Gateways {
 		if id == wid {
 			continue
@@ -118,9 +124,14 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 		g.Relay[wid][id] = g.newRelay(wid, id)
 	}
 
-	// Add sender and sender_id info to all events
 	gw.On(nil, func(ev *network.Event) {
-		ev.Opt = append(ev.Opt, gw, id)
+		// Add sender and sender_id info to all events
+		ev.Opt = append([]network.EventArg{gw, id}, ev.Opt...)
+
+		// Fire on main object (called before above handlers)
+		if g.Fire(ev.Arg, ev.Opt...) {
+			ev.PreventNext()
+		}
 	})
 
 	return nil
@@ -143,4 +154,54 @@ func (g *Goop) Run(ctx context.Context) {
 	}
 
 	wg.Wait()
+}
+
+// InitDefaultHandlers adds the default callbacks for relevant packets
+func (g *Goop) InitDefaultHandlers() {
+	g.On(&gateway.Chat{}, g.onChat)
+	g.On(&gateway.PrivateChat{}, g.onPrivateChat)
+	g.On(&gateway.Command{}, g.onCommand)
+	g.On(&gateway.Join{}, g.onJoin)
+	g.On(&gateway.Leave{}, g.onLeave)
+}
+
+func checkTrigger(ev *network.Event, s string, u *gateway.User) {
+	if s == "?trigger" {
+		if f, ok := ev.Opt[0].(network.Firer); ok {
+			f.Fire(&gateway.Command{
+				User: *u,
+				Cmd:  "trigger",
+			}, ev.Arg)
+		}
+	}
+}
+
+func checkTriggerChat(ev *network.Event) {
+	var msg = ev.Arg.(*gateway.Chat)
+	checkTrigger(ev, msg.Content, &msg.User)
+}
+
+func checkTriggerPrivateChat(ev *network.Event) {
+	var msg = ev.Arg.(*gateway.PrivateChat)
+	checkTrigger(ev, msg.Content, &msg.User)
+}
+
+func (g *Goop) onChat(ev *network.Event) {
+	//var msg = ev.Arg.(*gateway.Chat)
+}
+
+func (g *Goop) onPrivateChat(ev *network.Event) {
+	//var msg = ev.Arg.(*gateway.PrivateChat)
+}
+
+func (g *Goop) onCommand(ev *network.Event) {
+	//var cmd = ev.Arg.(*gateway.Command)
+}
+
+func (g *Goop) onJoin(ev *network.Event) {
+	//var user = ev.Arg.(*gateway.Join)
+}
+
+func (g *Goop) onLeave(ev *network.Event) {
+	//var user = ev.Arg.(*gateway.Leave)
 }

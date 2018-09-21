@@ -19,10 +19,9 @@ import (
 
 // Config stores the gateway configuration
 type Config struct {
-	Read           bool
-	Access         gateway.AccessLevel
-	CommandTrigger string
-	AvatarURL      string
+	Read      bool
+	Access    gateway.AccessLevel
+	AvatarURL string
 }
 
 // Gateway relays between stdin/stdout
@@ -43,6 +42,20 @@ func New(in *bufio.Reader, out *log.Logger, conf *Config) *Gateway {
 	}
 }
 
+func findCommand(s string) (bool, string, []string) {
+	if !strings.HasPrefix(s, "/") {
+		return false, "", nil
+	}
+
+	s = s[1:]
+	if len(s) < 1 || s[0] == ' ' {
+		return false, "", nil
+	}
+
+	f := strings.Fields(s)
+	return true, f[0], f[1:]
+}
+
 func (o *Gateway) read() error {
 	for {
 		line, err := o.In.ReadString('\n')
@@ -54,7 +67,7 @@ func (o *Gateway) read() error {
 			continue
 		}
 
-		o.Fire(&gateway.PrivateChat{
+		var chat = gateway.PrivateChat{
 			User: gateway.User{
 				ID:        "stdio",
 				Name:      "stdin",
@@ -62,7 +75,17 @@ func (o *Gateway) read() error {
 				AvatarURL: o.AvatarURL,
 			},
 			Content: line,
-		})
+		}
+
+		o.Fire(&chat)
+
+		if r, cmd, arg := findCommand(chat.Content); r {
+			o.Fire(&gateway.Command{
+				User: chat.User,
+				Cmd:  cmd,
+				Arg:  arg,
+			}, chat)
+		}
 	}
 }
 
@@ -111,6 +134,8 @@ func (o *Gateway) Relay(ev *network.Event) {
 		o.Out.Printf("[CHAT][%s#%s] <%s> %s\n", sender, msg.Channel.Name, msg.User.Name, msg.Content)
 	case *gateway.PrivateChat:
 		o.Out.Println(color.GreenString("[PRIVATE][%s] <%s> %s", sender, msg.User.Name, msg.Content))
+	case *gateway.Command:
+		o.Out.Println(color.CyanString("[CMD][%s] <%s> triggered %s (arg: %s)", sender, msg.User.Name, msg.Cmd, msg.Arg))
 	default:
 		o.Fire(&network.AsyncError{Src: "Relay", Err: gateway.ErrUnknownEvent})
 	}

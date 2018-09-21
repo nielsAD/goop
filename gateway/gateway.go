@@ -81,6 +81,13 @@ type PrivateChat struct {
 	Content string
 }
 
+// Command event
+type Command struct {
+	User
+	Cmd string
+	Arg []string
+}
+
 // Join event
 type Join struct {
 	User
@@ -101,6 +108,7 @@ var Events = []interface{}{
 	&Channel{},
 	&Chat{},
 	&PrivateChat{},
+	&Command{},
 	&Join{},
 	&Leave{},
 }
