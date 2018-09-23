@@ -111,7 +111,7 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 	g.Gateways[id] = gw
 	g.Relay[id] = make(map[string]*Relay)
 
-	// These handlers are called with lowest priority
+	// These handlers are called after relay handlers
 	gw.On(&gateway.Chat{}, checkTriggerChat)
 	gw.On(&gateway.PrivateChat{}, checkTriggerPrivateChat)
 
@@ -128,7 +128,7 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 		// Add sender and sender_id info to all events
 		ev.Opt = append([]network.EventArg{gw, id}, ev.Opt...)
 
-		// Fire on main object (called before above handlers)
+		// Fire on main object (called before relay handlers)
 		if g.Fire(ev.Arg, ev.Opt...) {
 			ev.PreventNext()
 		}

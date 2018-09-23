@@ -415,7 +415,7 @@ func (b *Gateway) Relay(ev *network.Event) {
 	case *gateway.PrivateChat:
 		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sshort, msg.Content))
 	case *gateway.Command:
-		err = b.Say(fmt.Sprintf("[CMD] <%s@%s> triggered %s (arg: %s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
+		err = b.Say(fmt.Sprintf("[CMD] <%s@%s> triggered %s (%s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
 	default:
 		err = gateway.ErrUnknownEvent
 	}

@@ -89,11 +89,6 @@ func (o *Gateway) read() error {
 	}
 }
 
-// Discriminator unique among gateways
-func (o *Gateway) Discriminator() string {
-	return "stdio"
-}
-
 // Run reads packets and emits an event for each received packet
 func (o *Gateway) Run(ctx context.Context) error {
 	if !o.Read {
@@ -135,7 +130,7 @@ func (o *Gateway) Relay(ev *network.Event) {
 	case *gateway.PrivateChat:
 		o.Out.Println(color.GreenString("[PRIVATE][%s] <%s> %s", sender, msg.User.Name, msg.Content))
 	case *gateway.Command:
-		o.Out.Println(color.CyanString("[CMD][%s] <%s> triggered %s (arg: %s)", sender, msg.User.Name, msg.Cmd, msg.Arg))
+		o.Out.Println(color.CyanString("[CMD][%s] <%s> triggered %s (%s)", sender, msg.User.Name, msg.Cmd, msg.Arg))
 	default:
 		o.Fire(&network.AsyncError{Src: "Relay", Err: gateway.ErrUnknownEvent})
 	}

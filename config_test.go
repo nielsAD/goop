@@ -155,32 +155,32 @@ func TestFlatMap(t *testing.T) {
 	}
 
 	var m = cfg.FlatMap()
-	if m["bnet.default.username"] != "foo" {
-		t.Fatal("BNet.Default.Username != foo")
+	if m["bnet/default/username"] != "foo" {
+		t.Fatal("BNet/Default/Username != foo")
 	}
-	if _, ok := m["bnet.default.password"]; !ok {
-		t.Fatal("BNet.Default.Password does not exist")
+	if _, ok := m["bnet/default/password"]; !ok {
+		t.Fatal("BNet/Default/Password does not exist")
 	}
-	if m["bnet.gateways.gw.username"] != "foo" {
-		t.Fatal("BNet.Gateways.gw.Username != foo")
+	if m["bnet/gateways/gw/username"] != "foo" {
+		t.Fatal("BNet/Gateways/gw/Username != foo")
 	}
-	if m["bnet.gateways.gw.password"] != "bar" {
-		t.Fatal("BNet.Gateways.gw.Password != bar")
+	if m["bnet/gateways/gw/password"] != "bar" {
+		t.Fatal("BNet/Gateways/gw/Password != bar")
 	}
 }
 
 func TestGet(t *testing.T) {
-	if v, _ := DefaultConfig.Get("StdIO.Access"); v != DefaultConfig.StdIO.Access {
+	if v, _ := DefaultConfig.Get("StdIO/Access"); v != DefaultConfig.StdIO.Access {
 		t.Fatal("Access different from expected value")
 	}
-	if v, _ := DefaultConfig.Get("BNet.Default.BinPath"); v != DefaultConfig.BNet.Default.BinPath {
+	if v, _ := DefaultConfig.Get("BNet/Default/BinPath"); v != DefaultConfig.BNet.Default.BinPath {
 		t.Fatal("BinPath different from expected value")
 	}
 
-	if v, _ := DefaultConfig.GetString("StdIO.Access"); v != fmt.Sprintf("%v", DefaultConfig.StdIO.Access) {
+	if v, _ := DefaultConfig.GetString("StdIO/Access"); v != fmt.Sprintf("%v", DefaultConfig.StdIO.Access) {
 		t.Fatal("Access different from expected value")
 	}
-	if v, _ := DefaultConfig.GetString("BNet.Default.BinPath"); v != DefaultConfig.BNet.Default.BinPath {
+	if v, _ := DefaultConfig.GetString("BNet/Default/BinPath"); v != DefaultConfig.BNet.Default.BinPath {
 		t.Fatal("BinPath different from expected value")
 	}
 }
@@ -197,30 +197,30 @@ func TestError(t *testing.T) {
 		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
 
-	if _, err := cfg.Get("BNet.Foo"); err != ErrUnknownKey {
+	if _, err := cfg.Get("BNet/Foo"); err != ErrUnknownKey {
 		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.Set("BNet.Foo", "bar"); err != ErrUnknownKey {
+	if err := cfg.Set("BNet/Foo", "bar"); err != ErrUnknownKey {
 		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
-	if err := cfg.SetString("BNet.Foo", "bar"); err != ErrUnknownKey {
-		t.Fatal("Expected ErrUnknownKey, got", err)
-	}
-
-	if _, err := cfg.Get("BNet.Default.CDKeys.99"); err != ErrUnknownKey {
-		t.Fatal("Expected ErrUnknownKey, got", err)
-	}
-	if err := cfg.Set("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownKey {
-		t.Fatal("Expected ErrUnknownKey, got", err)
-	}
-	if err := cfg.SetString("BNet.Default.CDKeys.99", "xxx"); err != ErrUnknownKey {
+	if err := cfg.SetString("BNet/Foo", "bar"); err != ErrUnknownKey {
 		t.Fatal("Expected ErrUnknownKey, got", err)
 	}
 
-	if err := cfg.Set("BNet.Default.CDKeys", 123); err != ErrTypeMismatch {
+	if _, err := cfg.Get("BNet/Default/CDKeys/99"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+	if err := cfg.Set("BNet/Default/CDKeys/99", "xxx"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+	if err := cfg.SetString("BNet/Default/CDKeys/99", "xxx"); err != ErrUnknownKey {
+		t.Fatal("Expected ErrUnknownKey, got", err)
+	}
+
+	if err := cfg.Set("BNet/Default/CDKeys", 123); err != ErrTypeMismatch {
 		t.Fatal("Expected ErrTypeMismatch, got", err)
 	}
-	if err := cfg.SetString("BNet.Default.CDKeys", "123"); err != ErrTypeMismatch {
+	if err := cfg.SetString("BNet/Default/CDKeys", "123"); err != ErrTypeMismatch {
 		t.Fatal("Expected ErrTypeMismatch, got", err)
 	}
 }
@@ -228,72 +228,72 @@ func TestError(t *testing.T) {
 func TestSet(t *testing.T) {
 	var cfg Config
 
-	if err := cfg.Set("bNeT.DEFAULT.username", "foo"); err != nil {
+	if err := cfg.Set("bNeT/DEFAULT/username", "foo"); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.Username != "foo" {
 		t.Fatal("Expected username to be foo")
 	}
 
-	cfg.Unset("bNeT.DEFAULT.username")
+	cfg.Unset("bNeT/DEFAULT/username")
 	if cfg.BNet.Default.Username != "" {
 		t.Fatal("Expected username to be unset")
 	}
 
-	if err := cfg.Set("BnEt.default.ACCESSTALK", 100); err != nil {
+	if err := cfg.Set("BnEt/default/ACCESSTALK", 100); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessTalk != 100 {
 		t.Fatal("Expected accesstalk to be 100")
 	}
 
-	cfg.Unset("BnEt.default.ACCESSTALK")
+	cfg.Unset("BnEt/default/ACCESSTALK")
 	if cfg.BNet.Default.AccessTalk != 0 {
 		t.Fatal("Expected accesstalk to be unset")
 	}
 
-	if err := cfg.Set("BNET.default.AccessOperator", 200); err != nil {
+	if err := cfg.Set("BNET/default/AccessOperator", 200); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != 200 {
 		t.Fatal("Expected accessoperator to be 200")
 	}
 
-	cfg.Unset("BNET.default.AccessOperator")
+	cfg.Unset("BNET/default/AccessOperator")
 	if cfg.BNet.Default.AccessOperator != nil {
 		t.Fatal("Expected accessoperator to be unset")
 	}
 
-	if err := cfg.Set("bnet.default.accessuser.niels", 42); err != nil {
+	if err := cfg.Set("bnet/default/accessuser/niels", 42); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessUser["niels"] != 42 {
 		t.Fatal("Expected accessuser[niels] to be 42")
 	}
 
-	cfg.Unset("bnet.default.accessuser.niels")
+	cfg.Unset("bnet/default/accessuser/niels")
 	if _, ok := cfg.BNet.Default.AccessUser["niels"]; ok {
 		t.Fatal("Expected accessuser[niels] to be unset")
 	}
 
-	cfg.Set("bnet.default.cdkeys[]", "111")
-	cfg.Set("bnet.default.cdkeys[]", "333")
-	cfg.Set("bnet.default.cdkeys[]", "555")
-	cfg.Set("bnet.default.cdkeys[]", "777")
-	cfg.Set("bnet.default.cdkeys[]", "999")
-	cfg.Set("bnet.default.cdkeys.1", "xxx")
+	cfg.Set("bnet/default/cdkeys[]", "111")
+	cfg.Set("bnet/default/cdkeys[]", "333")
+	cfg.Set("bnet/default/cdkeys[]", "555")
+	cfg.Set("bnet/default/cdkeys[]", "777")
+	cfg.Set("bnet/default/cdkeys[]", "999")
+	cfg.Set("bnet/default/cdkeys/1", "xxx")
 	if !reflect.DeepEqual(cfg.BNet.Default.CDKeys, []string{"111", "xxx", "555", "777", "999"}) {
 		t.Fatal("CDKeys(5) mismatch")
 	}
 
-	cfg.Unset("bnet.default.cdkeys.4")
-	cfg.Unset("bnet.default.cdkeys.2")
-	cfg.Unset("bnet.default.cdkeys.0")
+	cfg.Unset("bnet/default/cdkeys/4")
+	cfg.Unset("bnet/default/cdkeys/2")
+	cfg.Unset("bnet/default/cdkeys/0")
 	if !reflect.DeepEqual(cfg.BNet.Default.CDKeys, []string{"xxx", "777"}) {
 		t.Fatal("CDKeys(2) mismatch")
 	}
 
-	cfg.Unset("bnet.default.cdkeys")
+	cfg.Unset("bnet/default/cdkeys")
 	if cfg.BNet.Default.CDKeys != nil {
 		t.Fatal("Expected cdkeys to be unset")
 	}
@@ -302,40 +302,40 @@ func TestSet(t *testing.T) {
 func TestSetString(t *testing.T) {
 	var cfg Config
 
-	if err := cfg.SetString("bNeT.DEFAULT.username", "foo"); err != nil {
+	if err := cfg.SetString("bNeT/DEFAULT/username", "foo"); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.Username != "foo" {
 		t.Fatal("Expected username to be foo")
 	}
 
-	if err := cfg.SetString("BnEt.default.ACCESSTALK", "100"); err != nil {
+	if err := cfg.SetString("BnEt/default/ACCESSTALK", "100"); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessTalk != 100 {
 		t.Fatal("Expected accesstalk to be 100")
 	}
 
-	if err := cfg.SetString("BNET.default.AccessOperator", "200"); err != nil {
+	if err := cfg.SetString("BNET/default/AccessOperator", "200"); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != 200 {
 		t.Fatal("Expected accessoperator to be 200")
 	}
 
-	if err := cfg.SetString("bnet.default.accessuser.niels", "42"); err != nil {
+	if err := cfg.SetString("bnet/default/accessuser/niels", "42"); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessUser["niels"] != 42 {
 		t.Fatal("Expected accessuser[niels] to be 42")
 	}
 
-	cfg.SetString("bnet.default.cdkeys[]", "111")
-	cfg.SetString("bnet.default.cdkeys[]", "333")
-	cfg.SetString("bnet.default.cdkeys[]", "555")
-	cfg.SetString("bnet.default.cdkeys[]", "777")
-	cfg.SetString("bnet.default.cdkeys[]", "999")
-	cfg.SetString("bnet.default.cdkeys.1", "xxx")
+	cfg.SetString("bnet/default/cdkeys[]", "111")
+	cfg.SetString("bnet/default/cdkeys[]", "333")
+	cfg.SetString("bnet/default/cdkeys[]", "555")
+	cfg.SetString("bnet/default/cdkeys[]", "777")
+	cfg.SetString("bnet/default/cdkeys[]", "999")
+	cfg.SetString("bnet/default/cdkeys/1", "xxx")
 	if !reflect.DeepEqual(cfg.BNet.Default.CDKeys, []string{"111", "xxx", "555", "777", "999"}) {
 		t.Fatal("CDKeys(5) mismatch")
 	}

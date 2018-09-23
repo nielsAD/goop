@@ -25,7 +25,7 @@ func ParentKey(key string) (string, string) {
 		return key[0 : len(key)-2], "[]"
 	}
 
-	var idx = strings.LastIndexByte(key, '.')
+	var idx = strings.LastIndexByte(key, '/')
 	if idx == -1 {
 		return "", ""
 	}
@@ -105,7 +105,7 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 			if prf == "" {
 				pre = fmt.Sprintf("%v", key.Interface())
 			} else {
-				pre = fmt.Sprintf("%s.%v", prf, key.Interface())
+				pre = fmt.Sprintf("%s/%v", prf, key.Interface())
 			}
 			flatMap(pre, val.MapIndex(key), dst)
 		}
@@ -118,7 +118,7 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 			if prf == "" {
 				pre = fmt.Sprintf("%d", i)
 			} else {
-				pre = fmt.Sprintf("%s.%d", prf, i)
+				pre = fmt.Sprintf("%s/%d", prf, i)
 			}
 			flatMap(pre, val.Index(i), dst)
 		}
@@ -133,7 +133,7 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 			if f.Anonymous {
 				pre = prf
 			} else if prf != "" {
-				pre = fmt.Sprintf("%s.%v", prf, f.Name)
+				pre = fmt.Sprintf("%s/%v", prf, f.Name)
 			}
 			flatMap(pre, val.Field(i), dst)
 		}
@@ -191,7 +191,7 @@ func find(val reflect.Value, key []string) *reflect.Value {
 
 // Find tries to find the (nested) reflect.Value for key
 func Find(val interface{}, key string) *reflect.Value {
-	return find(reflect.ValueOf(val), strings.Split(key, "."))
+	return find(reflect.ValueOf(val), strings.Split(key, "/"))
 }
 
 // Assign src to dst

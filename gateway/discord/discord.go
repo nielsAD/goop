@@ -236,7 +236,7 @@ func (d *Gateway) channel(chanID string) (*gateway.Channel, error) {
 	}
 	return &gateway.Channel{
 		ID:   channel.ID,
-		Name: fmt.Sprintf("%s.%s", guild.Name, channel.Name),
+		Name: fmt.Sprintf("[%s]%s", guild.Name, channel.Name),
 	}, nil
 }
 
@@ -470,7 +470,7 @@ func (c *Channel) Run(ctx context.Context) error {
 		var name = c.id
 		if ch, err := c.session.State.Channel(c.id); err == nil {
 			if g, err := c.session.State.Guild(ch.GuildID); err == nil {
-				name = fmt.Sprintf("%s.%s", g.Name, ch.Name)
+				name = fmt.Sprintf("[%s]%s", g.Name, ch.Name)
 			} else {
 				name = ch.Name
 			}
@@ -691,7 +691,7 @@ func (c *Channel) Relay(ev *network.Event) {
 		})
 
 	case *gateway.Command:
-		err = c.Say(fmt.Sprintf("⚙️ *%s@%s* triggered %s (arg: %s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
+		err = c.Say(fmt.Sprintf("⚙️ **%s@%s** triggered *%s* (*%s*)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
 	default:
 		err = gateway.ErrUnknownEvent
 	}
