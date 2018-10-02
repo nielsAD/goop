@@ -19,6 +19,7 @@ import (
 
 // Config stores the gateway configuration
 type Config struct {
+	gateway.Config
 	Read      bool
 	Access    gateway.AccessLevel
 	AvatarURL string
@@ -26,6 +27,7 @@ type Config struct {
 
 // Gateway relays between stdin/stdout
 type Gateway struct {
+	gateway.Common
 	network.EventEmitter
 
 	*Config
@@ -40,20 +42,6 @@ func New(in *bufio.Reader, out *log.Logger, conf *Config) *Gateway {
 		In:     in,
 		Out:    out,
 	}
-}
-
-func findCommand(s string) (bool, string, []string) {
-	if !strings.HasPrefix(s, "/") {
-		return false, "", nil
-	}
-
-	s = s[1:]
-	if len(s) < 1 || s[0] == ' ' {
-		return false, "", nil
-	}
-
-	f := strings.Fields(s)
-	return true, f[0], f[1:]
 }
 
 func (o *Gateway) read() error {
@@ -79,14 +67,41 @@ func (o *Gateway) read() error {
 
 		o.Fire(&chat)
 
-		if r, cmd, arg := findCommand(chat.Content); r {
-			o.Fire(&gateway.Command{
+		if chat.User.Access < o.Commands.Access {
+			continue
+		}
+
+		if r, cmd, arg := o.Config.FindTrigger(chat.Content); r {
+			o.Fire(&gateway.Trigger{
 				User: chat.User,
 				Cmd:  cmd,
 				Arg:  arg,
+				Resp: o.Say,
 			}, chat)
 		}
 	}
+}
+
+// Channel currently being monitoring
+func (o *Gateway) Channel() *gateway.Channel {
+	return nil
+}
+
+// Say sends a chat message
+func (o *Gateway) Say(s string) error {
+	o.Out.Printf("[%s][SAY] %s\n", o.ID(), s)
+	o.Fire(&gateway.Say{Content: s})
+	return nil
+}
+
+// SayPrivate sends a private chat message to uid
+func (o *Gateway) SayPrivate(uid string, s string) error {
+	if uid != "stdio" {
+		return gateway.ErrNoChannel
+	}
+
+	o.Out.Printf("[%s][SAYP] %s\n", o.ID(), s)
+	return nil
 }
 
 // Run reads packets and emits an event for each received packet
@@ -109,29 +124,31 @@ func (o *Gateway) Run(ctx context.Context) error {
 }
 
 // Relay dumps the event content to stdout
-func (o *Gateway) Relay(ev *network.Event) {
-	var sender = ev.Opt[1].(string)
-
+func (o *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
-		o.Out.Println(color.MagentaString("Established connection to %s", sender))
+		o.Out.Println(color.MagentaString("[%s] Established connection", from.ID()))
 	case *gateway.Disconnected:
-		o.Out.Println(color.MagentaString("Connection to %s closed", sender))
-	case *gateway.Channel:
-		o.Out.Println(color.MagentaString("Joined %s on %s", msg.Name, sender))
+		o.Out.Println(color.MagentaString("[%s] Connection closed", from.ID()))
+	case *network.AsyncError:
+		o.Out.Println(color.RedString("[%s][ERR] %s", from.ID(), msg.Error()))
 	case *gateway.SystemMessage:
-		o.Out.Println(color.CyanString("[SYSTEM][%s] %s", sender, msg.Content))
+		o.Out.Println(color.CyanString("[%s][SYSM] %s", from.ID(), msg.Content))
+	case *gateway.Channel:
+		o.Out.Println(color.MagentaString("[%s] Joined %s@%s", from.ID(), msg.Name, from.Discriminator()))
 	case *gateway.Join:
-		o.Out.Println(color.YellowString("[CHAT][%s#%s] %s has joined the channel", sender, msg.Channel.Name, msg.User.Name))
+		o.Out.Println(color.YellowString("[%s][CHAT] %s@%s has joined the channel", from.ID(), msg.User.Name, from.Discriminator()))
 	case *gateway.Leave:
-		o.Out.Println(color.YellowString("[CHAT][%s#%s] %s has left the channel", sender, msg.Channel.Name, msg.User.Name))
-	case *gateway.Chat:
-		o.Out.Printf("[CHAT][%s#%s] <%s> %s\n", sender, msg.Channel.Name, msg.User.Name, msg.Content)
+		o.Out.Println(color.YellowString("[%s][CHAT] %s@%s has left the channel", from.ID(), msg.User.Name, from.Discriminator()))
 	case *gateway.PrivateChat:
-		o.Out.Println(color.GreenString("[PRIVATE][%s] <%s> %s", sender, msg.User.Name, msg.Content))
-	case *gateway.Command:
-		o.Out.Println(color.CyanString("[CMD][%s] <%s> triggered %s (%s)", sender, msg.User.Name, msg.Cmd, msg.Arg))
+		o.Out.Println(color.GreenString("[%s][PRIV] <%s@%s> %s", from.ID(), msg.User.Name, from.Discriminator(), msg.Content))
+	case *gateway.Chat:
+		o.Out.Printf("[%s][CHAT] <%s@%s> %s\n", from.ID(), msg.User.Name, from.Discriminator(), msg.Content)
+	case *gateway.Say:
+		o.Out.Printf("[%s][CHAT] <%s> %s\n", from.ID(), from.Discriminator(), msg.Content)
 	default:
-		o.Fire(&network.AsyncError{Src: "Relay", Err: gateway.ErrUnknownEvent})
+		return gateway.ErrUnknownEvent
 	}
+
+	return nil
 }

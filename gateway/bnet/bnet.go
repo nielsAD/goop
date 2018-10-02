@@ -34,9 +34,10 @@ type Config struct {
 
 // GatewayConfig stores the config additions of bnet.Gateway over bnet.Client
 type GatewayConfig struct {
+	gateway.Config
+
 	ReconnectDelay   time.Duration
 	HomeChannel      string
-	CommandTrigger   string
 	BufSize          uint8
 	AvatarIconURL    string
 	AvatarDefaultURL string
@@ -52,10 +53,11 @@ type GatewayConfig struct {
 
 // Gateway manages a BNet connection
 type Gateway struct {
+	gateway.Common
 	*bnet.Client
 
-	smut sync.Mutex
-	say  chan string
+	smut  sync.Mutex
+	saych chan string
 
 	// Set once before Run(), read-only after that
 	*GatewayConfig
@@ -86,14 +88,25 @@ func (b *Gateway) Operator() bool {
 	return false
 }
 
-// Say sends a chat message
-func (b *Gateway) Say(s string) error {
+// Channel currently being monitoring
+func (b *Gateway) Channel() *gateway.Channel {
+	var name = b.Client.Channel()
+	if name == "" {
+		return nil
+	}
+	return &gateway.Channel{
+		ID:   name,
+		Name: name,
+	}
+}
+
+func (b *Gateway) say(s string) error {
 	b.smut.Lock()
-	if b.say == nil {
-		b.say = make(chan string, b.BufSize)
+	if b.saych == nil {
+		b.saych = make(chan string, b.BufSize)
 
 		go func() {
-			for s := range b.say {
+			for s := range b.saych {
 				err := b.Client.Say(s)
 				if err != nil {
 					b.Fire(&network.AsyncError{Src: "Say", Err: err})
@@ -104,11 +117,25 @@ func (b *Gateway) Say(s string) error {
 	b.smut.Unlock()
 
 	select {
-	case b.say <- s:
+	case b.saych <- s:
 		return nil
 	default:
 		return ErrSayBufferFull
 	}
+}
+
+// Say sends a chat message
+func (b *Gateway) Say(s string) error {
+	if err := b.say(s); err != nil {
+		return err
+	}
+	b.Fire(&gateway.Say{Content: s})
+	return nil
+}
+
+// SayPrivate sends a private chat message to uid
+func (b *Gateway) SayPrivate(uid string, s string) error {
+	return b.say(fmt.Sprintf("/w %s %s", uid, s))
 }
 
 // Run reads packets and emits an event for each received packet
@@ -153,12 +180,12 @@ func (b *Gateway) Run(ctx context.Context) error {
 
 		b.Fire(&gateway.Connected{})
 
-		var channel = b.Channel()
+		var channel = b.Client.Channel()
 		if channel == "" {
 			channel = b.HomeChannel
 		}
 		if channel != "" {
-			b.Say("/join " + channel)
+			b.say("/join " + channel)
 		}
 
 		backoff = b.ReconnectDelay
@@ -171,22 +198,11 @@ func (b *Gateway) Run(ctx context.Context) error {
 			if u.Name == b.UniqueName {
 				continue
 			}
-			b.Fire(&gateway.Leave{
-				User:    b.user(&u),
-				Channel: b.channel(),
-			})
+			b.Fire(&gateway.Leave{User: b.user(&u)})
 		}
 	}
 
 	return ctx.Err()
-}
-
-func (b *Gateway) channel() gateway.Channel {
-	var name = b.Client.Channel()
-	return gateway.Channel{
-		ID:   name,
-		Name: name,
-	}
 }
 
 func (b *Gateway) user(u *bnet.User) gateway.User {
@@ -255,9 +271,7 @@ func (b *Gateway) onUserJoined(ev *network.Event) {
 	}
 
 	b.Fire(&gateway.Join{
-		User:    b.user(&user.User),
-		Channel: b.channel(),
-	})
+		User: b.user(&user.User)})
 }
 
 func (b *Gateway) onUserLeft(ev *network.Event) {
@@ -266,10 +280,7 @@ func (b *Gateway) onUserLeft(ev *network.Event) {
 		return
 	}
 
-	b.Fire(&gateway.Leave{
-		User:    b.user(&user.User),
-		Channel: b.channel(),
-	})
+	b.Fire(&gateway.Leave{User: b.user(&user.User)})
 }
 
 func extractCmdAndArgs(s string) (bool, string, []string) {
@@ -280,9 +291,10 @@ func extractCmdAndArgs(s string) (bool, string, []string) {
 	return true, f[0], f[1:]
 }
 
-func (b *Gateway) findCommand(s string) (bool, string, []string) {
-	if len(b.CommandTrigger) > 0 && strings.HasPrefix(s, b.CommandTrigger) {
-		return extractCmdAndArgs(s[len(b.CommandTrigger):])
+// FindTrigger checks if s starts with trigger, returns cmd and args if true
+func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
+	if r, cmd, arg := b.GatewayConfig.FindTrigger(s); r {
+		return r, cmd, arg
 	}
 
 	idx := strings.IndexAny(s, ",:")
@@ -308,7 +320,6 @@ func (b *Gateway) onChat(ev *network.Event) {
 
 	var chat = gateway.Chat{
 		User:    b.user(&msg.User),
-		Channel: b.channel(),
 		Content: msg.Content,
 	}
 
@@ -321,11 +332,16 @@ func (b *Gateway) onChat(ev *network.Event) {
 
 	b.Fire(&chat)
 
-	if r, cmd, arg := b.findCommand(chat.Content); r {
-		b.Fire(&gateway.Command{
+	if chat.User.Access < b.Commands.Access {
+		return
+	}
+
+	if r, cmd, arg := b.FindTrigger(chat.Content); r {
+		b.Fire(&gateway.Trigger{
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
+			Resp: b.Say,
 		}, chat)
 	}
 }
@@ -357,11 +373,16 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 
 	b.Fire(&chat)
 
-	if r, cmd, arg := b.findCommand(chat.Content); r {
-		b.Fire(&gateway.Command{
+	if chat.User.Access < b.Commands.Access {
+		return
+	}
+
+	if r, cmd, arg := b.FindTrigger(chat.Content); r {
+		b.Fire(&gateway.Trigger{
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
+			Resp: func(s string) error { return b.SayPrivate(chat.User.ID, s) },
 		}, chat)
 	}
 }
@@ -391,36 +412,29 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 }
 
 // Relay dumps the event content in current channel
-func (b *Gateway) Relay(ev *network.Event) {
-	var err error
-
-	var sender = ev.Opt[1].(string)
-	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
-
+func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
-		err = b.Say(fmt.Sprintf("Established connection to %s", sender))
+		return b.say(fmt.Sprintf("Established connection to %s", from.ID()))
 	case *gateway.Disconnected:
-		err = b.Say(fmt.Sprintf("Connection to %s closed", sender))
-	case *gateway.Channel:
-		err = b.Say(fmt.Sprintf("Joined %s on %s", msg.Name, sender))
+		return b.say(fmt.Sprintf("Connection to %s closed", from.ID()))
+	case *network.AsyncError:
+		return b.say(fmt.Sprintf("[%s] ERROR: %s", from.Discriminator(), msg.Error()))
 	case *gateway.SystemMessage:
-		err = b.Say(fmt.Sprintf("[%s] %s", sshort, msg.Content))
+		return b.say(fmt.Sprintf("[%s] %s", from.Discriminator(), msg.Content))
+	case *gateway.Channel:
+		return b.say(fmt.Sprintf("Joined channel %s@%s", msg.Name, from.Discriminator()))
 	case *gateway.Join:
-		err = b.Say(fmt.Sprintf("%s@%s has joined the channel", msg.User.Name, sshort))
+		return b.say(fmt.Sprintf("%s@%s has joined the channel", msg.User.Name, from.Discriminator()))
 	case *gateway.Leave:
-		err = b.Say(fmt.Sprintf("%s@%s has left the channel", msg.User.Name, sshort))
-	case *gateway.Chat:
-		err = b.Say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, sshort, msg.Content))
+		return b.say(fmt.Sprintf("%s@%s has left the channel", msg.User.Name, from.Discriminator()))
 	case *gateway.PrivateChat:
-		err = b.Say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, sshort, msg.Content))
-	case *gateway.Command:
-		err = b.Say(fmt.Sprintf("[CMD] <%s@%s> triggered %s (%s)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
+		return b.say(fmt.Sprintf("[DM] <%s@%s> %s", msg.User.Name, from.Discriminator(), msg.Content))
+	case *gateway.Chat:
+		return b.say(fmt.Sprintf("<%s@%s> %s", msg.User.Name, from.Discriminator(), msg.Content))
+	case *gateway.Say:
+		return b.say(fmt.Sprintf("<%s> %s", from.Discriminator(), msg.Content))
 	default:
-		err = gateway.ErrUnknownEvent
-	}
-
-	if err != nil && !network.IsConnClosedError(err) {
-		b.Fire(&network.AsyncError{Src: "Relay", Err: err})
+		return gateway.ErrUnknownEvent
 	}
 }

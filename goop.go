@@ -12,6 +12,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/nielsAD/goop/cmd"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
@@ -21,8 +23,8 @@ import (
 
 // Errors
 var (
-	ErrUnkownRealm    = errors.New("goop: Unknown realm")
-	ErrDuplicateRealm = errors.New("goop: Duplicate realm")
+	ErrUnkownGateway    = errors.New("goop: Unknown gateway")
+	ErrDuplicateGateway = errors.New("goop: Duplicate gateway")
 )
 
 // Goop main
@@ -73,11 +75,11 @@ func New(conf *Config) (*Goop, error) {
 
 	for g1, r := range res.Config.Relay.To {
 		if res.Gateways[g1] == nil {
-			return nil, ErrUnkownRealm
+			return nil, ErrUnkownGateway
 		}
 		for g2 := range r.From {
 			if res.Gateways[g2] == nil {
-				return nil, ErrUnkownRealm
+				return nil, ErrUnkownGateway
 			}
 		}
 	}
@@ -105,9 +107,10 @@ func (g *Goop) newRelay(to, from string) *Relay {
 
 func (g *Goop) add(id string, gw gateway.Gateway) error {
 	if g.Gateways[id] != nil {
-		return ErrDuplicateRealm
+		return ErrDuplicateGateway
 	}
 
+	gw.SetID(id)
 	g.Gateways[id] = gw
 	g.Relay[id] = make(map[string]*Relay)
 
@@ -137,7 +140,7 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 	return nil
 }
 
-// Run connects to each realm and returns when all connections have ended
+// Run connects to each gateway and returns when all connections have ended
 func (g *Goop) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	for i := range g.Gateways {
@@ -160,17 +163,18 @@ func (g *Goop) Run(ctx context.Context) {
 func (g *Goop) InitDefaultHandlers() {
 	g.On(&gateway.Chat{}, g.onChat)
 	g.On(&gateway.PrivateChat{}, g.onPrivateChat)
-	g.On(&gateway.Command{}, g.onCommand)
+	g.On(&gateway.Trigger{}, g.onTrigger)
 	g.On(&gateway.Join{}, g.onJoin)
 	g.On(&gateway.Leave{}, g.onLeave)
 }
 
 func checkTrigger(ev *network.Event, s string, u *gateway.User) {
 	if s == "?trigger" {
-		if f, ok := ev.Opt[0].(network.Firer); ok {
-			f.Fire(&gateway.Command{
+		if gw, ok := ev.Opt[0].(gateway.Gateway); ok {
+			gw.Fire(&gateway.Trigger{
 				User: *u,
 				Cmd:  "trigger",
+				Resp: gw.Say,
 			}, ev.Arg)
 		}
 	}
@@ -194,8 +198,22 @@ func (g *Goop) onPrivateChat(ev *network.Event) {
 	//var msg = ev.Arg.(*gateway.PrivateChat)
 }
 
-func (g *Goop) onCommand(ev *network.Event) {
-	//var cmd = ev.Arg.(*gateway.Command)
+func (g *Goop) onTrigger(ev *network.Event) {
+	var t = ev.Arg.(*gateway.Trigger)
+
+	var v = Find(&g.Config.Commands, t.Cmd)
+	if v == nil {
+		return
+	}
+
+	var c, ok = v.Addr().Interface().(cmd.Command)
+	if !ok || !c.CanExecute(t) {
+		return
+	}
+
+	if err := c.Execute(t, ev.Opt[0].(gateway.Gateway)); err != nil {
+		g.Fire(&network.AsyncError{Src: "onTrigger", Err: err})
+	}
 }
 
 func (g *Goop) onJoin(ev *network.Event) {

@@ -37,6 +37,7 @@ const (
 
 // Config stores the configuration of a Discord session
 type Config struct {
+	gateway.Config
 	AuthToken  string
 	Channels   map[string]*ChannelConfig
 	Presence   string
@@ -46,7 +47,7 @@ type Config struct {
 
 // ChannelConfig stores the configuration of a single Discord channel
 type ChannelConfig struct {
-	CommandTrigger string
+	gateway.Config
 	BufSize        uint8
 	Webhook        string
 	RelayJoins     RelayJoinMode
@@ -58,6 +59,7 @@ type ChannelConfig struct {
 
 // Gateway manages a Discord connection
 type Gateway struct {
+	gateway.Common
 	network.EventEmitter
 	*discordgo.Session
 
@@ -72,6 +74,7 @@ type Gateway struct {
 
 // Channel manages a Discord channel
 type Channel struct {
+	gateway.Common
 	network.EventEmitter
 
 	wg      *sync.WaitGroup
@@ -79,7 +82,7 @@ type Channel struct {
 	session *discordgo.Session
 
 	smut  sync.Mutex
-	say   chan string
+	saych chan string
 	saywh chan *discordgo.WebhookParams
 
 	omut   sync.Mutex
@@ -125,7 +128,7 @@ func New(conf *Config) (*Gateway, error) {
 	})
 
 	for id, c := range d.Config.Channels {
-		ch, err := d.Channel(id)
+		ch, err := d.Session.Channel(id)
 		if err != nil {
 			return nil, err
 		}
@@ -143,6 +146,31 @@ func New(conf *Config) (*Gateway, error) {
 	d.InitDefaultHandlers()
 
 	return &d, nil
+}
+
+// Channel currently being monitoring
+func (d *Gateway) Channel() *gateway.Channel {
+	return nil
+}
+
+// Say sends a chat message
+func (d *Gateway) Say(s string) error {
+	return gateway.ErrNoChannel
+}
+
+func sayPrivate(d *discordgo.Session, uid string, s string) error {
+	ch, err := d.UserChannelCreate(uid)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.ChannelMessageSend(ch.ID, s)
+	return err
+}
+
+// SayPrivate sends a private chat message to uid
+func (d *Gateway) SayPrivate(uid string, s string) error {
+	return sayPrivate(d.Session, uid, s)
 }
 
 // Run reads packets and emits an event for each received packet
@@ -225,21 +253,6 @@ func (d *Gateway) user(chanID string, userID string) (*gateway.User, error) {
 	return &res, nil
 }
 
-func (d *Gateway) channel(chanID string) (*gateway.Channel, error) {
-	channel, err := d.State.Channel(chanID)
-	if err != nil {
-		return nil, err
-	}
-	guild, err := d.State.Guild(channel.GuildID)
-	if err != nil {
-		return nil, err
-	}
-	return &gateway.Channel{
-		ID:   channel.ID,
-		Name: fmt.Sprintf("[%s]%s", guild.Name, channel.Name),
-	}, nil
-}
-
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (d *Gateway) InitDefaultHandlers() {
 	d.AddHandler(d.onConnect)
@@ -304,24 +317,12 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 			continue
 		}
 
-		evChannel, err := d.channel(cid)
-		if err != nil {
-			d.Fire(&network.AsyncError{Src: "updatePresence[channel]", Err: err})
-			continue
-		}
-
 		track = true
 
 		if presence.Status != discordgo.StatusOffline {
-			d.Channels[cid].Fire(&gateway.Join{
-				User:    *evUser,
-				Channel: *evChannel,
-			})
+			d.Channels[cid].Fire(&gateway.Join{User: *evUser})
 		} else {
-			d.Channels[cid].Fire(&gateway.Leave{
-				User:    *evUser,
-				Channel: *evChannel,
-			})
+			d.Channels[cid].Fire(&gateway.Leave{User: *evUser})
 		}
 	}
 
@@ -365,20 +366,6 @@ func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) stri
 	return res
 }
 
-func findCommand(t, s string) (bool, string, []string) {
-	if len(t) == 0 || !strings.HasPrefix(s, t) {
-		return false, "", nil
-	}
-
-	s = s[len(t):]
-	if len(s) < 1 || s[0] == ' ' {
-		return false, "", nil
-	}
-
-	f := strings.Fields(s)
-	return true, f[0], f[1:]
-}
-
 func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCreate) {
 	if msg.Content == "" || msg.Author.Bot {
 		return
@@ -412,12 +399,15 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 			d.Fire(&chat)
 
-			if r, cmd, arg := findCommand(".", chat.Content); r {
-				c.Fire(&gateway.Command{
-					User: chat.User,
-					Cmd:  cmd,
-					Arg:  arg,
-				}, chat)
+			if chat.User.Access >= d.Commands.Access {
+				if r, cmd, arg := d.FindTrigger(chat.Content); r {
+					c.Fire(&gateway.Trigger{
+						User: chat.User,
+						Cmd:  cmd,
+						Arg:  arg,
+						Resp: func(s string) error { _, err = d.ChannelMessageSend(msg.ChannelID, s); return err },
+					}, chat)
+				}
 			}
 		}
 
@@ -433,78 +423,57 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		return
 	}
 
-	evChannel, err := d.channel(msg.ChannelID)
-	if err != nil {
-		d.Fire(&network.AsyncError{Src: "onMessageCreate[channel]", Err: err})
-		return
-	}
-
 	var chat = gateway.Chat{
 		User:    *evUser,
-		Channel: *evChannel,
 		Content: replaceContentReferences(s, msg.Message),
 	}
 
 	c.Fire(&chat)
 
-	if r, cmd, arg := c.findCommand(chat.Content); r {
-		c.Fire(&gateway.Command{
+	if chat.User.Access < c.Commands.Access {
+		return
+	}
+
+	if r, cmd, arg := c.FindTrigger(chat.Content); r {
+		c.Fire(&gateway.Trigger{
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
+			Resp: c.Say,
 		}, chat)
 	}
 }
 
-// Relay placeholder to implement Realm interface
+// Relay placeholder to implement Gateway interface
 // Events should instead be relayed directly to a Channel
-func (d *Gateway) Relay(ev *network.Event) {
-}
-
-// Run placeholder to implement Realm interface
-func (c *Channel) Run(ctx context.Context) error {
-	var done = make(chan struct{})
-
-	go func() {
-		c.wg.Wait()
-		var name = c.id
-		if ch, err := c.session.State.Channel(c.id); err == nil {
-			if g, err := c.session.State.Guild(ch.GuildID); err == nil {
-				name = fmt.Sprintf("[%s]%s", g.Name, ch.Name)
-			} else {
-				name = ch.Name
-			}
-		}
-		c.Fire(&gateway.Channel{ID: c.id, Name: name})
-		done <- struct{}{}
-	}()
-
-	select {
-	case <-done:
-	case <-ctx.Done():
-	}
-
+func (d *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	return nil
 }
 
-func (c *Channel) findCommand(s string) (bool, string, []string) {
-	if r, cmd, arg := findCommand(c.CommandTrigger, s); r {
-		return r, cmd, arg
+// Channel currently being monitoring
+func (c *Channel) Channel() *gateway.Channel {
+	var name = c.id
+	if ch, err := c.session.State.Channel(c.id); err == nil {
+		if g, err := c.session.State.Guild(ch.GuildID); err == nil {
+			name = fmt.Sprintf("[%s]%s", g.Name, ch.Name)
+		} else {
+			name = ch.Name
+		}
 	}
-	if r, cmd, arg := findCommand(fmt.Sprintf("@%s ", c.session.State.User.Username), s); r {
-		return r, cmd, arg
-	}
-	return false, "", nil
+	return &gateway.Channel{ID: c.id, Name: name}
 }
 
-// Say sends a chat message
-func (c *Channel) Say(s string) error {
+func (c *Channel) say(s string) error {
+	if c.session == nil {
+		return nil
+	}
+
 	c.smut.Lock()
-	if c.say == nil {
-		c.say = make(chan string, c.BufSize)
+	if c.saych == nil {
+		c.saych = make(chan string, c.BufSize)
 
 		go func() {
-			for s := range c.say {
+			for s := range c.saych {
 				_, err := c.session.ChannelMessageSend(c.id, s)
 				if err != nil {
 					c.Fire(&network.AsyncError{Src: "Say", Err: err})
@@ -515,11 +484,25 @@ func (c *Channel) Say(s string) error {
 	c.smut.Unlock()
 
 	select {
-	case c.say <- s:
+	case c.saych <- s:
 		return nil
 	default:
 		return ErrSayBufferFull
 	}
+}
+
+// Say sends a chat message
+func (c *Channel) Say(s string) error {
+	if err := c.say(s); err != nil {
+		return err
+	}
+	c.Fire(&gateway.Say{Content: s})
+	return nil
+}
+
+// SayPrivate sends a private chat message to uid
+func (c *Channel) SayPrivate(uid string, s string) error {
+	return sayPrivate(c.session, uid, s)
 }
 
 // WebhookOrSay sends a chat message preferably via webhook
@@ -529,7 +512,7 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 		if p.Username != "" {
 			s = fmt.Sprintf("**<%s>** %s", p.Username, p.Content)
 		}
-		return c.Say(s)
+		return c.say(s)
 	}
 
 	c.smut.Lock()
@@ -557,9 +540,38 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 
 func (c *Channel) filter(s string, r gateway.AccessLevel) string {
 	if r < c.AccessMentions {
-		s = strings.Replace(s, "@", "@"+string('\u200B'), -1)
+		s = strings.Replace(s, "@", "@\u200B", -1)
 	}
 	return s
+}
+
+// Run placeholder to implement Gateway interface
+func (c *Channel) Run(ctx context.Context) error {
+	var done = make(chan struct{})
+
+	go func() {
+		c.wg.Wait()
+		c.Fire(c.Channel())
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
+
+	return nil
+}
+
+// FindTrigger checks if s starts with trigger, returns cmd and args if true
+func (c *Channel) FindTrigger(s string) (bool, string, []string) {
+	if r, cmd, arg := c.Config.FindTrigger(s); r {
+		return r, cmd, arg
+	}
+	if r, cmd, arg := gateway.FindTrigger(fmt.Sprintf("@%s ", c.session.State.User.Username), s); r {
+		return r, cmd, arg
+	}
+	return false, "", nil
 }
 
 func (c *Channel) updateOnline() {
@@ -629,43 +641,38 @@ func (c *Channel) updateOnline() {
 }
 
 // Relay dumps the event content in channel
-func (c *Channel) Relay(ev *network.Event) {
-	var err error
-	var sender = ev.Opt[1].(string)
-	var sshort = strings.SplitN(sender, gateway.Delimiter, 3)[1]
-
+func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
-		err = c.Say(fmt.Sprintf("*Established connection to %s*", sender))
+		return c.say(fmt.Sprintf("*Established connection to %s*", from.ID()))
 	case *gateway.Disconnected:
-		err = c.Say(fmt.Sprintf("*Connection to %s closed*", sender))
-	case *gateway.Channel:
-		err = c.Say(fmt.Sprintf("*Joined %s on %s*", msg.Name, sender))
+		return c.say(fmt.Sprintf("*Connection to %s closed*", from.ID()))
+	case *network.AsyncError:
+		return c.say(fmt.Sprintf("❗ **%s** ERROR: %s", from.Discriminator(), msg.Error()))
 	case *gateway.SystemMessage:
-		err = c.Say(fmt.Sprintf("📢 **%s** %s", sshort, msg.Content))
+		return c.say(fmt.Sprintf("📢 **%s** %s", from.Discriminator(), msg.Content))
+	case *gateway.Channel:
+		return c.say(fmt.Sprintf("*Joined channel %s@%s*", msg.Name, from.Discriminator()))
 	case *gateway.Join:
-		if c.RelayJoins == 0 || c.RelayJoins&RelayJoinsSay != 0 {
-			err = c.Say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, sshort))
-		}
-
 		if c.RelayJoins&RelayJoinsList != 0 {
 			c.omut.Lock()
 			c.online = append(c.online, online{
-				Name:  fmt.Sprintf("%s@%s", msg.User.Name, sshort),
+				Name:  fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
 				Since: time.Now(),
 			})
 			c.omut.Unlock()
 			c.updateOnline()
 		}
 
-	case *gateway.Leave:
 		if c.RelayJoins == 0 || c.RelayJoins&RelayJoinsSay != 0 {
-			err = c.Say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, sshort))
-			break
+			return c.say(fmt.Sprintf("➡️ **%s@%s** has joined the channel", msg.User.Name, from.Discriminator()))
 		}
 
+		return nil
+
+	case *gateway.Leave:
 		if c.RelayJoins&RelayJoinsList != 0 {
-			var name = fmt.Sprintf("%s@%s", msg.User.Name, sshort)
+			var name = fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator())
 			c.omut.Lock()
 			for i := len(c.online) - 1; i >= 0; i-- {
 				if c.online[i].Name == name {
@@ -677,26 +684,35 @@ func (c *Channel) Relay(ev *network.Event) {
 			c.updateOnline()
 		}
 
-	case *gateway.Chat:
-		err = c.WebhookOrSay(&discordgo.WebhookParams{
-			Content:   c.filter(msg.Content, msg.User.Access),
-			Username:  fmt.Sprintf("%s@%s", msg.User.Name, sshort),
-			AvatarURL: msg.User.AvatarURL,
-		})
+		if c.RelayJoins == 0 || c.RelayJoins&RelayJoinsSay != 0 {
+			return c.say(fmt.Sprintf("⬅️ **%s@%s** has left the channel", msg.User.Name, from.Discriminator()))
+		}
+
+		return nil
+
 	case *gateway.PrivateChat:
-		err = c.WebhookOrSay(&discordgo.WebhookParams{
+		return c.WebhookOrSay(&discordgo.WebhookParams{
 			Content:   c.filter(msg.Content, msg.User.Access),
-			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, sshort),
+			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, from.Discriminator()),
 			AvatarURL: msg.User.AvatarURL,
 		})
+	case *gateway.Chat:
+		return c.WebhookOrSay(&discordgo.WebhookParams{
+			Content:   c.filter(msg.Content, msg.User.Access),
+			Username:  fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
+			AvatarURL: msg.User.AvatarURL,
+		})
+	case *gateway.Say:
+		var p = &discordgo.WebhookParams{
+			Content:  c.filter(msg.Content, 0),
+			Username: from.Discriminator(),
+		}
+		if c.session != nil {
+			p.AvatarURL = c.session.State.User.AvatarURL("")
+		}
+		return c.WebhookOrSay(p)
 
-	case *gateway.Command:
-		err = c.Say(fmt.Sprintf("⚙️ **%s@%s** triggered *%s* (*%s*)", msg.User.Name, sshort, msg.Cmd, msg.Arg))
 	default:
-		err = gateway.ErrUnknownEvent
-	}
-
-	if err != nil && !network.IsConnClosedError(err) {
-		c.Fire(&network.AsyncError{Src: "Relay", Err: err})
+		return gateway.ErrUnknownEvent
 	}
 }

@@ -174,16 +174,19 @@ func find(val reflect.Value, key []string) *reflect.Value {
 		}
 		return find(val.Index(int(n)), key[1:])
 	case reflect.Struct:
+		var anon *reflect.Value
 		for i := 0; i < val.NumField(); i++ {
 			var f = val.Type().Field(i)
 			if f.Anonymous {
 				if v := find(val.Field(i), key); v != nil {
-					return v
+					anon = v
 				}
-			} else if strings.EqualFold(key[0], f.Name) {
+			}
+			if strings.EqualFold(key[0], f.Name) {
 				return find(val.Field(i), key[1:])
 			}
 		}
+		return anon
 	}
 
 	return nil

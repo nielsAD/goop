@@ -7,6 +7,7 @@ package gateway
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -14,47 +15,28 @@ import (
 // Errors
 var (
 	ErrUnknownEvent = errors.New("gw: Unknown event")
+	ErrNoChannel    = errors.New("gw: No channel")
 )
 
-// Delimiter between main/sub gateway name (i.e. discord:{CHANNELID})
+// Delimiter between main/sub gateway name in ID (i.e. discord:{CHANNELID})
 const Delimiter = ":"
-
-// AccessLevel for user
-type AccessLevel int32
-
-// Access constants
-const (
-	AccessOwner     AccessLevel = 1000
-	AccessAdmin     AccessLevel = 300
-	AccessOperator  AccessLevel = 200
-	AccessWhitelist AccessLevel = 100
-	AccessVoice     AccessLevel = 1
-	AccessDefault   AccessLevel = 0
-	AccessIgnore    AccessLevel = -1
-	AccessBlacklist AccessLevel = -100
-	AccessKick      AccessLevel = -200
-	AccessBan       AccessLevel = -300
-)
 
 // Gateway interface
 type Gateway interface {
 	network.Emitter
+	network.Listener
+	ID() string
+	SetID(id string)
+	Discriminator() string
+	Channel() *Channel
+	Trigger() string
+	Say(s string) error
+	SayPrivate(uid string, s string) error
 	Run(ctx context.Context) error
-	Relay(ev *network.Event)
+	Relay(ev *network.Event, from Gateway) error
 }
 
-// Connected event
-type Connected struct{}
-
-// Disconnected event
-type Disconnected struct{}
-
-// SystemMessage event
-type SystemMessage struct {
-	Content string
-}
-
-// User base
+// User struct
 type User struct {
 	ID        string
 	Name      string
@@ -62,53 +44,68 @@ type User struct {
 	AvatarURL string
 }
 
-// Channel event
+// Channel struct
 type Channel struct {
 	ID   string
 	Name string
 }
 
-// Chat event
-type Chat struct {
-	User
-	Channel
-	Content string
+// Common gateway struct
+type Common struct {
+	id string
 }
 
-// PrivateChat event
-type PrivateChat struct {
-	User
-	Content string
+// ID returns the unique gateway identifier
+func (c *Common) ID() string {
+	return c.id
 }
 
-// Command event
-type Command struct {
-	User
-	Cmd string
-	Arg []string
+// SetID set the unique gateway identifier
+func (c *Common) SetID(id string) {
+	c.id = id
 }
 
-// Join event
-type Join struct {
-	User
-	Channel
+// Discriminator tag
+func (c *Common) Discriminator() string {
+	var s = strings.SplitN(c.id, Delimiter, 3)
+	if len(s) < 2 {
+		return c.id
+	}
+	return s[1]
 }
 
-// Leave event
-type Leave struct {
-	User
-	Channel
+// TriggerConfig for commands
+type TriggerConfig struct {
+	Trigger string
+	Access  AccessLevel
 }
 
-// Events types
-var Events = []interface{}{
-	&Connected{},
-	&Disconnected{},
-	&SystemMessage{},
-	&Channel{},
-	&Chat{},
-	&PrivateChat{},
-	&Command{},
-	&Join{},
-	&Leave{},
+// Config common struct
+type Config struct {
+	Commands TriggerConfig
+}
+
+// Trigger for commands
+func (c *Config) Trigger() string {
+	return c.Commands.Trigger
+}
+
+// FindTrigger checks if s starts with trigger t, returns cmd and args if true
+func FindTrigger(t, s string) (bool, string, []string) {
+	if len(t) == 0 || !strings.HasPrefix(s, t) {
+		return false, "", nil
+	}
+
+	s = s[len(t):]
+	if len(s) < 1 || s[0] == ' ' {
+		return false, "", nil
+	}
+
+	f := strings.Fields(s)
+	return true, f[0], f[1:]
+}
+
+// FindTrigger checks if s starts with trigger, returns cmd and args if true
+func (c *Config) FindTrigger(s string) (bool, string, []string) {
+	return FindTrigger(c.Commands.Trigger, s)
 }

@@ -6,6 +6,7 @@ package bnet_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,10 +20,11 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	gw := gateway.Gateway(b)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
-		if err.Err == gateway.ErrUnknownEvent {
+		if !network.IsConnClosedError(err) {
 			t.Fatal(err)
 		}
 	})
@@ -33,7 +35,9 @@ func Test(t *testing.T) {
 	}
 	cancel()
 
-	for _, e := range gateway.Events {
-		gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "bnet" + gateway.Delimiter + "test"}})
+	for _, e := range gateway.RelayEvents {
+		if gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "bnet" + gateway.Delimiter + "test"}}, gw) == gateway.ErrUnknownEvent {
+			t.Fatal(reflect.TypeOf(e))
+		}
 	}
 }

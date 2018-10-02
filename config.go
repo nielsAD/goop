@@ -12,6 +12,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/imdario/mergo"
+
+	"github.com/nielsAD/goop/cmd"
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
@@ -25,15 +27,29 @@ var DefaultConfig = Config{
 		Time: true,
 	},
 	StdIO: stdio.Config{
+		Config: gateway.Config{
+			Commands: gateway.TriggerConfig{
+				Trigger: "/",
+			},
+		},
 		Read:   true,
 		Access: gateway.AccessOwner,
+	},
+	Commands: cmd.Commands{
+		Time: cmd.Time{
+			Format: "15:04:05",
+		},
 	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
+				Config: gateway.Config{
+					Commands: gateway.TriggerConfig{
+						Trigger: ".",
+					},
+				},
 				BufSize:        16,
 				ReconnectDelay: 30 * time.Second,
-				CommandTrigger: ".",
 				AccessWhisper:  gateway.AccessIgnore,
 				AccessTalk:     gateway.AccessVoice,
 			},
@@ -45,8 +61,12 @@ var DefaultConfig = Config{
 			AccessDM: gateway.AccessIgnore,
 		},
 		ChannelDefault: discord.ChannelConfig{
+			Config: gateway.Config{
+				Commands: gateway.TriggerConfig{
+					Trigger: ".",
+				},
+			},
 			BufSize:        64,
-			CommandTrigger: ".",
 			AccessMentions: gateway.AccessWhitelist,
 			AccessTalk:     gateway.AccessVoice,
 		},
@@ -61,10 +81,11 @@ var DefaultConfig = Config{
 				Default: RelayConfig{
 					Log:         true,
 					System:      true,
+					Channel:     true,
 					Joins:       true,
 					Chat:        true,
 					PrivateChat: true,
-					Command:     true,
+					Say:         true,
 				},
 			},
 		},
@@ -73,12 +94,13 @@ var DefaultConfig = Config{
 
 // Config struct maps the layout of main configuration file
 type Config struct {
-	Config  string
-	Log     LogConfig
-	StdIO   stdio.Config
-	BNet    BNetConfigWithDefault
-	Discord DiscordConfigWithDefault
-	Relay   RelayConfigWithDefault
+	Config   string
+	Log      LogConfig
+	Commands cmd.Commands
+	StdIO    stdio.Config
+	BNet     BNetConfigWithDefault
+	Discord  DiscordConfigWithDefault
+	Relay    RelayConfigWithDefault
 }
 
 // LogConfig struct maps the layout of the Log configuration section

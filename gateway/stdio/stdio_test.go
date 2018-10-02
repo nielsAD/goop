@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -22,9 +23,7 @@ func Test(t *testing.T) {
 	gw := gateway.Gateway(stdio.New(bufio.NewReader(os.Stdin), log.New(os.Stdout, "", 0), &stdio.Config{Read: true}))
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
-		if err.Err == gateway.ErrUnknownEvent {
-			t.Fatal(err)
-		}
+		t.Fatal(err)
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -33,7 +32,9 @@ func Test(t *testing.T) {
 	}
 	cancel()
 
-	for _, e := range gateway.Events {
-		gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "std" + gateway.Delimiter + "test"}})
+	for _, e := range gateway.RelayEvents {
+		if gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "std" + gateway.Delimiter + "test"}}, gw) == gateway.ErrUnknownEvent {
+			t.Fatal(reflect.TypeOf(e))
+		}
 	}
 }

@@ -62,6 +62,6 @@ list:
 	@echo $(PKG) | tr ' ' '\n'
 
 clean:
-	rm -r $(DIR_BIN)
+	-rm -r $(DIR_BIN)
 	go clean $(PKG)
 	$(MAKE) -C $(GOW3)/vendor clean

@@ -13,15 +13,15 @@ import (
 type RelayConfig struct {
 	Log         bool
 	System      bool
+	Channel     bool
 	Joins       bool
 	Chat        bool
 	PrivateChat bool
-	Command     bool
+	Say         bool
 
 	JoinAccess        gateway.AccessLevel
 	ChatAccess        gateway.AccessLevel
 	PrivateChatAccess gateway.AccessLevel
-	CommandAccess     gateway.AccessLevel
 }
 
 // Relay manages a relay between two gateways
@@ -45,29 +45,46 @@ func NewRelay(from, to gateway.Gateway, conf *RelayConfig) *Relay {
 
 // InitDefaultHandlers adds the default callbacks for relevant events
 func (r *Relay) InitDefaultHandlers() {
+	r.From.On(&network.AsyncError{}, r.onLog)
 	r.From.On(&gateway.Connected{}, r.onLog)
 	r.From.On(&gateway.Disconnected{}, r.onLog)
-	r.From.On(&gateway.Channel{}, r.onLog)
 	r.From.On(&gateway.SystemMessage{}, r.onSystemMessage)
+	r.From.On(&gateway.Channel{}, r.onChannel)
 	r.From.On(&gateway.Join{}, r.onJoin)
 	r.From.On(&gateway.Leave{}, r.onLeave)
 	r.From.On(&gateway.Chat{}, r.onChat)
 	r.From.On(&gateway.PrivateChat{}, r.onPrivateChat)
-	r.From.On(&gateway.Command{}, r.onCommand)
+	r.From.On(&gateway.Say{}, r.onSay)
+}
+
+func (r *Relay) relay(ev *network.Event) {
+	err := r.To.Relay(ev, r.From)
+	if err == nil || network.IsConnClosedError(err) {
+		return
+	}
+
+	r.To.Fire(&network.AsyncError{Src: "Relay", Err: err}, ev)
 }
 
 func (r *Relay) onLog(ev *network.Event) {
 	if !r.Log {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }
 
 func (r *Relay) onSystemMessage(ev *network.Event) {
 	if !r.System {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
+}
+
+func (r *Relay) onChannel(ev *network.Event) {
+	if !r.Channel {
+		return
+	}
+	r.relay(ev)
 }
 
 func (r *Relay) onJoin(ev *network.Event) {
@@ -75,7 +92,7 @@ func (r *Relay) onJoin(ev *network.Event) {
 	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }
 
 func (r *Relay) onLeave(ev *network.Event) {
@@ -83,7 +100,7 @@ func (r *Relay) onLeave(ev *network.Event) {
 	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }
 
 func (r *Relay) onChat(ev *network.Event) {
@@ -91,7 +108,7 @@ func (r *Relay) onChat(ev *network.Event) {
 	if !r.Chat || msg.User.Access < r.ChatAccess {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }
 
 func (r *Relay) onPrivateChat(ev *network.Event) {
@@ -99,13 +116,12 @@ func (r *Relay) onPrivateChat(ev *network.Event) {
 	if !r.PrivateChat || msg.User.Access < r.PrivateChatAccess {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }
 
-func (r *Relay) onCommand(ev *network.Event) {
-	var cmd = ev.Arg.(*gateway.Command)
-	if !r.Command || cmd.User.Access < r.CommandAccess {
+func (r *Relay) onSay(ev *network.Event) {
+	if !r.Say {
 		return
 	}
-	r.To.Relay(ev)
+	r.relay(ev)
 }

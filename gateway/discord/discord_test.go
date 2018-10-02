@@ -6,6 +6,7 @@ package discord_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func Test(t *testing.T) {
 	gw := gateway.Gateway(d)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
-		if err.Err == gateway.ErrUnknownEvent {
+		if !websocket.IsCloseError(err.Err, 4004) {
 			t.Fatal(err)
 		}
 	})
@@ -35,7 +36,25 @@ func Test(t *testing.T) {
 	}
 	cancel()
 
-	for _, e := range gateway.Events {
-		gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "discord" + gateway.Delimiter + "test"}})
+	for _, e := range gateway.RelayEvents {
+		if gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "discord" + gateway.Delimiter + "test"}}, gw) == gateway.ErrUnknownEvent {
+			t.Fatal(reflect.TypeOf(e))
+		}
+	}
+}
+
+func TestChannel(t *testing.T) {
+	c := &discord.Channel{ChannelConfig: &discord.ChannelConfig{}}
+
+	gw := gateway.Gateway(c)
+	gw.On(&network.AsyncError{}, func(ev *network.Event) {
+		err := ev.Arg.(*network.AsyncError)
+		t.Fatal(err)
+	})
+
+	for _, e := range gateway.RelayEvents {
+		if gw.Relay(&network.Event{Arg: e, Opt: []network.EventArg{gw, "discord_chan" + gateway.Delimiter + "test"}}, gw) == gateway.ErrUnknownEvent {
+			t.Fatal(reflect.TypeOf(e))
+		}
 	}
 }
