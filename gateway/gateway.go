@@ -16,6 +16,8 @@ import (
 var (
 	ErrUnknownEvent = errors.New("gw: Unknown event")
 	ErrNoChannel    = errors.New("gw: No channel")
+	ErrNoUser       = errors.New("gw: No user")
+	ErrNoPermission = errors.New("gw: No permission")
 )
 
 // Delimiter between main/sub gateway name in ID (i.e. discord:{CHANNELID})
@@ -29,9 +31,13 @@ type Gateway interface {
 	SetID(id string)
 	Discriminator() string
 	Channel() *Channel
+	Users() []User
+	User(uid string) (*User, error)
 	Trigger() string
 	Say(s string) error
 	SayPrivate(uid string, s string) error
+	// Kick(uid string) error
+	// Ban(uid string) error
 	Run(ctx context.Context) error
 	Relay(ev *network.Event, from Gateway) error
 }

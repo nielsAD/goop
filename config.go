@@ -57,6 +57,11 @@ var DefaultConfig = Config{
 	},
 	Discord: DiscordConfigWithDefault{
 		Default: discord.Config{
+			Config: gateway.Config{
+				Commands: gateway.TriggerConfig{
+					Trigger: ".",
+				},
+			},
 			Presence: "Battle.net",
 			AccessDM: gateway.AccessIgnore,
 		},

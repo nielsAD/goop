@@ -87,6 +87,16 @@ func (o *Gateway) Channel() *gateway.Channel {
 	return nil
 }
 
+// Users currently in channel
+func (o *Gateway) Users() []gateway.User {
+	return nil
+}
+
+// User by ID
+func (o *Gateway) User(uid string) (*gateway.User, error) {
+	return nil, gateway.ErrNoUser
+}
+
 // Say sends a chat message
 func (o *Gateway) Say(s string) error {
 	o.Out.Printf("[%s][SAY] %s\n", o.ID(), s)

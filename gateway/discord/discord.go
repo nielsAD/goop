@@ -153,12 +153,24 @@ func (d *Gateway) Channel() *gateway.Channel {
 	return nil
 }
 
+// Users currently in channel
+func (d *Gateway) Users() []gateway.User {
+	return nil
+}
+
+// User by ID
+func (d *Gateway) User(uid string) (*gateway.User, error) {
+	return nil, gateway.ErrNoUser
+}
+
 // Say sends a chat message
 func (d *Gateway) Say(s string) error {
 	return gateway.ErrNoChannel
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {
+	uid = strings.TrimSuffix(strings.TrimPrefix(uid, "<@"), ">")
+
 	ch, err := d.UserChannelCreate(uid)
 	if err != nil {
 		return err
@@ -198,59 +210,6 @@ func (d *Gateway) Run(ctx context.Context) error {
 	d.Close()
 
 	return ctx.Err()
-}
-
-func (d *Gateway) user(chanID string, userID string) (*gateway.User, error) {
-	var c = d.Channels[chanID]
-	if c == nil {
-		return nil, nil
-	}
-
-	channel, err := d.State.Channel(chanID)
-	if err != nil {
-		return nil, err
-	}
-
-	member, err := d.State.Member(channel.GuildID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if member.User.Bot {
-		return nil, nil
-	}
-
-	var res = gateway.User{
-		ID:        member.User.ID,
-		Name:      member.User.Username,
-		AvatarURL: member.User.AvatarURL(""),
-		Access:    c.AccessTalk,
-	}
-
-	if member.Nick != "" {
-		res.Name = member.Nick
-	}
-
-	if c.AccessRole != nil {
-		for _, rid := range member.Roles {
-			r, err := d.State.Role(channel.GuildID, rid)
-			if err != nil {
-				continue
-			}
-			if access, ok := c.AccessRole[strings.ToLower(r.Name)]; ok {
-				res.Access = access
-			}
-		}
-	}
-
-	if access, ok := d.AccessUser[strings.ToLower(member.User.String())]; ok {
-		res.Access = access
-	}
-	if access, ok := c.AccessUser[strings.ToLower(member.User.String())]; ok {
-		res.Access = access
-	}
-
-	return &res, nil
 }
 
 // InitDefaultHandlers adds the default callbacks for relevant packets
@@ -308,7 +267,7 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 			continue
 		}
 
-		evUser, err := d.user(cid, presence.User.ID)
+		evUser, err := d.Channels[cid].User(presence.User.ID)
 		if err != nil {
 			d.Fire(&network.AsyncError{Src: "updatePresence[user]", Err: err})
 			continue
@@ -400,8 +359,8 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 			d.Fire(&chat)
 
 			if chat.User.Access >= d.Commands.Access {
-				if r, cmd, arg := d.FindTrigger(chat.Content); r {
-					c.Fire(&gateway.Trigger{
+				if r, cmd, arg := d.FindTrigger(msg.Message.Content); r {
+					d.Fire(&gateway.Trigger{
 						User: chat.User,
 						Cmd:  cmd,
 						Arg:  arg,
@@ -414,7 +373,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		return
 	}
 
-	evUser, err := d.user(msg.ChannelID, msg.Author.ID)
+	evUser, err := c.User(msg.Author.ID)
 	if err != nil {
 		d.Fire(&network.AsyncError{Src: "onMessageCreate[user]", Err: err})
 		return
@@ -434,7 +393,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		return
 	}
 
-	if r, cmd, arg := c.FindTrigger(chat.Content); r {
+	if r, cmd, arg := c.FindTrigger(msg.Message.Content); r {
 		c.Fire(&gateway.Trigger{
 			User: chat.User,
 			Cmd:  cmd,
@@ -461,6 +420,91 @@ func (c *Channel) Channel() *gateway.Channel {
 		}
 	}
 	return &gateway.Channel{ID: c.id, Name: name}
+}
+
+// Users currently in channel
+func (c *Channel) Users() []gateway.User {
+	ch, err := c.session.State.Channel(c.id)
+	if err != nil {
+		return nil
+	}
+
+	g, err := c.session.State.Guild(ch.GuildID)
+	if err == nil {
+		return nil
+	}
+
+	var res = make([]gateway.User, 0, len(g.Presences))
+	for _, p := range g.Presences {
+		if p.Status == discordgo.StatusOffline {
+			continue
+		}
+
+		perm, err := c.session.State.UserChannelPermissions(p.User.ID, c.id)
+		if err != nil || perm&discordgo.PermissionReadMessages == 0 {
+			continue
+		}
+
+		u, err := c.User(p.User.ID)
+		if err != nil || u == nil {
+			continue
+		}
+		res = append(res, *u)
+	}
+
+	return res
+}
+
+// User by ID
+func (c *Channel) User(uid string) (*gateway.User, error) {
+	if c.session == nil {
+		return nil, gateway.ErrNoUser
+	}
+
+	channel, err := c.session.State.Channel(c.id)
+	if err != nil {
+		return nil, err
+	}
+
+	uid = strings.TrimSuffix(strings.TrimPrefix(uid, "<@"), ">")
+
+	member, err := c.session.State.Member(channel.GuildID, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	if member.User.Bot {
+		return nil, nil
+	}
+
+	var res = gateway.User{
+		ID:        member.User.ID,
+		Name:      member.User.Username,
+		AvatarURL: member.User.AvatarURL(""),
+		Access:    c.AccessTalk,
+	}
+
+	if member.Nick != "" {
+		res.Name = member.Nick
+	}
+
+	if c.AccessRole != nil {
+		for _, rid := range member.Roles {
+			r, err := c.session.State.Role(channel.GuildID, rid)
+			if err != nil {
+				continue
+			}
+			if access, ok := c.AccessRole[strings.ToLower(r.Name)]; ok {
+				res.Access = access
+			}
+		}
+	}
+
+	if access, ok := c.AccessUser[strings.ToLower(member.User.String())]; ok {
+		res.Access = access
+	}
+
+	return &res, nil
 }
 
 func (c *Channel) say(s string) error {
@@ -568,7 +612,7 @@ func (c *Channel) FindTrigger(s string) (bool, string, []string) {
 	if r, cmd, arg := c.Config.FindTrigger(s); r {
 		return r, cmd, arg
 	}
-	if r, cmd, arg := gateway.FindTrigger(fmt.Sprintf("@%s ", c.session.State.User.Username), s); r {
+	if r, cmd, arg := gateway.FindTrigger(fmt.Sprintf("<@%s> ", c.session.State.User.ID), s); r {
 		return r, cmd, arg
 	}
 	return false, "", nil

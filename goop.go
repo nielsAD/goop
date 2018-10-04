@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/nielsAD/goop/cmd"
@@ -117,6 +118,7 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 	// These handlers are called after relay handlers
 	gw.On(&gateway.Chat{}, checkTriggerChat)
 	gw.On(&gateway.PrivateChat{}, checkTriggerPrivateChat)
+	gw.On(&gateway.Trigger{}, g.execTrigger)
 
 	for wid := range g.Gateways {
 		if id == wid {
@@ -163,18 +165,17 @@ func (g *Goop) Run(ctx context.Context) {
 func (g *Goop) InitDefaultHandlers() {
 	g.On(&gateway.Chat{}, g.onChat)
 	g.On(&gateway.PrivateChat{}, g.onPrivateChat)
-	g.On(&gateway.Trigger{}, g.onTrigger)
 	g.On(&gateway.Join{}, g.onJoin)
 	g.On(&gateway.Leave{}, g.onLeave)
 }
 
-func checkTrigger(ev *network.Event, s string, u *gateway.User) {
+func checkTrigger(ev *network.Event, s string, u *gateway.User, r gateway.Responder) {
 	if s == "?trigger" {
 		if gw, ok := ev.Opt[0].(gateway.Gateway); ok {
 			gw.Fire(&gateway.Trigger{
 				User: *u,
 				Cmd:  "trigger",
-				Resp: gw.Say,
+				Resp: r,
 			}, ev.Arg)
 		}
 	}
@@ -182,12 +183,57 @@ func checkTrigger(ev *network.Event, s string, u *gateway.User) {
 
 func checkTriggerChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.Chat)
-	checkTrigger(ev, msg.Content, &msg.User)
+	if !strings.EqualFold(msg.Content, "?trigger") {
+		return
+	}
+	gw, ok := ev.Opt[0].(gateway.Gateway)
+	if !ok {
+		return
+	}
+
+	gw.Fire(&gateway.Trigger{
+		User: msg.User,
+		Cmd:  "trigger",
+		Resp: gw.Say,
+	}, ev.Arg)
 }
 
 func checkTriggerPrivateChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.PrivateChat)
-	checkTrigger(ev, msg.Content, &msg.User)
+	if !strings.EqualFold(msg.Content, "?trigger") {
+		return
+	}
+	gw, ok := ev.Opt[0].(gateway.Gateway)
+	if !ok {
+		return
+	}
+
+	gw.Fire(&gateway.Trigger{
+		User: msg.User,
+		Cmd:  "trigger",
+		Resp: func(s string) error { return gw.SayPrivate(msg.User.ID, s) },
+	}, ev.Arg)
+}
+
+func (g *Goop) execTrigger(ev *network.Event) {
+	var t = *ev.Arg.(*gateway.Trigger)
+
+	var v = Find(&g.Config.Commands, t.Cmd)
+	if v == nil {
+		return
+	}
+
+	var c, ok = v.Addr().Interface().(cmd.Command)
+	if !ok || !c.CanExecute(&t) {
+		return
+	}
+
+	var gw = ev.Opt[0].(gateway.Gateway)
+	go func() {
+		if err := c.Execute(&t, gw); err != nil {
+			g.Fire(&network.AsyncError{Src: "execTrigger", Err: err})
+		}
+	}()
 }
 
 func (g *Goop) onChat(ev *network.Event) {
@@ -196,24 +242,6 @@ func (g *Goop) onChat(ev *network.Event) {
 
 func (g *Goop) onPrivateChat(ev *network.Event) {
 	//var msg = ev.Arg.(*gateway.PrivateChat)
-}
-
-func (g *Goop) onTrigger(ev *network.Event) {
-	var t = ev.Arg.(*gateway.Trigger)
-
-	var v = Find(&g.Config.Commands, t.Cmd)
-	if v == nil {
-		return
-	}
-
-	var c, ok = v.Addr().Interface().(cmd.Command)
-	if !ok || !c.CanExecute(t) {
-		return
-	}
-
-	if err := c.Execute(t, ev.Opt[0].(gateway.Gateway)); err != nil {
-		g.Fire(&network.AsyncError{Src: "onTrigger", Err: err})
-	}
 }
 
 func (g *Goop) onJoin(ev *network.Event) {

@@ -100,6 +100,27 @@ func (b *Gateway) Channel() *gateway.Channel {
 	}
 }
 
+// Users currently in channel
+func (b *Gateway) Users() []gateway.User {
+	var users = b.Client.Users()
+
+	var res = make([]gateway.User, 0, len(users))
+	for _, u := range users {
+		res = append(res, b.user(&u))
+	}
+
+	return res
+}
+
+// User by ID
+func (b *Gateway) User(uid string) (*gateway.User, error) {
+	if u, ok := b.Client.User(uid); ok {
+		var res = b.user(u)
+		return &res, nil
+	}
+	return nil, gateway.ErrNoUser
+}
+
 func (b *Gateway) say(s string) error {
 	b.smut.Lock()
 	if b.saych == nil {
@@ -270,8 +291,7 @@ func (b *Gateway) onUserJoined(ev *network.Event) {
 		return
 	}
 
-	b.Fire(&gateway.Join{
-		User: b.user(&user.User)})
+	b.Fire(&gateway.Join{User: b.user(&user.User)})
 }
 
 func (b *Gateway) onUserLeft(ev *network.Event) {
