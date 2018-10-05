@@ -169,32 +169,20 @@ func (g *Goop) InitDefaultHandlers() {
 	g.On(&gateway.Leave{}, g.onLeave)
 }
 
-func checkTrigger(ev *network.Event, s string, u *gateway.User, r gateway.Responder) {
-	if s == "?trigger" {
-		if gw, ok := ev.Opt[0].(gateway.Gateway); ok {
-			gw.Fire(&gateway.Trigger{
-				User: *u,
-				Cmd:  "trigger",
-				Resp: r,
-			}, ev.Arg)
-		}
-	}
-}
-
 func checkTriggerChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.Chat)
 	if !strings.EqualFold(msg.Content, "?trigger") {
 		return
 	}
 	gw, ok := ev.Opt[0].(gateway.Gateway)
-	if !ok {
+	if !ok || gw.Trigger() == "?" {
 		return
 	}
 
 	gw.Fire(&gateway.Trigger{
 		User: msg.User,
 		Cmd:  "trigger",
-		Resp: gw.Say,
+		Resp: gw.Responder(gw, msg.User.ID, false),
 	}, ev.Arg)
 }
 
@@ -204,14 +192,14 @@ func checkTriggerPrivateChat(ev *network.Event) {
 		return
 	}
 	gw, ok := ev.Opt[0].(gateway.Gateway)
-	if !ok {
+	if !ok || gw.Trigger() == "?" {
 		return
 	}
 
 	gw.Fire(&gateway.Trigger{
 		User: msg.User,
 		Cmd:  "trigger",
-		Resp: func(s string) error { return gw.SayPrivate(msg.User.ID, s) },
+		Resp: gw.Responder(gw, msg.User.ID, true),
 	}, ev.Arg)
 }
 

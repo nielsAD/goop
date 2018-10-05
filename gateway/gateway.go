@@ -36,6 +36,7 @@ type Gateway interface {
 	Trigger() string
 	Say(s string) error
 	SayPrivate(uid string, s string) error
+	Responder(gw Gateway, uid string, forcePrivate bool) Responder
 	// Kick(uid string) error
 	// Ban(uid string) error
 	Run(ctx context.Context) error
@@ -82,8 +83,9 @@ func (c *Common) Discriminator() string {
 
 // TriggerConfig for commands
 type TriggerConfig struct {
-	Trigger string
-	Access  AccessLevel
+	Trigger        string
+	Access         AccessLevel
+	RespondPrivate bool
 }
 
 // Config common struct
@@ -94,6 +96,14 @@ type Config struct {
 // Trigger for commands
 func (c *Config) Trigger() string {
 	return c.Commands.Trigger
+}
+
+// Responder for trigger
+func (c *Config) Responder(gw Gateway, uid string, forcePrivate bool) Responder {
+	if !c.Commands.RespondPrivate && !forcePrivate {
+		return gw.Say
+	}
+	return func(s string) error { return gw.SayPrivate(uid, s) }
 }
 
 // FindTrigger checks if s starts with trigger t, returns cmd and args if true

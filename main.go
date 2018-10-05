@@ -61,17 +61,17 @@ func main() {
 	logOut.SetFlags(flags)
 	logErr.SetFlags(flags)
 
-	g, err := New(conf)
-	if err != nil {
-		logErr.Fatal("Initialization error: ", err)
-	}
-
 	if *makeconf {
 		var m = conf.Map()
 		if err := toml.NewEncoder(os.Stdout).Encode(m); err != nil {
 			logErr.Fatal("Configuration encoding error: ", err)
 		}
 		return
+	}
+
+	g, err := New(conf)
+	if err != nil {
+		logErr.Fatal("Initialization error: ", err)
 	}
 
 	g.On(&network.AsyncError{}, func(ev *network.Event) {

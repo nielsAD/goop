@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/imdario/mergo"
 
 	"github.com/nielsAD/goop/cmd"
 	"github.com/nielsAD/goop/gateway"
@@ -26,28 +25,23 @@ var DefaultConfig = Config{
 	Log: LogConfig{
 		Time: true,
 	},
-	StdIO: stdio.Config{
-		Config: gateway.Config{
-			Commands: gateway.TriggerConfig{
-				Trigger: "/",
-			},
-		},
-		Read:   true,
-		Access: gateway.AccessOwner,
-	},
 	Commands: cmd.Commands{
 		Time: cmd.Time{
 			Format: "15:04:05",
 		},
 	},
+	Default: gateway.Config{
+		Commands: gateway.TriggerConfig{
+			Trigger: ".",
+		},
+	},
+	StdIO: stdio.Config{
+		Read:   true,
+		Access: gateway.AccessOwner,
+	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
-				Config: gateway.Config{
-					Commands: gateway.TriggerConfig{
-						Trigger: ".",
-					},
-				},
 				BufSize:        16,
 				ReconnectDelay: 30 * time.Second,
 				AccessWhisper:  gateway.AccessIgnore,
@@ -57,20 +51,10 @@ var DefaultConfig = Config{
 	},
 	Discord: DiscordConfigWithDefault{
 		Default: discord.Config{
-			Config: gateway.Config{
-				Commands: gateway.TriggerConfig{
-					Trigger: ".",
-				},
-			},
 			Presence: "Battle.net",
 			AccessDM: gateway.AccessIgnore,
 		},
 		ChannelDefault: discord.ChannelConfig{
-			Config: gateway.Config{
-				Commands: gateway.TriggerConfig{
-					Trigger: ".",
-				},
-			},
 			BufSize:        64,
 			AccessMentions: gateway.AccessWhitelist,
 			AccessTalk:     gateway.AccessVoice,
@@ -102,6 +86,7 @@ type Config struct {
 	Config   string
 	Log      LogConfig
 	Commands cmd.Commands
+	Default  gateway.Config
 	StdIO    stdio.Config
 	BNet     BNetConfigWithDefault
 	Discord  DiscordConfigWithDefault
@@ -144,7 +129,11 @@ type RelayToConfig struct {
 // LoadConfig from DefaultConfig.Config file
 func LoadConfig() (*Config, error) {
 	var conf = DefaultConfig
-	if _, err := toml.DecodeFile(DefaultConfig.Config, &conf); err != nil && !os.IsNotExist(err) {
+	var tmp = make(map[string]interface{})
+	if _, err := toml.DecodeFile(DefaultConfig.Config, &tmp); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if err := Merge(&conf, tmp, true); err != nil {
 		return nil, err
 	}
 	if err := conf.MergeDefaults(); err != nil {
@@ -162,7 +151,10 @@ func (c *Config) Save() error {
 	defer file.Close()
 
 	var m = c.Map()
-	DeleteEqual(m, DefaultConfig.Map())
+
+	var d = DefaultConfig
+	d.MergeDefaults()
+	DeleteEqual(m, d.Map())
 
 	fmt.Fprintf(file, "# Generated at %v\n", time.Now().Format(time.RFC1123))
 	return toml.NewEncoder(file).Encode(m)
@@ -170,18 +162,31 @@ func (c *Config) Save() error {
 
 // MergeDefaults applies default configuration for unset fields
 func (c *Config) MergeDefaults() error {
+	if err := Merge(&c.StdIO.Config, c.Default, false); err != nil {
+		return err
+	}
+	if err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, false); err != nil {
+		return err
+	}
+	if err := Merge(&c.Discord.Default.Config, c.Default, false); err != nil {
+		return err
+	}
+	if err := Merge(&c.Discord.ChannelDefault.Config, c.Default, false); err != nil {
+		return err
+	}
+
 	for _, r := range c.BNet.Gateways {
-		if err := mergo.Merge(r, c.BNet.Default); err != nil {
+		if err := Merge(r, c.BNet.Default, false); err != nil {
 			return err
 		}
 	}
 
 	for _, g := range c.Discord.Gateways {
-		if err := mergo.Merge(g, c.Discord.Default); err != nil {
+		if err := Merge(g, c.Discord.Default, false); err != nil {
 			return err
 		}
 		for _, n := range g.Channels {
-			if err := mergo.Merge(n, c.Discord.ChannelDefault); err != nil {
+			if err := Merge(n, c.Discord.ChannelDefault, false); err != nil {
 				return err
 			}
 		}
@@ -197,10 +202,14 @@ type mi = map[string]interface{}
 func (c *Config) Map() map[string]interface{} {
 	var m = Map(c).(mi)
 
+	var d = m["Default"].(mi)
+	DeleteEqual(m["StdIO"].(mi), d)
+
 	var bn = m["BNet"].(mi)["Default"].(mi)
 	for _, g := range m["BNet"].(mi)["Gateways"].(mi) {
 		DeleteEqual(g.(mi), bn)
 	}
+	DeleteEqual(bn, d)
 
 	var dd = m["Discord"].(mi)["Default"].(mi)
 	var dc = m["Discord"].(mi)["ChannelDefault"].(mi)
@@ -210,6 +219,8 @@ func (c *Config) Map() map[string]interface{} {
 		}
 		DeleteEqual(g.(mi), dd)
 	}
+	DeleteEqual(dc, d)
+	DeleteEqual(dd, d)
 
 	var g1d = m["Relay"].(mi)["Default"].(mi)
 	var gto = m["Relay"].(mi)["To"].(mi)

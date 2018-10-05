@@ -361,7 +361,7 @@ func (b *Gateway) onChat(ev *network.Event) {
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
-			Resp: b.Say,
+			Resp: b.Responder(b, chat.User.ID, false),
 		}, chat)
 	}
 }
@@ -402,7 +402,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
-			Resp: func(s string) error { return b.SayPrivate(chat.User.ID, s) },
+			Resp: b.Responder(b, chat.User.ID, true),
 		}, chat)
 	}
 }

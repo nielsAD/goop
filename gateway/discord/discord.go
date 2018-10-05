@@ -165,7 +165,13 @@ func (d *Gateway) User(uid string) (*gateway.User, error) {
 
 // Say sends a chat message
 func (d *Gateway) Say(s string) error {
-	return gateway.ErrNoChannel
+	var err error
+	for _, c := range d.Channels {
+		if e := c.Say(s); e != nil {
+			err = e
+		}
+	}
+	return err
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {
@@ -398,7 +404,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 			User: chat.User,
 			Cmd:  cmd,
 			Arg:  arg,
-			Resp: c.Say,
+			Resp: c.Responder(c, chat.User.ID, false),
 		}, chat)
 	}
 }

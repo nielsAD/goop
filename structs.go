@@ -51,6 +51,8 @@ func DeleteEqual(dst map[string]interface{}, src map[string]interface{}) {
 func Map(val interface{}) interface{} {
 	var v = reflect.ValueOf(val)
 	switch v.Kind() {
+	case reflect.Interface:
+		fallthrough
 	case reflect.Ptr:
 		if v.IsNil() {
 			return nil
@@ -91,8 +93,139 @@ func Map(val interface{}) interface{} {
 	}
 }
 
+func empty(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		if v.IsNil() {
+			return true
+		}
+		return empty(v.Elem())
+	case reflect.Func:
+		return v.IsNil()
+	case reflect.Invalid:
+		return true
+	}
+	return false
+}
+
+func mergeMap(dst reflect.Value, key reflect.Value, src reflect.Value, overwrite bool) error {
+	if dst.Kind() != reflect.Map {
+		return ErrTypeMismatch
+	}
+
+	if dst.IsNil() {
+		dst.Set(reflect.MakeMap(dst.Type()))
+	}
+
+	var idx = reflect.New(dst.Type().Elem()).Elem()
+	var old = dst.MapIndex(key)
+	if old.IsValid() {
+		if err := Assign(idx, old); err != nil {
+			return err
+		}
+	}
+	if err := merge(idx, src, overwrite); err != nil {
+		return err
+	}
+
+	dst.SetMapIndex(key, idx)
+	return nil
+}
+
+func merge(dst reflect.Value, src reflect.Value, overwrite bool) error {
+	switch src.Kind() {
+	case reflect.Interface:
+		fallthrough
+	case reflect.Ptr:
+		if src.IsNil() {
+			if overwrite {
+				return Assign(dst, src)
+			}
+			return nil
+		}
+		return merge(dst, src.Elem(), overwrite)
+	case reflect.Map:
+		if dst.Kind() == reflect.Ptr && dst.IsNil() {
+			dst.Set(reflect.New(dst.Type().Elem()))
+			return merge(dst.Elem(), src, overwrite)
+		}
+
+		for _, key := range src.MapKeys() {
+			k := find(dst, []string{fmt.Sprintf("%v", key.Interface())})
+
+			if k == nil || !k.CanSet() {
+				if err := mergeMap(dst, key, src.MapIndex(key), overwrite); err != nil {
+					return err
+				}
+				continue
+			}
+
+			if err := merge(*k, src.MapIndex(key), overwrite); err != nil {
+				return err
+			}
+		}
+		return nil
+	case reflect.Struct:
+		if dst.Kind() == reflect.Ptr && dst.IsNil() {
+			dst.Set(reflect.New(dst.Type().Elem()))
+			return merge(dst.Elem(), src, overwrite)
+		}
+
+		for i := 0; i < src.NumField(); i++ {
+			var v = src.Field(i)
+			if empty(v) && !overwrite {
+				continue
+			}
+
+			var f = src.Type().Field(i)
+			if f.Name == "" {
+				continue
+			}
+
+			k := find(dst, []string{f.Name})
+
+			if k == nil && f.Anonymous {
+				k = &dst
+			}
+			if k == nil || !k.CanSet() {
+				if err := mergeMap(dst, reflect.ValueOf(f.Name), v, overwrite); err != nil {
+					return err
+				}
+				continue
+			}
+
+			if err := merge(*k, v, overwrite); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		if empty(dst) || overwrite {
+			return Assign(dst, src)
+		}
+		return nil
+	}
+}
+
+// Merge maps map[string]interface{} back to struct
+func Merge(dst interface{}, src interface{}, overwrite bool) error {
+	return merge(reflect.ValueOf(dst), reflect.ValueOf(src), overwrite)
+}
+
 func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 	switch val.Kind() {
+	case reflect.Interface:
+		fallthrough
 	case reflect.Ptr:
 		if !val.IsNil() {
 			flatMap(prf, val.Elem(), dst)
@@ -155,6 +288,8 @@ func find(val reflect.Value, key []string) *reflect.Value {
 	}
 
 	switch val.Kind() {
+	case reflect.Interface:
+		fallthrough
 	case reflect.Ptr:
 		if val.IsNil() {
 			return nil
@@ -166,7 +301,6 @@ func find(val reflect.Value, key []string) *reflect.Value {
 				return find(val.MapIndex(k), key[1:])
 			}
 		}
-
 	case reflect.Slice, reflect.Array:
 		n, err := strconv.ParseInt(key[0], 10, 64)
 		if err != nil || n < 0 || n >= int64(val.Len()) {

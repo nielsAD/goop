@@ -15,7 +15,7 @@ type Say struct{ Cmd }
 
 // Execute command
 func (c *Say) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
-	return t.Resp(strings.Join(t.Arg, " "))
+	return gw.Say(strings.Join(t.Arg, " "))
 }
 
 // SayPrivate forwards input to user in private
