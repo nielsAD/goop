@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -178,21 +179,50 @@ func checkTriggerPrivateChat(ev *network.Event) {
 func (g *Goop) execTrigger(ev *network.Event) {
 	var t = *ev.Arg.(*gateway.Trigger)
 
-	c, ok := g.Commands[strings.ToLower(t.Cmd)]
+	t.Cmd = strings.ToLower(t.Cmd)
+	if c, ok := g.Commands[strings.ToLower(t.Cmd)]; ok {
+		gw, ok := ev.Opt[0].(gateway.Gateway)
+		if !ok || !c.CanExecute(&t) {
+			return
+		}
+		go func() {
+			if err := c.Execute(&t, gw, g); err != nil {
+				g.Fire(&network.AsyncError{Src: "execTrigger", Err: err})
+			}
+		}()
+		return
+	}
+
+	var s = strings.Split(t.Cmd, gateway.Delimiter)
+	if len(s) < 2 {
+		return
+	}
+
+	t.Cmd = s[len(s)-1]
+	c, ok := g.Commands[t.Cmd]
 	if !ok || !c.CanExecute(&t) {
 		return
 	}
 
-	gw, ok := ev.Opt[0].(gateway.Gateway)
-	if !ok {
-		return
-	}
-
-	go func() {
-		if err := c.Execute(&t, gw, g); err != nil {
-			g.Fire(&network.AsyncError{Src: "execTrigger", Err: err})
+	var p = strings.ToLower(fmt.Sprintf("*%s%s%s*", gateway.Delimiter, strings.Join(s[:len(s)-1], gateway.Delimiter), gateway.Delimiter))
+	for k := range g.Gateways {
+		var gw = g.Gateways[k]
+		if ok, err := filepath.Match(p, gateway.Delimiter+strings.ToLower(k)+gateway.Delimiter); err != nil || !ok {
+			continue
 		}
-	}()
+		if gw.Channel() == nil {
+			continue
+		}
+
+		var trig = t
+		trig.Resp = func(s string) error { return t.Resp(fmt.Sprintf("[%s] %s", gw.Discriminator(), s)) }
+
+		go func() {
+			if err := c.Execute(&trig, gw, g); err != nil {
+				g.Fire(&network.AsyncError{Src: "execTrigger", Err: err})
+			}
+		}()
+	}
 }
 
 func (g *Goop) onChat(ev *network.Event) {

@@ -11,6 +11,12 @@ import (
 	"github.com/nielsAD/goop/goop"
 )
 
+// Messages
+const (
+	MsgNoUserFound   = "No user found with that name"
+	MsgMoreUserFound = "Found more than one user with that name"
+)
+
 // Cmd is command base struct that implements Command.CanExecute
 type Cmd struct {
 	Disabled   bool
@@ -27,6 +33,8 @@ type Commands struct {
 	Trigger    Trigger
 	Say        Say
 	SayPrivate SayPrivate
+	Kick       Kick
+	Ban        Ban
 	Time       Time
 }
 

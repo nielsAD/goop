@@ -114,6 +114,16 @@ func (o *Gateway) SayPrivate(uid string, s string) error {
 	return nil
 }
 
+// Kick user from channel
+func (o *Gateway) Kick(uid string) error {
+	return gateway.ErrNotImplemented
+}
+
+// Ban user from channel
+func (o *Gateway) Ban(uid string) error {
+	return gateway.ErrNotImplemented
+}
+
 // Run reads packets and emits an event for each received packet
 func (o *Gateway) Run(ctx context.Context) error {
 	if !o.Read {

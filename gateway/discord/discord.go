@@ -189,6 +189,16 @@ func (d *Gateway) SayPrivate(uid string, s string) error {
 	return sayPrivate(d.Session, uid, s)
 }
 
+// Kick user from channel
+func (d *Gateway) Kick(uid string) error {
+	return gateway.ErrNoChannel
+}
+
+// Ban user from channel
+func (d *Gateway) Ban(uid string) error {
+	return gateway.ErrNoChannel
+}
+
 // Run reads packets and emits an event for each received packet
 func (d *Gateway) Run(ctx context.Context) error {
 	var err error
@@ -551,6 +561,16 @@ func (c *Channel) Say(s string) error {
 // SayPrivate sends a private chat message to uid
 func (c *Channel) SayPrivate(uid string, s string) error {
 	return sayPrivate(c.session, uid, s)
+}
+
+// Kick user from channel
+func (c *Channel) Kick(uid string) error {
+	return gateway.ErrNotImplemented
+}
+
+// Ban user from channel
+func (c *Channel) Ban(uid string) error {
+	return gateway.ErrNotImplemented
 }
 
 // WebhookOrSay sends a chat message preferably via webhook

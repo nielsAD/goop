@@ -15,10 +15,11 @@ import (
 
 // Errors
 var (
-	ErrUnknownEvent = errors.New("gw: Unknown event")
-	ErrNoChannel    = errors.New("gw: No channel")
-	ErrNoUser       = errors.New("gw: No user")
-	ErrNoPermission = errors.New("gw: No permission")
+	ErrUnknownEvent   = errors.New("gw: Unknown event")
+	ErrNoChannel      = errors.New("gw: No channel")
+	ErrNoUser         = errors.New("gw: No user")
+	ErrNoPermission   = errors.New("gw: No permission")
+	ErrNotImplemented = errors.New("gw: Not implemented")
 )
 
 // Delimiter between main/sub gateway name in ID (i.e. discord:{CHANNELID})
@@ -37,9 +38,9 @@ type Gateway interface {
 	Trigger() string
 	Say(s string) error
 	SayPrivate(uid string, s string) error
+	Kick(uid string) error
+	Ban(uid string) error
 	Responder(gw Gateway, uid string, forcePrivate bool) Responder
-	// Kick(uid string) error
-	// Ban(uid string) error
 	Run(ctx context.Context) error
 	Relay(ev *network.Event, from Gateway) error
 }

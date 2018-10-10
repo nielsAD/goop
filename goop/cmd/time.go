@@ -11,7 +11,7 @@ import (
 	"github.com/nielsAD/goop/goop"
 )
 
-// Time print current time
+// Time prints current time
 type Time struct {
 	Cmd
 	Format string

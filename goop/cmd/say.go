@@ -28,8 +28,12 @@ func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goo
 		return t.Resp("Expected 2 arguments: [user] [message]")
 	}
 	var u = gateway.FindUser(gw, t.Arg[0])
-	if len(u) != 1 {
-		return nil
+	switch len(u) {
+	case 0:
+		return t.Resp(MsgNoUserFound)
+	case 1:
+		return gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " "))
+	default:
+		return t.Resp(MsgMoreUserFound)
 	}
-	return gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " "))
 }

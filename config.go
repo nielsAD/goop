@@ -33,6 +33,7 @@ var DefaultConfig = Config{
 	},
 	Default: gateway.Config{
 		Commands: gateway.TriggerConfig{
+			Access:  gateway.AccessVoice,
 			Trigger: ".",
 		},
 	},
@@ -152,7 +153,6 @@ func (c *Config) Save() error {
 	defer file.Close()
 
 	var m = c.Map()
-
 	var d = DefaultConfig
 	d.MergeDefaults()
 	DeleteEqual(m, d.Map())
