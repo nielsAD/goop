@@ -11,6 +11,7 @@ import (
 
 	bnetc "github.com/nielsAD/gowarcraft3/network/bnet"
 
+	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
 )
@@ -240,23 +241,23 @@ func TestSet(t *testing.T) {
 		t.Fatal("Expected username to be unset")
 	}
 
-	if err := cfg.Set("BnEt/default/ACCESSTALK", 100); err != nil {
+	if err := cfg.Set("BnEt/default/ACCESSTALK", gateway.AccessWhitelist); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessTalk != 100 {
-		t.Fatal("Expected accesstalk to be 100")
+	if cfg.BNet.Default.AccessTalk != gateway.AccessWhitelist {
+		t.Fatal("Expected accesstalk to be wl")
 	}
 
 	cfg.Unset("BnEt/default/ACCESSTALK")
-	if cfg.BNet.Default.AccessTalk != 0 {
+	if cfg.BNet.Default.AccessTalk != gateway.AccessDefault {
 		t.Fatal("Expected accesstalk to be unset")
 	}
 
-	if err := cfg.Set("BNET/default/AccessOperator", 200); err != nil {
+	if err := cfg.Set("BNET/default/AccessOperator", gateway.AccessOperator); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != 200 {
-		t.Fatal("Expected accessoperator to be 200")
+	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
+		t.Fatal("Expected accessoperator to be op")
 	}
 
 	cfg.Unset("BNET/default/AccessOperator")
@@ -264,11 +265,11 @@ func TestSet(t *testing.T) {
 		t.Fatal("Expected accessoperator to be unset")
 	}
 
-	if err := cfg.Set("bnet/default/accessuser/niels", 42); err != nil {
+	if err := cfg.Set("bnet/default/accessuser/niels", gateway.AccessVoice); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessUser["niels"] != 42 {
-		t.Fatal("Expected accessuser[niels] to be 42")
+	if cfg.BNet.Default.AccessUser["niels"] != gateway.AccessVoice {
+		t.Fatal("Expected accessuser[niels] to be v")
 	}
 
 	cfg.Unset("bnet/default/accessuser/niels")
@@ -309,25 +310,25 @@ func TestSetString(t *testing.T) {
 		t.Fatal("Expected username to be foo")
 	}
 
-	if err := cfg.SetString("BnEt/default/ACCESSTALK", "100"); err != nil {
+	if err := cfg.SetString("BnEt/default/ACCESSTALK", "wl"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessTalk != 100 {
-		t.Fatal("Expected accesstalk to be 100")
+	if cfg.BNet.Default.AccessTalk != gateway.AccessWhitelist {
+		t.Fatal("Expected accesstalk to be wl")
 	}
 
-	if err := cfg.SetString("BNET/default/AccessOperator", "200"); err != nil {
+	if err := cfg.SetString("BNET/default/AccessOperator", "op"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != 200 {
-		t.Fatal("Expected accessoperator to be 200")
+	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
+		t.Fatal("Expected accessoperator to be op")
 	}
 
-	if err := cfg.SetString("bnet/default/accessuser/niels", "42"); err != nil {
+	if err := cfg.SetString("bnet/default/accessuser/niels", "v"); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessUser["niels"] != 42 {
-		t.Fatal("Expected accessuser[niels] to be 42")
+	if cfg.BNet.Default.AccessUser["niels"] != gateway.AccessVoice {
+		t.Fatal("Expected accessuser[niels] to be v")
 	}
 
 	cfg.SetString("bnet/default/cdkeys[]", "111")

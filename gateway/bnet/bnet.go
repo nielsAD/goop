@@ -33,11 +33,14 @@ type Config struct {
 	bnet.Config
 }
 
+// Duration wrapper with TextMarshaler/TextUnmarshaler support
+type Duration time.Duration
+
 // GatewayConfig stores the config additions of bnet.Gateway over bnet.Client
 type GatewayConfig struct {
 	gateway.Config
 
-	ReconnectDelay   time.Duration
+	ReconnectDelay   Duration
 	HomeChannel      string
 	BufSize          uint8
 	AvatarIconURL    string
@@ -186,7 +189,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 		b.Client.Close()
 	}()
 
-	var backoff = b.ReconnectDelay
+	var backoff = time.Duration(b.ReconnectDelay)
 	for ctx.Err() == nil {
 		if backoff < 10*time.Second {
 			backoff = 10 * time.Second
@@ -229,7 +232,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 			b.say("/join " + channel)
 		}
 
-		backoff = b.ReconnectDelay
+		backoff = time.Duration(b.ReconnectDelay)
 		if err := b.Client.Run(); err != nil && ctx.Err() == nil {
 			b.Fire(&network.AsyncError{Src: "Run[Client]", Err: err})
 		}
@@ -282,7 +285,7 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 		}
 	}
 
-	if b.AccessOperator != nil && u.Operator() && *b.AccessOperator > res.Access {
+	if b.AccessOperator != nil && u.Operator() && !res.Access.HasAccess(*b.AccessOperator) {
 		res.Access = *b.AccessOperator
 	}
 
@@ -372,7 +375,7 @@ func (b *Gateway) onChat(ev *network.Event) {
 
 	b.Fire(&chat)
 
-	if chat.User.Access < b.Commands.Access {
+	if !chat.User.HasAccess(b.Commands.Access) {
 		return
 	}
 
@@ -413,7 +416,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 
 	b.Fire(&chat)
 
-	if chat.User.Access < b.Commands.Access {
+	if !chat.User.HasAccess(b.Commands.Access) {
 		return
 	}
 
@@ -477,4 +480,18 @@ func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	default:
 		return gateway.ErrUnknownEvent
 	}
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler
+func (d *Duration) UnmarshalText(text []byte) error {
+	duration, err := time.ParseDuration(string(text))
+	if err == nil {
+		*d = Duration(duration)
+	}
+	return err
+}
+
+// MarshalText implements encoding.TextMarshaler
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(time.Duration(d).String()), nil
 }

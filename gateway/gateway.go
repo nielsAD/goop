@@ -16,6 +16,7 @@ import (
 // Errors
 var (
 	ErrUnknownEvent   = errors.New("gw: Unknown event")
+	ErrUnknownAccess  = errors.New("gw: Unknown access level")
 	ErrNoChannel      = errors.New("gw: No channel")
 	ErrNoUser         = errors.New("gw: No user")
 	ErrNoPermission   = errors.New("gw: No permission")
@@ -51,6 +52,11 @@ type User struct {
 	Name      string
 	Access    AccessLevel
 	AvatarURL string
+}
+
+// HasAccess to o
+func (u *User) HasAccess(o AccessLevel) bool {
+	return u.Access.HasAccess(o)
 }
 
 // Channel struct

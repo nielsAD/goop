@@ -28,7 +28,7 @@ type Cmd struct {
 
 // CanExecute returns true if t.Access >= c.Access
 func (c *Cmd) CanExecute(t *gateway.Trigger) bool {
-	return !c.Disabled && t.User.Access >= c.Priviledge
+	return !c.Disabled && t.User.HasAccess(c.Priviledge)
 }
 
 // Commands listing

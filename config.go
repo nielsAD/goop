@@ -28,9 +28,19 @@ var DefaultConfig = Config{
 	},
 	Commands: cmd.Commands{
 		Settings: cmd.Settings{
-			Cmd: cmd.Cmd{
-				Priviledge: gateway.AccessOwner,
-			},
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+		},
+		Say: cmd.Say{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+		},
+		SayPrivate: cmd.SayPrivate{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+		},
+		Kick: cmd.Kick{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+		},
+		Ban: cmd.Ban{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
 		},
 		Time: cmd.Time{
 			Format: "15:04:05",
@@ -50,7 +60,7 @@ var DefaultConfig = Config{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
 				BufSize:        16,
-				ReconnectDelay: 30 * time.Second,
+				ReconnectDelay: bnet.Duration(30 * time.Second),
 				AccessWhisper:  gateway.AccessIgnore,
 				AccessTalk:     gateway.AccessVoice,
 			},
@@ -133,14 +143,27 @@ type RelayToConfig struct {
 	From    map[string]*goop.RelayConfig
 }
 
+// Decode configuration file
+func Decode(v interface{}, files ...string) ([]string, error) {
+	var m = make(map[string]interface{})
+	var u = make([]string, 0)
+	for _, f := range files {
+		if _, err := toml.DecodeFile(f, &m); err != nil {
+			return nil, err
+		}
+		undec, err := Merge(v, m, true)
+		if err != nil {
+			return nil, err
+		}
+		u = append(u, undec...)
+	}
+	return u, nil
+}
+
 // LoadConfig from DefaultConfig.Config file
 func LoadConfig() (*Config, error) {
 	var conf = DefaultConfig
-	var tmp = make(map[string]interface{})
-	if _, err := toml.DecodeFile(DefaultConfig.Config, &tmp); err != nil && !os.IsNotExist(err) {
-		return nil, err
-	}
-	if err := Merge(&conf, tmp, true); err != nil {
+	if _, err := Decode(&conf, DefaultConfig.Config); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	if err := conf.MergeDefaults(); err != nil {
@@ -185,31 +208,31 @@ func (c *Config) GetRelay(to, from string) *goop.RelayConfig {
 
 // MergeDefaults applies default configuration for unset fields
 func (c *Config) MergeDefaults() error {
-	if err := Merge(&c.StdIO.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.StdIO.Config, c.Default, false); err != nil {
 		return err
 	}
-	if err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, false); err != nil {
 		return err
 	}
-	if err := Merge(&c.Discord.Default.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.Discord.Default.Config, c.Default, false); err != nil {
 		return err
 	}
-	if err := Merge(&c.Discord.ChannelDefault.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.Discord.ChannelDefault.Config, c.Default, false); err != nil {
 		return err
 	}
 
 	for _, r := range c.BNet.Gateways {
-		if err := Merge(r, c.BNet.Default, false); err != nil {
+		if _, err := Merge(r, c.BNet.Default, false); err != nil {
 			return err
 		}
 	}
 
 	for _, g := range c.Discord.Gateways {
-		if err := Merge(g, c.Discord.Default, false); err != nil {
+		if _, err := Merge(g, c.Discord.Default, false); err != nil {
 			return err
 		}
 		for _, n := range g.Channels {
-			if err := Merge(n, c.Discord.ChannelDefault, false); err != nil {
+			if _, err := Merge(n, c.Discord.ChannelDefault, false); err != nil {
 				return err
 			}
 		}

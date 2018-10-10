@@ -21,7 +21,8 @@ import (
 
 // Errors
 var (
-	ErrSayBufferFull = errors.New("gw-discord: Say buffer full")
+	ErrSayBufferFull   = errors.New("gw-discord: Say buffer full")
+	ErrInvalidJoinMode = errors.New("gw-discord: Invalid join mode")
 )
 
 // RelayJoinMode enum
@@ -372,7 +373,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 			d.Fire(&chat)
 
-			if chat.User.Access >= d.Commands.Access {
+			if chat.User.HasAccess(d.Commands.Access) {
 				if r, cmd, arg := d.FindTrigger(msg.Message.Content); r {
 					d.Fire(&gateway.Trigger{
 						User: chat.User,
@@ -403,7 +404,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 	c.Fire(&chat)
 
-	if chat.User.Access < c.Commands.Access {
+	if !chat.User.HasAccess(c.Commands.Access) {
 		return
 	}
 
@@ -607,7 +608,7 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 }
 
 func (c *Channel) filter(s string, r gateway.AccessLevel) string {
-	if r < c.AccessMentions {
+	if !r.HasAccess(c.AccessMentions) {
 		s = strings.Replace(s, "@", "@\u200B", -1)
 	}
 	return s
@@ -772,7 +773,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 		})
 	case *gateway.Say:
 		var p = &discordgo.WebhookParams{
-			Content:  c.filter(msg.Content, 0),
+			Content:  c.filter(msg.Content, gateway.AccessDefault),
 			Username: from.Discriminator(),
 		}
 		if c.session != nil {
@@ -783,4 +784,48 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 	default:
 		return gateway.ErrUnknownEvent
 	}
+}
+
+func (r RelayJoinMode) String() string {
+	var res string
+	if r&RelayJoinsSay != 0 {
+		res += "|Say"
+		r &= ^RelayJoinsSay
+	}
+	if r&RelayJoinsList != 0 {
+		res += "|List"
+		r &= ^RelayJoinsList
+	}
+	if r != 0 {
+		res += fmt.Sprintf("|RelayJoinMode(0x%02X)", uint32(r))
+	}
+	if res != "" {
+		res = res[1:]
+	}
+	return res
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler
+func (r *RelayJoinMode) UnmarshalText(text []byte) error {
+	var s = strings.Split(strings.ToLower(string(text)), "|")
+	var t RelayJoinMode
+
+	for _, v := range s {
+		switch v {
+		case "say":
+			t |= RelayJoinsSay
+		case "list":
+			t |= RelayJoinsList
+		default:
+			return ErrInvalidJoinMode
+		}
+	}
+
+	*r = t
+	return nil
+}
+
+// MarshalText implements encoding.TextMarshaler
+func (r RelayJoinMode) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
 }

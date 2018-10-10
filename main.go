@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/nielsAD/goop/goop"
@@ -92,15 +93,12 @@ func New(conf *Config) (*goop.Goop, error) {
 func main() {
 	flag.Parse()
 
-	for _, f := range flag.Args() {
-		md, err := toml.DecodeFile(f, &DefaultConfig)
-		if err != nil {
-			logErr.Fatalf("Error reading default configuration (%v): %v\n", f, err)
-		}
-		uk := md.Undecoded()
-		if len(uk) > 0 {
-			logErr.Printf("Undecoded configuration keys in %v: %v\n", f, uk)
-		}
+	undecoded, err := Decode(&DefaultConfig, flag.Args()...)
+	if err != nil {
+		logErr.Fatalf("Error reading default configuration: %v\n", err)
+	}
+	if len(undecoded) > 0 {
+		logErr.Printf("Undecoded configuration keys: [%s]\n", strings.Join(undecoded, ", "))
 	}
 
 	conf, err := LoadConfig()
