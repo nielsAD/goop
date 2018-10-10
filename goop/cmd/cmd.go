@@ -5,14 +5,11 @@
 package cmd
 
 import (
-	"github.com/nielsAD/goop/gateway"
-)
+	"reflect"
 
-// Command interface
-type Command interface {
-	CanExecute(t *gateway.Trigger) bool
-	Execute(t *gateway.Trigger, gw gateway.Gateway) error
-}
+	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/goop"
+)
 
 // Cmd is command base struct that implements Command.CanExecute
 type Cmd struct {
@@ -31,4 +28,16 @@ type Commands struct {
 	Say        Say
 	SayPrivate SayPrivate
 	Time       Time
+}
+
+// AddTo goop
+func (c *Commands) AddTo(g *goop.Goop) error {
+	var v = reflect.ValueOf(c).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		var f = v.Type().Field(i)
+		if err := g.AddCommand(f.Name, v.Field(i).Addr().Interface().(goop.Command)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

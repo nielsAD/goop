@@ -2,116 +2,77 @@
 // Project: goop (https://github.com/nielsAD/goop)
 // License: Mozilla Public License, v2.0
 
-package main
+package goop
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
-	"github.com/nielsAD/goop/cmd"
-
 	"github.com/nielsAD/goop/gateway"
-	"github.com/nielsAD/goop/gateway/bnet"
-	"github.com/nielsAD/goop/gateway/discord"
-	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
 // Errors
 var (
-	ErrUnkownGateway    = errors.New("goop: Unknown gateway")
 	ErrDuplicateGateway = errors.New("goop: Duplicate gateway")
+	ErrDuplicateCommand = errors.New("goop: Duplicate command")
 )
+
+// Config interface
+type Config interface {
+	GetRelay(to, from string) *RelayConfig
+
+	Map() map[string]interface{}
+	FlatMap() map[string]interface{}
+	Get(key string) (interface{}, error)
+	Set(key string, val interface{}) error
+	Unset(key string) (err error)
+	GetString(key string) (string, error)
+	SetString(key string, val string) error
+}
 
 // Goop main
 type Goop struct {
 	network.EventEmitter
 
 	// Read-only
+	Commands map[string]Command
 	Gateways map[string]gateway.Gateway
 	Relay    map[string]map[string]*Relay
 	Config   Config
 }
 
+// Command interface
+type Command interface {
+	CanExecute(t *gateway.Trigger) bool
+	Execute(t *gateway.Trigger, gw gateway.Gateway, g *Goop) error
+}
+
 // New initializes a Goop struct
-func New(conf *Config) (*Goop, error) {
-	var res = Goop{
-		Config:   *conf,
-		Relay:    map[string]map[string]*Relay{},
+func New(conf Config) *Goop {
+	var res = &Goop{
+		Commands: map[string]Command{},
 		Gateways: map[string]gateway.Gateway{},
-	}
-
-	if err := res.add("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
-		return nil, err
-	}
-
-	for k, g := range res.Config.BNet.Gateways {
-		gw, err := bnet.New(g)
-		if err != nil {
-			return nil, err
-		}
-
-		k = "bnet" + gateway.Delimiter + k
-		res.add(k, gw)
-	}
-
-	for k, g := range res.Config.Discord.Gateways {
-		gw, err := discord.New(g)
-		if err != nil {
-			return nil, err
-		}
-
-		k = "discord" + gateway.Delimiter + k
-		res.add(k, gw)
-
-		for cid, c := range gw.Channels {
-			res.add(k+gateway.Delimiter+cid, c)
-		}
-	}
-
-	for g1, r := range res.Config.Relay.To {
-		if res.Gateways[g1] == nil {
-			return nil, ErrUnkownGateway
-		}
-		for g2 := range r.From {
-			if res.Gateways[g2] == nil {
-				return nil, ErrUnkownGateway
-			}
-		}
+		Relay:    map[string]map[string]*Relay{},
+		Config:   conf,
 	}
 
 	res.InitDefaultHandlers()
 
-	return &res, nil
+	return res
 }
 
-func (g *Goop) newRelay(to, from string) *Relay {
-	if g.Config.Relay.To[to] == nil {
-		g.Config.Relay.To[to] = &RelayToConfig{
-			Default: g.Config.Relay.Default,
-		}
-	}
-	if g.Config.Relay.To[to].From == nil {
-		g.Config.Relay.To[to].From = make(map[string]*RelayConfig)
-	}
-	if g.Config.Relay.To[to].From[from] == nil {
-		var cfg = g.Config.Relay.To[to].Default
-		g.Config.Relay.To[to].From[from] = &cfg
-	}
-	return NewRelay(g.Gateways[from], g.Gateways[to], g.Config.Relay.To[to].From[from])
-}
-
-func (g *Goop) add(id string, gw gateway.Gateway) error {
+// AddGateway to goop
+func (g *Goop) AddGateway(id string, gw gateway.Gateway) error {
 	if g.Gateways[id] != nil {
 		return ErrDuplicateGateway
 	}
 
 	gw.SetID(id)
+
 	g.Gateways[id] = gw
 	g.Relay[id] = make(map[string]*Relay)
 
@@ -125,8 +86,8 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 			continue
 		}
 
-		g.Relay[id][wid] = g.newRelay(id, wid)
-		g.Relay[wid][id] = g.newRelay(wid, id)
+		g.Relay[id][wid] = NewRelay(g.Gateways[wid], g.Gateways[id], g.Config.GetRelay(id, wid))
+		g.Relay[wid][id] = NewRelay(g.Gateways[id], g.Gateways[wid], g.Config.GetRelay(wid, id))
 	}
 
 	gw.On(nil, func(ev *network.Event) {
@@ -139,6 +100,17 @@ func (g *Goop) add(id string, gw gateway.Gateway) error {
 		}
 	})
 
+	return nil
+}
+
+// AddCommand to goop
+func (g *Goop) AddCommand(name string, c Command) error {
+	name = strings.ToLower(name)
+	if g.Commands[name] != nil {
+		return ErrDuplicateCommand
+	}
+
+	g.Commands[name] = c
 	return nil
 }
 
@@ -206,19 +178,18 @@ func checkTriggerPrivateChat(ev *network.Event) {
 func (g *Goop) execTrigger(ev *network.Event) {
 	var t = *ev.Arg.(*gateway.Trigger)
 
-	var v = Find(&g.Config.Commands, t.Cmd)
-	if v == nil {
-		return
-	}
-
-	var c, ok = v.Addr().Interface().(cmd.Command)
+	c, ok := g.Commands[strings.ToLower(t.Cmd)]
 	if !ok || !c.CanExecute(&t) {
 		return
 	}
 
-	var gw = ev.Opt[0].(gateway.Gateway)
+	gw, ok := ev.Opt[0].(gateway.Gateway)
+	if !ok {
+		return
+	}
+
 	go func() {
-		if err := c.Execute(&t, gw); err != nil {
+		if err := c.Execute(&t, gw, g); err != nil {
 			g.Fire(&network.AsyncError{Src: "execTrigger", Err: err})
 		}
 	}()

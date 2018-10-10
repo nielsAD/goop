@@ -12,11 +12,12 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/nielsAD/goop/cmd"
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
+	"github.com/nielsAD/goop/goop"
+	"github.com/nielsAD/goop/goop/cmd"
 )
 
 // DefaultConfig values used as fallback
@@ -61,13 +62,13 @@ var DefaultConfig = Config{
 		},
 	},
 	Relay: RelayConfigWithDefault{
-		Default: RelayConfig{
+		Default: goop.RelayConfig{
 			Chat:       true,
 			ChatAccess: gateway.AccessVoice,
 		},
 		To: map[string]*RelayToConfig{
 			"std" + gateway.Delimiter + "io": &RelayToConfig{
-				Default: RelayConfig{
+				Default: goop.RelayConfig{
 					Log:         true,
 					System:      true,
 					Channel:     true,
@@ -116,14 +117,14 @@ type DiscordConfigWithDefault struct {
 
 // RelayConfigWithDefault struct maps the layout of the Relay configuration section
 type RelayConfigWithDefault struct {
-	Default RelayConfig
+	Default goop.RelayConfig
 	To      map[string]*RelayToConfig
 }
 
 // RelayToConfig struct maps the layout of the inner part of the Relay matrix
 type RelayToConfig struct {
-	Default RelayConfig
-	From    map[string]*RelayConfig
+	Default goop.RelayConfig
+	From    map[string]*goop.RelayConfig
 }
 
 // LoadConfig from DefaultConfig.Config file
@@ -158,6 +159,23 @@ func (c *Config) Save() error {
 
 	fmt.Fprintf(file, "# Generated at %v\n", time.Now().Format(time.RFC1123))
 	return toml.NewEncoder(file).Encode(m)
+}
+
+// GetRelay config between to and from
+func (c *Config) GetRelay(to, from string) *goop.RelayConfig {
+	if c.Relay.To[to] == nil {
+		c.Relay.To[to] = &RelayToConfig{
+			Default: c.Relay.Default,
+		}
+	}
+	if c.Relay.To[to].From == nil {
+		c.Relay.To[to].From = make(map[string]*goop.RelayConfig)
+	}
+	if c.Relay.To[to].From[from] == nil {
+		var cfg = c.Relay.To[to].Default
+		c.Relay.To[to].From[from] = &cfg
+	}
+	return c.Relay.To[to].From[from]
 }
 
 // MergeDefaults applies default configuration for unset fields

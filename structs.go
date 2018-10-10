@@ -74,9 +74,6 @@ func Map(val interface{}) interface{} {
 		var m = make(map[string]interface{})
 		for i := 0; i < v.NumField(); i++ {
 			var f = v.Type().Field(i)
-			if f.Name == "" {
-				continue
-			}
 
 			var x = Map(v.Field(i).Interface())
 			if xx, ok := x.(map[string]interface{}); f.Anonymous && ok {
@@ -164,9 +161,10 @@ func merge(dst reflect.Value, src reflect.Value, overwrite bool) error {
 			k := find(dst, []string{fmt.Sprintf("%v", key.Interface())})
 
 			if k == nil || !k.CanSet() {
-				if err := mergeMap(dst, key, src.MapIndex(key), overwrite); err != nil {
-					return err
-				}
+
+				// Ignore error if key doesn't exist in dst
+				mergeMap(dst, key, src.MapIndex(key), overwrite)
+
 				continue
 			}
 
@@ -188,11 +186,7 @@ func merge(dst reflect.Value, src reflect.Value, overwrite bool) error {
 			}
 
 			var f = src.Type().Field(i)
-			if f.Name == "" {
-				continue
-			}
-
-			k := find(dst, []string{f.Name})
+			var k = find(dst, []string{f.Name})
 
 			if k == nil && f.Anonymous {
 				k = &dst
@@ -258,9 +252,6 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 	case reflect.Struct:
 		for i := 0; i < val.NumField(); i++ {
 			var f = val.Type().Field(i)
-			if f.Name == "" {
-				continue
-			}
 
 			var pre = f.Name
 			if f.Anonymous {

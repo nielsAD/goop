@@ -6,12 +6,13 @@ package cmd
 
 import (
 	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/goop"
 )
 
 // Trigger outputs the command trigger for gateway
 type Trigger struct{ Cmd }
 
 // Execute command
-func (c *Trigger) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
+func (c *Trigger) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	return t.Resp(gw.Trigger())
 }

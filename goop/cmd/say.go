@@ -8,13 +8,14 @@ import (
 	"strings"
 
 	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/goop"
 )
 
 // Say echoes input
 type Say struct{ Cmd }
 
 // Execute command
-func (c *Say) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
+func (c *Say) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	return gw.Say(strings.Join(t.Arg, " "))
 }
 
@@ -22,7 +23,7 @@ func (c *Say) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
 type SayPrivate struct{ Cmd }
 
 // Execute command
-func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
+func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	if len(t.Arg) < 2 {
 		return t.Resp("Expected 2 arguments: [user] [message]")
 	}

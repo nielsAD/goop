@@ -24,6 +24,7 @@ import (
 // Errors
 var (
 	ErrSayBufferFull = errors.New("gw-bnet: Say buffer full")
+	ErrSayCommand    = errors.New("gw-bnet: Say prevented execution of command")
 )
 
 // Config stores the configuration of a single BNet server
@@ -147,6 +148,9 @@ func (b *Gateway) say(s string) error {
 
 // Say sends a chat message
 func (b *Gateway) Say(s string) error {
+	if strings.HasPrefix(s, "/") {
+		return ErrSayCommand
+	}
 	if err := b.say(s); err != nil {
 		return err
 	}

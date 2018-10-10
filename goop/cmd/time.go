@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/goop"
 )
 
 // Time print current time
@@ -17,6 +18,6 @@ type Time struct {
 }
 
 // Execute command
-func (c *Time) Execute(t *gateway.Trigger, gw gateway.Gateway) error {
+func (c *Time) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	return t.Resp(time.Now().Format(c.Format))
 }

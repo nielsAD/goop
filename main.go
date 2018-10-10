@@ -6,16 +6,24 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/nielsAD/goop/goop"
+
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/color"
 
+	"github.com/nielsAD/goop/gateway"
+	"github.com/nielsAD/goop/gateway/bnet"
+	"github.com/nielsAD/goop/gateway/discord"
+	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
@@ -25,6 +33,61 @@ var (
 
 var logOut = log.New(color.Output, "", 0)
 var logErr = log.New(color.Error, "", 0)
+
+// New initializes a Goop struct
+func New(conf *Config) (*goop.Goop, error) {
+	var res = goop.New(conf)
+
+	if err := conf.Commands.AddTo(res); err != nil {
+		return nil, err
+	}
+
+	if err := res.AddGateway("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
+		return nil, err
+	}
+
+	for k, g := range conf.BNet.Gateways {
+		gw, err := bnet.New(g)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := res.AddGateway("bnet"+gateway.Delimiter+k, gw); err != nil {
+			return nil, err
+		}
+	}
+
+	for k, g := range conf.Discord.Gateways {
+		gw, err := discord.New(g)
+		if err != nil {
+			return nil, err
+		}
+
+		k = "discord" + gateway.Delimiter + k
+		if err := res.AddGateway(k, gw); err != nil {
+			return nil, err
+		}
+
+		for cid, c := range gw.Channels {
+			if err := res.AddGateway(k+gateway.Delimiter+cid, c); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	for g1, r := range conf.Relay.To {
+		if res.Gateways[g1] == nil {
+			return nil, fmt.Errorf("Unused relay configuration for %s", g1)
+		}
+		for g2 := range r.From {
+			if res.Gateways[g2] == nil {
+				return nil, fmt.Errorf("Unused relay configuration for %s.%s", g1, g2)
+			}
+		}
+	}
+
+	return res, nil
+}
 
 func main() {
 	flag.Parse()
