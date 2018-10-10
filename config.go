@@ -27,6 +27,11 @@ var DefaultConfig = Config{
 		Time: true,
 	},
 	Commands: cmd.Commands{
+		Settings: cmd.Settings{
+			Cmd: cmd.Cmd{
+				Priviledge: gateway.AccessOwner,
+			},
+		},
 		Time: cmd.Time{
 			Format: "15:04:05",
 		},

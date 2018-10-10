@@ -9,7 +9,6 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -77,11 +76,12 @@ func New(conf *Config) (*goop.Goop, error) {
 
 	for g1, r := range conf.Relay.To {
 		if res.Gateways[g1] == nil {
-			return nil, fmt.Errorf("Unused relay configuration for %s", g1)
+			logErr.Println(color.RedString("[ERROR] Unused relay configuration '%s'", g1))
+			continue
 		}
 		for g2 := range r.From {
 			if res.Gateways[g2] == nil {
-				return nil, fmt.Errorf("Unused relay configuration for %s.%s", g1, g2)
+				logErr.Println(color.RedString("[ERROR]Unused relay configuration '%s.%s'", g1, g2))
 			}
 		}
 	}

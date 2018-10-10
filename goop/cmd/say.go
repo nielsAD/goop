@@ -30,7 +30,8 @@ func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goo
 	var u = gateway.FindUser(gw, t.Arg[0])
 	switch len(u) {
 	case 0:
-		return t.Resp(MsgNoUserFound)
+		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
+		fallthrough
 	case 1:
 		return gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " "))
 	default:

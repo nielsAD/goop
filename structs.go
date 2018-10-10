@@ -221,10 +221,11 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 	case reflect.Interface:
 		fallthrough
 	case reflect.Ptr:
-		if !val.IsNil() {
+		if val.IsNil() {
+			dst[strings.ToLower(prf)] = val.Interface()
+		} else {
 			flatMap(prf, val.Elem(), dst)
 		}
-		dst[strings.ToLower(prf)] = val.Interface()
 	case reflect.Map:
 		dst[strings.ToLower(prf)] = val
 		for _, key := range val.MapKeys() {
