@@ -175,8 +175,6 @@ func (d *Gateway) Say(s string) error {
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {
-	uid = strings.TrimSuffix(strings.TrimPrefix(uid, "<@"), ">")
-
 	ch, err := d.UserChannelCreate(uid)
 	if err != nil {
 		return err
@@ -436,7 +434,7 @@ func (c *Channel) Users() []gateway.User {
 	}
 
 	g, err := c.session.State.Guild(ch.GuildID)
-	if err == nil {
+	if err != nil {
 		return nil
 	}
 

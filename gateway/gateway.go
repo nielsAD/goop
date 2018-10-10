@@ -7,6 +7,7 @@ package gateway
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 
 	"github.com/nielsAD/gowarcraft3/network"
@@ -124,4 +125,23 @@ func FindTrigger(t, s string) (bool, string, []string) {
 // FindTrigger checks if s starts with trigger, returns cmd and args if true
 func (c *Config) FindTrigger(s string) (bool, string, []string) {
 	return FindTrigger(c.Commands.Trigger, s)
+}
+
+// FindUser finds user(s) by pattern
+func FindUser(gw Gateway, pat string) []*User {
+	if u, err := gw.User(pat); err == nil {
+		return []*User{u}
+	}
+	pat = strings.ToLower(pat)
+
+	var res = make([]*User, 0)
+
+	var users = gw.Users()
+	for i := range users {
+		if m, err := filepath.Match(pat, strings.ToLower(users[i].Name)); err == nil && m {
+			res = append(res, &users[i])
+		}
+	}
+
+	return res
 }
