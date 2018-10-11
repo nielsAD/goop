@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,8 +22,7 @@ import (
 
 // Errors
 var (
-	ErrSayBufferFull   = errors.New("gw-discord: Say buffer full")
-	ErrInvalidJoinMode = errors.New("gw-discord: Invalid join mode")
+	ErrSayBufferFull = errors.New("gw-discord: Say buffer full")
 )
 
 // RelayJoinMode enum
@@ -179,6 +179,9 @@ func sayPrivate(d *discordgo.Session, uid string, s string) error {
 	ch, err := d.UserChannelCreate(uid)
 	if err != nil {
 		return err
+	}
+	if len(s) > 2000 {
+		s = s[:1997] + "..."
 	}
 
 	_, err = d.ChannelMessageSend(ch.ID, s)
@@ -533,6 +536,9 @@ func (c *Channel) say(s string) error {
 
 		go func() {
 			for s := range c.saych {
+				if len(s) > 2000 {
+					s = s[:1997] + "..."
+				}
 				_, err := c.session.ChannelMessageSend(c.id, s)
 				if err != nil {
 					c.Fire(&network.AsyncError{Src: "Say", Err: err})
@@ -789,15 +795,15 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 func (r RelayJoinMode) String() string {
 	var res string
 	if r&RelayJoinsSay != 0 {
-		res += "|Say"
+		res += "|say"
 		r &= ^RelayJoinsSay
 	}
 	if r&RelayJoinsList != 0 {
-		res += "|List"
+		res += "|list"
 		r &= ^RelayJoinsList
 	}
 	if r != 0 {
-		res += fmt.Sprintf("|RelayJoinMode(0x%02X)", uint32(r))
+		res += fmt.Sprintf("|0x%02X", uint32(r))
 	}
 	if res != "" {
 		res = res[1:]
@@ -817,7 +823,11 @@ func (r *RelayJoinMode) UnmarshalText(text []byte) error {
 		case "list":
 			t |= RelayJoinsList
 		default:
-			return ErrInvalidJoinMode
+			v, err := strconv.ParseInt(v, 0, 32)
+			if err != nil {
+				return err
+			}
+			t |= RelayJoinMode(v)
 		}
 	}
 

@@ -320,7 +320,7 @@ func find(val reflect.Value, key []string) *reflect.Value {
 			}
 		}
 	case reflect.Slice, reflect.Array:
-		n, err := strconv.ParseInt(key[0], 10, 64)
+		n, err := strconv.ParseInt(key[0], 0, 64)
 		if err != nil || n < 0 || n >= int64(val.Len()) {
 			return nil
 		}
@@ -404,7 +404,7 @@ func AssignString(dst reflect.Value, src string) error {
 		dst.SetBool(b)
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(src, 10, 64)
+		n, err := strconv.ParseInt(src, 0, 64)
 		if err != nil {
 			return err
 		}

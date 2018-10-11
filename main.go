@@ -101,7 +101,7 @@ func main() {
 		logErr.Printf("Undecoded configuration keys: [%s]\n", strings.Join(undecoded, ", "))
 	}
 
-	conf, err := LoadConfig()
+	conf, err := Load()
 	if err != nil {
 		logErr.Fatal("Error reading persistent configuration: ", err)
 	}

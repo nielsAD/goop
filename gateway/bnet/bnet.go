@@ -482,6 +482,10 @@ func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	}
 }
 
+func (d Duration) String() string {
+	return time.Duration(d).String()
+}
+
 // UnmarshalText implements encoding.TextUnmarshaler
 func (d *Duration) UnmarshalText(text []byte) error {
 	duration, err := time.ParseDuration(string(text))
@@ -493,5 +497,5 @@ func (d *Duration) UnmarshalText(text []byte) error {
 
 // MarshalText implements encoding.TextMarshaler
 func (d Duration) MarshalText() ([]byte, error) {
-	return []byte(time.Duration(d).String()), nil
+	return []byte(d.String()), nil
 }

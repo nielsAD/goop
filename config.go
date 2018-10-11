@@ -160,10 +160,13 @@ func Decode(v interface{}, files ...string) ([]string, error) {
 	return u, nil
 }
 
-// LoadConfig from DefaultConfig.Config file
-func LoadConfig() (*Config, error) {
-	var conf = DefaultConfig
-	if _, err := Decode(&conf, DefaultConfig.Config); err != nil && !os.IsNotExist(err) {
+// Load from DefaultConfig.Config file
+func Load() (*Config, error) {
+	var conf Config
+	if _, err := Merge(&conf, DefaultConfig, true); err != nil {
+		return nil, err
+	}
+	if _, err := Decode(&conf, conf.Config); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	if err := conf.MergeDefaults(); err != nil {

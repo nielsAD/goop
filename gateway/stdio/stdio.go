@@ -110,7 +110,7 @@ func (o *Gateway) SayPrivate(uid string, s string) error {
 		return gateway.ErrNoChannel
 	}
 
-	o.Out.Printf("[%s][SAYP] %s\n", o.ID(), s)
+	o.Out.Println(color.GreenString("[%s][SAYP] %s", o.ID(), s))
 	return nil
 }
 

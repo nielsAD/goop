@@ -94,7 +94,7 @@ func (l *AccessLevel) UnmarshalText(text []byte) error {
 	}
 
 	if mod != "" {
-		v, err := strconv.ParseInt(string(mod), 10, 32)
+		v, err := strconv.ParseInt(string(mod), 0, 32)
 		if err != nil {
 			return err
 		}
