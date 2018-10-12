@@ -5,6 +5,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"reflect"
@@ -108,6 +110,7 @@ var DefaultConfig = Config{
 
 // Config struct maps the layout of main configuration file
 type Config struct {
+	Hash     string
 	Config   string
 	Log      LogConfig
 	Commands cmd.Commands
@@ -185,12 +188,6 @@ func Load() (*Config, error) {
 
 // Save configuration to DefaultConfig.Config file
 func (c *Config) Save() error {
-	file, err := os.Create(DefaultConfig.Config)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
 	def, err := DefaultConfig.Copy()
 	if err != nil {
 		return err
@@ -201,6 +198,21 @@ func (c *Config) Save() error {
 
 	m := c.Map()
 	DeleteEqual(m, def.Map())
+
+	delete(m, "Hash")
+	var sha = sha256.Sum256([]byte(fmt.Sprintf("%+v", m)))
+	var str = base64.StdEncoding.EncodeToString(sha[:])
+	if c.Hash == str {
+		return nil
+	}
+	c.Hash = str
+	m["Hash"] = str
+
+	file, err := os.Create(DefaultConfig.Config)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
 	fmt.Fprintf(file, "# Generated at %v\n", time.Now().Format(time.RFC1123))
 	return toml.NewEncoder(file).Encode(m)

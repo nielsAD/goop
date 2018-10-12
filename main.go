@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/nielsAD/goop/goop"
 
@@ -152,10 +153,23 @@ func main() {
 		cancel()
 	}()
 
+	var done = make(chan struct{})
+	go func() {
+		for ctx.Err() == nil {
+			select {
+			case <-time.After(time.Minute * 3):
+			case <-ctx.Done():
+			}
+			if err := conf.Save(); err != nil {
+				logErr.Println(color.RedString("[ERROR][CONFIG] %s", err.Error()))
+			}
+		}
+		done <- struct{}{}
+	}()
+
 	logOut.Println(color.MagentaString("Starting goop.."))
 	g.Run(ctx)
+	cancel()
 
-	if err := conf.Save(); err != nil {
-		logErr.Println(color.RedString("[ERROR][CONFIG] %s", err.Error()))
-	}
+	<-done
 }
