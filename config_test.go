@@ -295,7 +295,7 @@ func TestSet(t *testing.T) {
 	}
 
 	cfg.Unset("bnet/default/cdkeys")
-	if cfg.BNet.Default.CDKeys != nil {
+	if len(cfg.BNet.Default.CDKeys) != 0 {
 		t.Fatal("Expected cdkeys to be unset")
 	}
 }
@@ -310,21 +310,21 @@ func TestSetString(t *testing.T) {
 		t.Fatal("Expected username to be foo")
 	}
 
-	if err := cfg.SetString("BnEt/default/ACCESSTALK", "wl"); err != nil {
+	if err := cfg.SetString("BnEt/default/ACCESSTALK", gateway.AccessWhitelist.String()); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessTalk != gateway.AccessWhitelist {
 		t.Fatal("Expected accesstalk to be wl")
 	}
 
-	if err := cfg.SetString("BNET/default/AccessOperator", "op"); err != nil {
+	if err := cfg.SetString("BNET/default/AccessOperator", gateway.AccessOperator.String()); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
 		t.Fatal("Expected accessoperator to be op")
 	}
 
-	if err := cfg.SetString("bnet/default/accessuser/niels", "v"); err != nil {
+	if err := cfg.SetString("bnet/default/accessuser/niels", gateway.AccessVoice.String()); err != nil {
 		t.Fatal(err)
 	}
 	if cfg.BNet.Default.AccessUser["niels"] != gateway.AccessVoice {

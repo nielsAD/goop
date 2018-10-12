@@ -16,8 +16,6 @@ const (
 	MsgNoUserFound   = "No user found with that name"
 	MsgMoreUserFound = "Found more than one user with that name"
 	MsgNoPermission  = "No permission to perform action"
-	MsgBannedUser    = "Banned user '%s'"
-	MsgUnbannedUser  = "Unbanned user '%s'"
 )
 
 // Cmd is command base struct that implements Command.CanExecute
@@ -34,13 +32,18 @@ func (c *Cmd) CanExecute(t *gateway.Trigger) bool {
 // Commands listing
 type Commands struct {
 	Trigger    Trigger
+	Whoami     Whoami
+	Whois      Whois
 	Settings   Settings
 	Say        Say
 	SayPrivate SayPrivate
 	Kick       Kick
 	Ban        Ban
 	Unban      Unban
+	Where      Where
 	Time       Time
+	Flip       Flip
+	Roll       Roll
 }
 
 // AddTo goop

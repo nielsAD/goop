@@ -203,6 +203,11 @@ func (d *Gateway) Ban(uid string) error {
 	return gateway.ErrNoChannel
 }
 
+// Unban user from channel
+func (d *Gateway) Unban(uid string) error {
+	return gateway.ErrNoChannel
+}
+
 // Run reads packets and emits an event for each received packet
 func (d *Gateway) Run(ctx context.Context) error {
 	var err error
@@ -578,6 +583,11 @@ func (c *Channel) Kick(uid string) error {
 // Ban user from channel
 func (c *Channel) Ban(uid string) error {
 	return gateway.ErrNotImplemented
+}
+
+// Unban user from channel
+func (c *Channel) Unban(uid string) error {
+	return gateway.ErrNoChannel
 }
 
 // WebhookOrSay sends a chat message preferably via webhook

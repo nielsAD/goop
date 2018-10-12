@@ -124,6 +124,11 @@ func (o *Gateway) Ban(uid string) error {
 	return gateway.ErrNotImplemented
 }
 
+// Unban user from channel
+func (o *Gateway) Unban(uid string) error {
+	return gateway.ErrNoChannel
+}
+
 // Run reads packets and emits an event for each received packet
 func (o *Gateway) Run(ctx context.Context) error {
 	if !o.Read {

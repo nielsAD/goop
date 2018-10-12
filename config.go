@@ -18,17 +18,21 @@ import (
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
 	"github.com/nielsAD/goop/goop/cmd"
+	bnetc "github.com/nielsAD/gowarcraft3/network/bnet"
 )
 
 // DefaultConfig values used as fallback
 var DefaultConfig = Config{
-	Config: "./config.toml.persist",
+	Config: "./config.persist.toml",
 	Log: LogConfig{
 		Time: true,
 	},
 	Commands: cmd.Commands{
 		Settings: cmd.Settings{
 			Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+		},
+		Whois: cmd.Whois{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 		},
 		Say: cmd.Say{
 			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
@@ -42,8 +46,11 @@ var DefaultConfig = Config{
 		Ban: cmd.Ban{
 			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
 		},
+		Unban: cmd.Unban{
+			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+		},
 		Time: cmd.Time{
-			Format: "15:04:05",
+			Format: "15:04:05 MST",
 		},
 	},
 	Default: gateway.Config{
@@ -58,6 +65,7 @@ var DefaultConfig = Config{
 	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
+			Config: bnetc.DefaultConfig,
 			GatewayConfig: bnet.GatewayConfig{
 				BufSize:        16,
 				ReconnectDelay: bnet.Duration(30 * time.Second),
@@ -151,7 +159,7 @@ func Decode(v interface{}, files ...string) ([]string, error) {
 		if _, err := toml.DecodeFile(f, &m); err != nil {
 			return nil, err
 		}
-		undec, err := Merge(v, m, true)
+		undec, err := Merge(v, m, &MergeOptions{Overwrite: true})
 		if err != nil {
 			return nil, err
 		}
@@ -162,17 +170,17 @@ func Decode(v interface{}, files ...string) ([]string, error) {
 
 // Load from DefaultConfig.Config file
 func Load() (*Config, error) {
-	var conf Config
-	if _, err := Merge(&conf, DefaultConfig, true); err != nil {
+	conf, err := DefaultConfig.Copy()
+	if err != nil {
 		return nil, err
 	}
-	if _, err := Decode(&conf, conf.Config); err != nil && !os.IsNotExist(err) {
+	if _, err := Decode(conf, conf.Config); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	if err := conf.MergeDefaults(); err != nil {
 		return nil, err
 	}
-	return &conf, nil
+	return conf, nil
 }
 
 // Save configuration to DefaultConfig.Config file
@@ -183,13 +191,28 @@ func (c *Config) Save() error {
 	}
 	defer file.Close()
 
-	var m = c.Map()
-	var d = DefaultConfig
-	d.MergeDefaults()
-	DeleteEqual(m, d.Map())
+	def, err := DefaultConfig.Copy()
+	if err != nil {
+		return err
+	}
+	if err := def.MergeDefaults(); err != nil {
+		return err
+	}
+
+	m := c.Map()
+	DeleteEqual(m, def.Map())
 
 	fmt.Fprintf(file, "# Generated at %v\n", time.Now().Format(time.RFC1123))
 	return toml.NewEncoder(file).Encode(m)
+}
+
+// Copy config
+func (c *Config) Copy() (*Config, error) {
+	var conf Config
+	if _, err := Merge(&conf, DefaultConfig, &MergeOptions{Overwrite: true}); err != nil {
+		return nil, err
+	}
+	return &conf, nil
 }
 
 // GetRelay config between to and from
@@ -211,31 +234,31 @@ func (c *Config) GetRelay(to, from string) *goop.RelayConfig {
 
 // MergeDefaults applies default configuration for unset fields
 func (c *Config) MergeDefaults() error {
-	if _, err := Merge(&c.StdIO.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.StdIO.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
-	if _, err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
-	if _, err := Merge(&c.Discord.Default.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.Discord.Default.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
-	if _, err := Merge(&c.Discord.ChannelDefault.Config, c.Default, false); err != nil {
+	if _, err := Merge(&c.Discord.ChannelDefault.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
 
 	for _, r := range c.BNet.Gateways {
-		if _, err := Merge(r, c.BNet.Default, false); err != nil {
+		if _, err := Merge(r, c.BNet.Default, &MergeOptions{}); err != nil {
 			return err
 		}
 	}
 
 	for _, g := range c.Discord.Gateways {
-		if _, err := Merge(g, c.Discord.Default, false); err != nil {
+		if _, err := Merge(g, c.Discord.Default, &MergeOptions{}); err != nil {
 			return err
 		}
 		for _, n := range g.Channels {
-			if _, err := Merge(n, c.Discord.ChannelDefault, false); err != nil {
+			if _, err := Merge(n, c.Discord.ChannelDefault, &MergeOptions{}); err != nil {
 				return err
 			}
 		}
@@ -307,12 +330,34 @@ func (c *Config) Get(key string) (interface{}, error) {
 
 // Set config value via flat index string
 func (c *Config) Set(key string, val interface{}) error {
-	return Set(&c, key, val)
+	var conf Config
+	if _, err := Merge(&conf, c.Map(), &MergeOptions{Overwrite: true}); err != nil {
+		return err
+	}
+	if err := Set(&conf, key, val); err != nil {
+		return err
+	}
+	if err := conf.MergeDefaults(); err != nil {
+		return err
+	}
+	_, err := Merge(c, conf, &MergeOptions{Overwrite: true, Delete: true})
+	return err
 }
 
 // Unset config value via flat index string
-func (c *Config) Unset(key string) (err error) {
-	return Unset(&c, key)
+func (c *Config) Unset(key string) error {
+	var conf Config
+	if _, err := Merge(&conf, c.Map(), &MergeOptions{Overwrite: true}); err != nil {
+		return err
+	}
+	if err := Unset(&conf, key); err != nil {
+		return err
+	}
+	if err := conf.MergeDefaults(); err != nil {
+		return err
+	}
+	_, err := Merge(c, conf, &MergeOptions{Overwrite: true, Delete: true})
+	return err
 }
 
 // GetString config value via flat index string
@@ -322,5 +367,16 @@ func (c *Config) GetString(key string) (string, error) {
 
 // SetString config value via flat index string
 func (c *Config) SetString(key string, val string) error {
-	return SetString(&c, key, val)
+	var conf Config
+	if _, err := Merge(&conf, c.Map(), &MergeOptions{Overwrite: true}); err != nil {
+		return err
+	}
+	if err := SetString(&conf, key, val); err != nil {
+		return err
+	}
+	if err := conf.MergeDefaults(); err != nil {
+		return err
+	}
+	_, err := Merge(c, conf, &MergeOptions{Overwrite: true, Delete: true})
+	return err
 }

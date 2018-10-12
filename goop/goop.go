@@ -35,6 +35,12 @@ type Config interface {
 	SetString(key string, val string) error
 }
 
+// Command interface
+type Command interface {
+	CanExecute(t *gateway.Trigger) bool
+	Execute(t *gateway.Trigger, gw gateway.Gateway, g *Goop) error
+}
+
 // Goop main
 type Goop struct {
 	network.EventEmitter
@@ -44,12 +50,6 @@ type Goop struct {
 	Gateways map[string]gateway.Gateway
 	Relay    map[string]map[string]*Relay
 	Config   Config
-}
-
-// Command interface
-type Command interface {
-	CanExecute(t *gateway.Trigger) bool
-	Execute(t *gateway.Trigger, gw gateway.Gateway, g *Goop) error
 }
 
 // New initializes a Goop struct

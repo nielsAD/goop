@@ -182,6 +182,14 @@ func (b *Gateway) Ban(uid string) error {
 	return b.say(fmt.Sprintf("/ban %s", uid))
 }
 
+// Unban user from channel
+func (b *Gateway) Unban(uid string) error {
+	if !b.Operator() {
+		return gateway.ErrNoPermission
+	}
+	return b.say(fmt.Sprintf("/unban %s", uid))
+}
+
 // Run reads packets and emits an event for each received packet
 func (b *Gateway) Run(ctx context.Context) error {
 	go func() {

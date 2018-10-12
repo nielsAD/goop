@@ -17,13 +17,19 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var u = gateway.FindUser(gw, t.Arg[0])
-	switch len(u) {
-	case 0:
+	var users = gateway.FindUser(gw, t.Arg[0])
+	if len(users) == 0 {
 		return t.Resp(MsgNoUserFound)
-	case 1:
-		err := gw.Kick(u[0].ID)
+	}
+
+	for _, u := range users {
+		if u.Access.HasAccess(gateway.AccessWhitelist) && !t.User.HasAccess(gateway.AccessAdmin) {
+			continue
+		}
+		err := gw.Kick(u.ID)
 		switch err {
+		case nil:
+			//nothing
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
@@ -31,7 +37,7 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 		default:
 			return err
 		}
-	default:
-		return t.Resp(MsgMoreUserFound)
 	}
+
+	return nil
 }

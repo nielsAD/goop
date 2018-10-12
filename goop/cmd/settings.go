@@ -25,15 +25,22 @@ func fixsep(in string) string {
 	return strings.Replace(in, "/", string(os.PathSeparator), -1)
 }
 
-func findKeys(m map[string]interface{}, pat string) []string {
-	var q = strings.ToLower(pat)
+func findKeys(m map[string]interface{}, pat ...string) []string {
+	for i := range pat {
+		pat[i] = strings.ToLower(pat[i])
+	}
 	var s = make([]string, 0)
+
+outer:
 	for k := range m {
-		if q != "" && !strings.Contains(k, q) {
-			continue
+		for _, p := range pat {
+			if !strings.Contains(k, p) {
+				continue outer
+			}
 		}
 		s = append(s, k)
 	}
+
 	sort.Strings(s)
 	return s
 }
@@ -64,18 +71,18 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 	var l = make([]string, 0)
 
 	switch strings.ToLower(t.Arg[0]) {
-	case "find":
-		var k = findKeys(m, strings.Join(t.Arg[1:], " "))
+	case "find", "f":
+		var k = findKeys(m, t.Arg[1:]...)
 		for _, v := range k {
 			l = append(l, fmt.Sprintf("%s = %v", v, m[v]))
 		}
-	case "get":
-		var k = matchKeys(m, strings.Join(t.Arg[1:], " "))
+	case "get", "g":
+		var k = matchKeys(m, t.Arg[1])
 		for _, v := range k {
 			l = append(l, fmt.Sprintf("%s = %v", v, m[v]))
 		}
-	case "unset":
-		var k = matchKeys(m, strings.Join(t.Arg[1:], " "))
+	case "unset", "u", "us":
+		var k = matchKeys(m, t.Arg[1])
 		for _, v := range k {
 			err := g.Config.Unset(v)
 			if err != nil {
@@ -86,7 +93,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 			}
 			l = append(l, fmt.Sprintf("Unset %s = %v", v, m[v]))
 		}
-	case "set":
+	case "set", "s":
 		if len(t.Arg) < 3 {
 			return resp("Expected 2 arguments: set [setting] [value]")
 		}

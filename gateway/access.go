@@ -23,13 +23,13 @@ var (
 	AccessVoice     = AccessLevel(1)
 	AccessDefault   = AccessLevel(0)
 	AccessIgnore    = AccessLevel(-1)
-	AccessBlacklist = AccessLevel(-100)
 	AccessKick      = AccessLevel(-200)
 	AccessBan       = AccessLevel(-300)
+	AccessBlacklist = AccessLevel(-100)
 )
 
-var accessLvl = []AccessLevel{AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessBlacklist, AccessKick, AccessBan}
-var accessStr = []string{"o", "a", "op", "wl", "v", "d", "i", "bl", "k", "b"}
+var accessLvl = []AccessLevel{AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessKick, AccessBan, AccessBlacklist}
+var accessStr = []string{"owner", "admin", "operator", "whitelist", "voice", "", "ignore", "kick", "ban", "blacklist"}
 
 // HasAccess to o
 func (l AccessLevel) HasAccess(o AccessLevel) bool {

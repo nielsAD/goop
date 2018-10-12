@@ -5,8 +5,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/goop"
 )
@@ -19,16 +17,19 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var u = gateway.FindUser(gw, t.Arg[0])
-	switch len(u) {
-	case 0:
-		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
-		fallthrough
-	case 1:
-		err := gw.Ban(u[0].ID)
+	var users = gateway.FindUser(gw, t.Arg[0])
+	if len(users) == 0 {
+		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
+	}
+
+	for _, u := range users {
+		if u.Access.HasAccess(gateway.AccessWhitelist) && !t.User.HasAccess(gateway.AccessAdmin) {
+			continue
+		}
+		err := gw.Ban(u.ID)
 		switch err {
 		case nil:
-			return t.Resp(fmt.Sprintf(MsgBannedUser, u[0].ID))
+			//nothing
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
@@ -36,9 +37,9 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		default:
 			return err
 		}
-	default:
-		return t.Resp(MsgMoreUserFound)
 	}
+
+	return nil
 }
 
 // Unban user
@@ -49,16 +50,19 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var u = gateway.FindUser(gw, t.Arg[0])
-	switch len(u) {
-	case 0:
-		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
-		fallthrough
-	case 1:
-		err := gw.Ban(u[0].ID)
+	var users = gateway.FindUser(gw, t.Arg[0])
+	if len(users) == 0 {
+		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
+	}
+
+	for _, u := range users {
+		if u.Access.HasAccess(gateway.AccessBlacklist) && !t.User.HasAccess(gateway.AccessAdmin) {
+			continue
+		}
+		err := gw.Unban(u.ID)
 		switch err {
 		case nil:
-			return t.Resp(fmt.Sprintf(MsgUnbannedUser, u[0].ID))
+			//nothing
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
@@ -66,7 +70,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		default:
 			return err
 		}
-	default:
-		return t.Resp(MsgMoreUserFound)
 	}
+
+	return nil
 }

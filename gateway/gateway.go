@@ -41,6 +41,7 @@ type Gateway interface {
 	SayPrivate(uid string, s string) error
 	Kick(uid string) error
 	Ban(uid string) error
+	Unban(uid string) error
 	Responder(gw Gateway, uid string, forcePrivate bool) Responder
 	Run(ctx context.Context) error
 	Relay(ev *network.Event, from Gateway) error
