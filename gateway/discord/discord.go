@@ -94,8 +94,9 @@ type Channel struct {
 }
 
 type online struct {
-	Name  string
-	Since time.Time
+	Gateway string
+	Name    string
+	Since   time.Time
 }
 
 // New initializes a new Gateway struct
@@ -261,6 +262,12 @@ func (d *Gateway) onConnect(s *discordgo.Session, msg *discordgo.Connect) {
 
 func (d *Gateway) onDisconnect(s *discordgo.Session, msg *discordgo.Disconnect) {
 	d.Fire(&gateway.Disconnected{})
+
+	d.chatmut.Lock()
+	for u := range d.users {
+		delete(d.users, u)
+	}
+	d.chatmut.Unlock()
 }
 
 func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
@@ -725,25 +732,47 @@ func (c *Channel) updateOnline() {
 	}
 }
 
+func (c *Channel) clearOnline(gw string) {
+	c.omut.Lock()
+	var n = make([]online, 0, len(c.online))
+	for _, o := range c.online {
+		if o.Gateway == gw {
+			continue
+		}
+		n = append(n, o)
+	}
+	c.online = n
+	c.omut.Unlock()
+}
+
 // Relay dumps the event content in channel
 func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
-		return c.say(fmt.Sprintf("*Established connection to %s*", from.ID()))
+		return c.say(fmt.Sprintf("*Established connection to `%s`*", from.ID()))
 	case *gateway.Disconnected:
-		return c.say(fmt.Sprintf("*Connection to %s closed*", from.ID()))
+		if c.RelayJoins&RelayJoinsList != 0 {
+			c.clearOnline(from.ID())
+			c.updateOnline()
+		}
+		return c.say(fmt.Sprintf("*Connection to `%s` closed*", from.ID()))
 	case *network.AsyncError:
-		return c.say(fmt.Sprintf("❗ **%s** ERROR: %s", from.Discriminator(), msg.Error()))
+		return c.say(fmt.Sprintf("❗ **%s** `ERROR` %s", from.Discriminator(), msg.Error()))
 	case *gateway.SystemMessage:
-		return c.say(fmt.Sprintf("📢 **%s** %s", from.Discriminator(), msg.Content))
+		return c.say(fmt.Sprintf("📢 **%s** `%s` %s", from.Discriminator(), msg.Type, msg.Content))
 	case *gateway.Channel:
-		return c.say(fmt.Sprintf("*Joined channel %s@%s*", msg.Name, from.Discriminator()))
+		if c.RelayJoins&RelayJoinsList != 0 {
+			c.clearOnline(from.ID())
+			c.updateOnline()
+		}
+		return c.say(fmt.Sprintf("*Joined channel `%s@%s`*", msg.Name, from.Discriminator()))
 	case *gateway.Join:
 		if c.RelayJoins&RelayJoinsList != 0 {
 			c.omut.Lock()
 			c.online = append(c.online, online{
-				Name:  fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
-				Since: time.Now(),
+				Gateway: from.ID(),
+				Name:    fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
+				Since:   time.Now(),
 			})
 			c.omut.Unlock()
 			c.updateOnline()
@@ -760,10 +789,11 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 			var name = fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator())
 			c.omut.Lock()
 			for i := len(c.online) - 1; i >= 0; i-- {
-				if c.online[i].Name == name {
-					c.online = append(c.online[:i], c.online[i+1:]...)
-					break
+				if c.online[i].Gateway != from.ID() || c.online[i].Name != name {
+					continue
 				}
+				c.online = append(c.online[:i], c.online[i+1:]...)
+				break
 			}
 			c.omut.Unlock()
 			c.updateOnline()

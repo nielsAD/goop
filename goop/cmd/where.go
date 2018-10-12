@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/nielsAD/goop/gateway"
@@ -25,5 +26,6 @@ func (c *Where) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		}
 		channels = append(channels, fmt.Sprintf("%s#%s", gw.Discriminator(), c.Name))
 	}
+	sort.Strings(channels)
 	return t.Resp(fmt.Sprintf("Present in channels: [%s]", strings.Join(channels, ", ")))
 }

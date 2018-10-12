@@ -131,6 +131,9 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 			if !empty(dst) && !opt.Overwrite {
 				return nil, nil
 			}
+			if src.IsNil() {
+				return nil, Assign(dst, src)
+			}
 			dst.Set(reflect.MakeSlice(dst.Type(), src.Len(), src.Len()))
 		default:
 			return nil, ErrTypeMismatch

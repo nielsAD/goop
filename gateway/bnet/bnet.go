@@ -246,12 +246,6 @@ func (b *Gateway) Run(ctx context.Context) error {
 		}
 
 		b.Fire(&gateway.Disconnected{})
-		for _, u := range b.Client.Users() {
-			if u.Name == b.UniqueName {
-				continue
-			}
-			b.Fire(&gateway.Leave{User: b.user(&u)})
-		}
 	}
 
 	return ctx.Err()
@@ -404,7 +398,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 	}
 
 	if msg.Username[:1] == "#" {
-		b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("[%s] %s", msg.Username, msg.Content)})
+		b.Fire(&gateway.SystemMessage{Type: msg.Username, Content: msg.Content})
 		return
 	}
 
@@ -440,7 +434,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 
 func (b *Gateway) onJoinError(ev *network.Event) {
 	var err = ev.Arg.(*bnet.JoinError)
-	b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("Could not join %s (%s)", err.Channel, err.Error.String())})
+	b.Fire(&gateway.SystemMessage{Type: "JOINERROR", Content: fmt.Sprintf("Could not join %s (%s)", err.Channel, err.Error.String())})
 }
 
 func (b *Gateway) onChannel(ev *network.Event) {
@@ -455,11 +449,11 @@ func (b *Gateway) onSystemMessage(ev *network.Event) {
 		return
 	}
 
-	b.Fire(&gateway.SystemMessage{Content: fmt.Sprintf("[%s] %s", strings.ToUpper(msg.Type.String()), msg.Content)})
+	b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(msg.Type.String()), Content: msg.Content})
 }
 
 func (b *Gateway) onFloodDetected(ev *network.Event) {
-	b.Fire(&gateway.SystemMessage{Content: "FLOOD DETECTED"})
+	b.Fire(&gateway.SystemMessage{Type: "FLOOD", Content: "Flood detected"})
 }
 
 // Relay dumps the event content in current channel
@@ -470,9 +464,9 @@ func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	case *gateway.Disconnected:
 		return b.say(fmt.Sprintf("Connection to %s closed", from.ID()))
 	case *network.AsyncError:
-		return b.say(fmt.Sprintf("[%s] ERROR: %s", from.Discriminator(), msg.Error()))
+		return b.say(fmt.Sprintf("[%s] [ERROR] %s", from.Discriminator(), msg.Error()))
 	case *gateway.SystemMessage:
-		return b.say(fmt.Sprintf("[%s] %s", from.Discriminator(), msg.Content))
+		return b.say(fmt.Sprintf("[%s] [%s] %s", from.Discriminator(), msg.Type, msg.Content))
 	case *gateway.Channel:
 		return b.say(fmt.Sprintf("Joined channel %s@%s", msg.Name, from.Discriminator()))
 	case *gateway.Join:

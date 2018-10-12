@@ -12,7 +12,7 @@ import (
 )
 
 func userToString(u *gateway.User, gw gateway.Gateway) string {
-	return fmt.Sprintf("NAME<%s@%s> ID<%s@%s> ACCESS<%s>", u.Name, gw.Discriminator(), u.ID, gw.Discriminator(), u.Access.String())
+	return fmt.Sprintf("NAME=`%s@%s` ID=`%s@%s` ACCESS=`%s`", u.Name, gw.Discriminator(), u.ID, gw.Discriminator(), u.Access.String())
 }
 
 // Whois displays user info

@@ -20,7 +20,6 @@ import (
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
 	"github.com/nielsAD/goop/goop/cmd"
-	bnetc "github.com/nielsAD/gowarcraft3/network/bnet"
 )
 
 // DefaultConfig values used as fallback
@@ -67,7 +66,6 @@ var DefaultConfig = Config{
 	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
-			Config: bnetc.DefaultConfig,
 			GatewayConfig: bnet.GatewayConfig{
 				BufSize:        16,
 				ReconnectDelay: bnet.Duration(30 * time.Second),

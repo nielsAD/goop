@@ -16,6 +16,7 @@ type Disconnected struct{}
 
 // SystemMessage event
 type SystemMessage struct {
+	Type    string
 	Content string
 }
 
