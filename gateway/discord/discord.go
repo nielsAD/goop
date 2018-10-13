@@ -377,7 +377,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 				Access:    d.AccessDM,
 			}
 
-			if access, ok := d.AccessUser[strings.ToLower(msg.Author.String())]; ok {
+			if access := d.AccessUser[strings.ToLower(msg.Author.String())]; access != gateway.AccessDefault {
 				u.Access = access
 			}
 
@@ -524,13 +524,13 @@ func (c *Channel) User(uid string) (*gateway.User, error) {
 			if err != nil {
 				continue
 			}
-			if access, ok := c.AccessRole[strings.ToLower(r.Name)]; ok {
+			if access := c.AccessRole[strings.ToLower(r.Name)]; access != gateway.AccessDefault {
 				res.Access = access
 			}
 		}
 	}
 
-	if access, ok := c.AccessUser[strings.ToLower(member.User.String())]; ok {
+	if access := c.AccessUser[strings.ToLower(member.User.String())]; access != gateway.AccessDefault {
 		res.Access = access
 	}
 

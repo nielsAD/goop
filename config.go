@@ -68,7 +68,7 @@ var DefaultConfig = Config{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
 				BufSize:        16,
-				ReconnectDelay: bnet.Duration(30 * time.Second),
+				ReconnectDelay: 30 * time.Second,
 				AccessWhisper:  gateway.AccessIgnore,
 				AccessTalk:     gateway.AccessVoice,
 			},

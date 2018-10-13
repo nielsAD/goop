@@ -33,14 +33,11 @@ type Config struct {
 	bnet.Config
 }
 
-// Duration wrapper with TextMarshaler/TextUnmarshaler support
-type Duration time.Duration
-
 // GatewayConfig stores the config additions of bnet.Gateway over bnet.Client
 type GatewayConfig struct {
 	gateway.Config
 
-	ReconnectDelay   Duration
+	ReconnectDelay   time.Duration
 	HomeChannel      string
 	BufSize          uint8
 	AvatarIconURL    string
@@ -48,8 +45,8 @@ type GatewayConfig struct {
 
 	AccessWhisper    gateway.AccessLevel
 	AccessTalk       gateway.AccessLevel
-	AccessNoWarcraft *gateway.AccessLevel
-	AccessOperator   *gateway.AccessLevel
+	AccessNoWarcraft gateway.AccessLevel
+	AccessOperator   gateway.AccessLevel
 	AccessLevel      map[int]gateway.AccessLevel
 	AccessClanTag    map[string]gateway.AccessLevel
 	AccessUser       map[string]gateway.AccessLevel
@@ -197,7 +194,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 		b.Client.Close()
 	}()
 
-	var backoff = time.Duration(b.ReconnectDelay)
+	var backoff = b.ReconnectDelay
 	for ctx.Err() == nil {
 		if backoff < 10*time.Second {
 			backoff = 10 * time.Second
@@ -240,7 +237,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 			b.say("/join " + channel)
 		}
 
-		backoff = time.Duration(b.ReconnectDelay)
+		backoff = b.ReconnectDelay
 		if err := b.Client.Run(); err != nil && ctx.Err() == nil {
 			b.Fire(&network.AsyncError{Src: "Run[Client]", Err: err})
 		}
@@ -266,32 +263,30 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 			if b.AvatarIconURL != "" {
 				res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
 			}
-			if b.AccessLevel != nil {
-				var max = 0
-				for l, a := range b.AccessLevel {
-					if l >= max && lvl >= l {
-						max = l
-						res.Access = a
-					}
+
+			var max = 0
+			for l, a := range b.AccessLevel {
+				if l >= max && lvl >= l {
+					max = l
+					res.Access = a
 				}
 			}
-			if tag != 0 && b.AccessClanTag != nil {
-				if access, ok := b.AccessClanTag[tag.String()]; ok {
-					res.Access = access
-				}
+
+			if access := b.AccessClanTag[tag.String()]; access != gateway.AccessDefault {
+				res.Access = access
 			}
 		default:
-			if b.AccessNoWarcraft != nil {
-				res.Access = *b.AccessNoWarcraft
+			if b.AccessNoWarcraft != gateway.AccessDefault {
+				res.Access = b.AccessNoWarcraft
 			}
 		}
 	}
 
-	if b.AccessOperator != nil && u.Operator() && !res.Access.HasAccess(*b.AccessOperator) {
-		res.Access = *b.AccessOperator
+	if b.AccessOperator != gateway.AccessDefault && u.Operator() {
+		res.Access = b.AccessOperator
 	}
 
-	if access, ok := b.AccessUser[u.Name]; ok {
+	if access := b.AccessUser[u.Name]; access != gateway.AccessDefault {
 		res.Access = access
 	}
 
@@ -412,7 +407,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 		Content: msg.Content,
 	}
 
-	if access, ok := b.AccessUser[msg.Username]; ok {
+	if access := b.AccessUser[msg.Username]; access != gateway.AccessDefault {
 		chat.User.Access = access
 	}
 
@@ -482,22 +477,4 @@ func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	default:
 		return gateway.ErrUnknownEvent
 	}
-}
-
-func (d Duration) String() string {
-	return time.Duration(d).String()
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler
-func (d *Duration) UnmarshalText(text []byte) error {
-	duration, err := time.ParseDuration(string(text))
-	if err == nil {
-		*d = Duration(duration)
-	}
-	return err
-}
-
-// MarshalText implements encoding.TextMarshaler
-func (d Duration) MarshalText() ([]byte, error) {
-	return []byte(d.String()), nil
 }

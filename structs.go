@@ -40,9 +40,8 @@ func DeleteEqual(dst map[string]interface{}, src map[string]interface{}) {
 			delete(dst, k)
 			continue
 		}
-		var v, ok = dst[k].(map[string]interface{})
-		if ok {
-			DeleteEqual(v, src[k].(map[string]interface{}))
+		if m, ok := dst[k].(map[string]interface{}); ok {
+			DeleteEqual(m, src[k].(map[string]interface{}))
 		}
 	}
 }
