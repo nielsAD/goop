@@ -749,13 +749,13 @@ func (c *Channel) clearOnline(gw string) {
 func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Connected:
-		return c.say(fmt.Sprintf("*Established connection to `%s`*", from.ID()))
+		return c.say(fmt.Sprintf("🔗 *Established connection to `%s`*", from.ID()))
 	case *gateway.Disconnected:
 		if c.RelayJoins&RelayJoinsList != 0 {
 			c.clearOnline(from.ID())
 			c.updateOnline()
 		}
-		return c.say(fmt.Sprintf("*Connection to `%s` closed*", from.ID()))
+		return c.say(fmt.Sprintf("🔗 *Connection to `%s` closed*", from.ID()))
 	case *network.AsyncError:
 		return c.say(fmt.Sprintf("❗ **%s** `ERROR` %s", from.Discriminator(), msg.Error()))
 	case *gateway.SystemMessage:
@@ -765,7 +765,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 			c.clearOnline(from.ID())
 			c.updateOnline()
 		}
-		return c.say(fmt.Sprintf("*Joined channel `%s@%s`*", msg.Name, from.Discriminator()))
+		return c.say(fmt.Sprintf("💬 *Joined channel `%s@%s`*", msg.Name, from.Discriminator()))
 	case *gateway.Join:
 		if c.RelayJoins&RelayJoinsList != 0 {
 			c.omut.Lock()

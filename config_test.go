@@ -256,12 +256,12 @@ func TestSet(t *testing.T) {
 	if err := cfg.Set("BNET/default/AccessOperator", gateway.AccessOperator); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
+	if cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
 		t.Fatal("Expected accessoperator to be op")
 	}
 
 	cfg.Unset("BNET/default/AccessOperator")
-	if cfg.BNet.Default.AccessOperator != nil {
+	if cfg.BNet.Default.AccessOperator != gateway.AccessDefault {
 		t.Fatal("Expected accessoperator to be unset")
 	}
 
@@ -320,7 +320,7 @@ func TestSetString(t *testing.T) {
 	if err := cfg.SetString("BNET/default/AccessOperator", gateway.AccessOperator.String()); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.BNet.Default.AccessOperator == nil || *cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
+	if cfg.BNet.Default.AccessOperator != gateway.AccessOperator {
 		t.Fatal("Expected accessoperator to be op")
 	}
 

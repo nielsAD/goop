@@ -16,8 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nielsAD/goop/goop"
-
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/color"
 
@@ -25,6 +23,8 @@ import (
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
+	"github.com/nielsAD/goop/goop"
+	"github.com/nielsAD/goop/goop/cmd"
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
@@ -91,6 +91,18 @@ func New(conf *Config) (*goop.Goop, error) {
 	return res, nil
 }
 
+// Quit program
+type Quit struct {
+	cmd.Cmd
+	cancel context.CancelFunc
+}
+
+// Execute command
+func (c *Quit) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
+	c.cancel()
+	return nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -152,6 +164,11 @@ func main() {
 		<-sig
 		cancel()
 	}()
+
+	g.AddCommand("Quit", &Quit{
+		Cmd:    cmd.Cmd{Priviledge: gateway.AccessOwner},
+		cancel: cancel,
+	})
 
 	var done = make(chan struct{})
 	go func() {
