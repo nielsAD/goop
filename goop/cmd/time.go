@@ -21,3 +21,13 @@ type Time struct {
 func (c *Time) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	return t.Resp(time.Now().Format(c.Format))
 }
+
+// Uptime prints time since start
+type Uptime struct{ Cmd }
+
+var ts = time.Now()
+
+// Execute command
+func (c *Uptime) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
+	return t.Resp("Uptime: " + time.Now().Sub(ts).String())
+}

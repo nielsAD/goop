@@ -42,6 +42,7 @@ type Commands struct {
 	Unban      Unban
 	Where      Where
 	Time       Time
+	Uptime     Uptime
 	Flip       Flip
 	Roll       Roll
 }
