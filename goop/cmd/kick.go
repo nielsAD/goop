@@ -10,7 +10,11 @@ import (
 )
 
 // Kick user
-type Kick struct{ Cmd }
+type Kick struct {
+	Cmd
+	AccessProtect  gateway.AccessLevel
+	AccessOverride gateway.AccessLevel
+}
 
 // Execute command
 func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
@@ -23,7 +27,7 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 	}
 
 	for _, u := range users {
-		if u.Access.HasAccess(gateway.AccessWhitelist) && !t.User.HasAccess(gateway.AccessAdmin) {
+		if u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
 			continue
 		}
 		err := gw.Kick(u.ID)

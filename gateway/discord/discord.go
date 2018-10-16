@@ -377,7 +377,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 				Access:    d.AccessDM,
 			}
 
-			if access := d.AccessUser[strings.ToLower(msg.Author.String())]; access != gateway.AccessDefault {
+			if access := d.AccessUser[msg.Author.ID]; access != gateway.AccessDefault {
 				u.Access = access
 			}
 
@@ -388,7 +388,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 			d.Fire(&chat)
 
-			if chat.User.HasAccess(d.Commands.Access) {
+			if chat.User.Access >= d.Commands.Access {
 				if r, cmd, arg := d.FindTrigger(msg.Message.Content); r {
 					d.Fire(&gateway.Trigger{
 						User: chat.User,
@@ -419,7 +419,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 
 	c.Fire(&chat)
 
-	if !chat.User.HasAccess(c.Commands.Access) {
+	if chat.User.Access < c.Commands.Access {
 		return
 	}
 
@@ -530,7 +530,7 @@ func (c *Channel) User(uid string) (*gateway.User, error) {
 		}
 	}
 
-	if access := c.AccessUser[strings.ToLower(member.User.String())]; access != gateway.AccessDefault {
+	if access := c.AccessUser[member.User.ID]; access != gateway.AccessDefault {
 		res.Access = access
 	}
 
@@ -631,7 +631,7 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 }
 
 func (c *Channel) filter(s string, r gateway.AccessLevel) string {
-	if !r.HasAccess(c.AccessMentions) {
+	if r < c.AccessMentions {
 		s = strings.Replace(s, "@", "@\u200B", -1)
 	}
 	return s

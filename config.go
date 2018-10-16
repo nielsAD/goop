@@ -42,13 +42,19 @@ var DefaultConfig = Config{
 			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
 		},
 		Kick: cmd.Kick{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+			AccessProtect:  gateway.AccessWhitelist,
+			AccessOverride: gateway.AccessAdmin,
 		},
 		Ban: cmd.Ban{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+			AccessProtect:  gateway.AccessWhitelist,
+			AccessOverride: gateway.AccessAdmin,
 		},
 		Unban: cmd.Unban{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+			AccessProtect:  gateway.AccessBlacklist,
+			AccessOverride: gateway.AccessAdmin,
 		},
 		Time: cmd.Time{
 			Format: "15:04:05 MST",

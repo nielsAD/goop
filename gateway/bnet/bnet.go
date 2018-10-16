@@ -119,6 +119,17 @@ func (b *Gateway) User(uid string) (*gateway.User, error) {
 		var res = b.user(u)
 		return &res, nil
 	}
+
+	var s = strings.ToLower(uid)
+	if access := b.AccessUser[s]; access != gateway.AccessDefault {
+		return &gateway.User{
+			ID:        s,
+			Name:      uid,
+			Access:    access,
+			AvatarURL: b.AvatarDefaultURL,
+		}, nil
+	}
+
 	return nil, gateway.ErrNoUser
 }
 
@@ -250,7 +261,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 
 func (b *Gateway) user(u *bnet.User) gateway.User {
 	var res = gateway.User{
-		ID:        u.Name,
+		ID:        strings.ToLower(u.Name),
 		Name:      u.Name,
 		Access:    b.AccessTalk,
 		AvatarURL: b.AvatarDefaultURL,
@@ -286,7 +297,7 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 		res.Access = b.AccessOperator
 	}
 
-	if access := b.AccessUser[u.Name]; access != gateway.AccessDefault {
+	if access := b.AccessUser[res.ID]; access != gateway.AccessDefault {
 		res.Access = access
 	}
 
@@ -372,7 +383,7 @@ func (b *Gateway) onChat(ev *network.Event) {
 
 	b.Fire(&chat)
 
-	if !chat.User.HasAccess(b.Commands.Access) {
+	if chat.User.Access < b.Commands.Access {
 		return
 	}
 
@@ -399,7 +410,7 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 
 	var chat = gateway.PrivateChat{
 		User: gateway.User{
-			ID:        msg.Username,
+			ID:        strings.ToLower(msg.Username),
 			Name:      msg.Username,
 			Access:    b.AccessWhisper,
 			AvatarURL: b.AvatarDefaultURL,
@@ -407,13 +418,13 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 		Content: msg.Content,
 	}
 
-	if access := b.AccessUser[msg.Username]; access != gateway.AccessDefault {
+	if access := b.AccessUser[chat.ID]; access != gateway.AccessDefault {
 		chat.User.Access = access
 	}
 
 	b.Fire(&chat)
 
-	if !chat.User.HasAccess(b.Commands.Access) {
+	if chat.User.Access < b.Commands.Access {
 		return
 	}
 

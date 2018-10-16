@@ -29,5 +29,5 @@ var ts = time.Now()
 
 // Execute command
 func (c *Uptime) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
-	return t.Resp("Uptime: " + time.Now().Sub(ts).String())
+	return t.Resp("Uptime: " + time.Now().Sub(ts).Round(time.Second).String())
 }

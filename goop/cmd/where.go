@@ -24,7 +24,7 @@ func (c *Where) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		if c == nil {
 			continue
 		}
-		channels = append(channels, fmt.Sprintf("%s#%s", gw.Discriminator(), c.Name))
+		channels = append(channels, fmt.Sprintf("`%s@%s`", c.Name, gw.Discriminator()))
 	}
 	sort.Strings(channels)
 	return t.Resp(fmt.Sprintf("Present in channels: [%s]", strings.Join(channels, ", ")))

@@ -67,7 +67,7 @@ func (o *Gateway) read() error {
 
 		o.Fire(&chat)
 
-		if !chat.User.HasAccess(o.Commands.Access) {
+		if chat.User.Access < o.Commands.Access {
 			continue
 		}
 

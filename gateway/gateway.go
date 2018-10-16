@@ -55,11 +55,6 @@ type User struct {
 	AvatarURL string
 }
 
-// HasAccess to o
-func (u *User) HasAccess(o AccessLevel) bool {
-	return u.Access.HasAccess(o)
-}
-
 // Channel struct
 type Channel struct {
 	ID   string

@@ -10,7 +10,11 @@ import (
 )
 
 // Ban user
-type Ban struct{ Cmd }
+type Ban struct {
+	Cmd
+	AccessProtect  gateway.AccessLevel
+	AccessOverride gateway.AccessLevel
+}
 
 // Execute command
 func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
@@ -23,7 +27,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	}
 
 	for _, u := range users {
-		if u.Access.HasAccess(gateway.AccessWhitelist) && !t.User.HasAccess(gateway.AccessAdmin) {
+		if u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
 			continue
 		}
 		err := gw.Ban(u.ID)
@@ -43,7 +47,11 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 }
 
 // Unban user
-type Unban struct{ Cmd }
+type Unban struct {
+	Cmd
+	AccessProtect  gateway.AccessLevel
+	AccessOverride gateway.AccessLevel
+}
 
 // Execute command
 func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
@@ -56,7 +64,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	}
 
 	for _, u := range users {
-		if u.Access.HasAccess(gateway.AccessBlacklist) && !t.User.HasAccess(gateway.AccessAdmin) {
+		if u.Access < c.AccessProtect && t.User.Access < c.AccessOverride {
 			continue
 		}
 		err := gw.Unban(u.ID)

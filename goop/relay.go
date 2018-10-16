@@ -89,7 +89,7 @@ func (r *Relay) onChannel(ev *network.Event) {
 
 func (r *Relay) onJoin(ev *network.Event) {
 	var user = ev.Arg.(*gateway.Join)
-	if !r.Joins || !user.HasAccess(r.JoinAccess) {
+	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
 	r.relay(ev)
@@ -97,7 +97,7 @@ func (r *Relay) onJoin(ev *network.Event) {
 
 func (r *Relay) onLeave(ev *network.Event) {
 	var user = ev.Arg.(*gateway.Leave)
-	if !r.Joins || !user.HasAccess(r.JoinAccess) {
+	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}
 	r.relay(ev)
@@ -105,7 +105,7 @@ func (r *Relay) onLeave(ev *network.Event) {
 
 func (r *Relay) onChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.Chat)
-	if !r.Chat || !msg.User.HasAccess(r.ChatAccess) {
+	if !r.Chat || msg.User.Access < r.ChatAccess {
 		return
 	}
 	r.relay(ev)
@@ -113,7 +113,7 @@ func (r *Relay) onChat(ev *network.Event) {
 
 func (r *Relay) onPrivateChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.PrivateChat)
-	if !r.PrivateChat || !msg.User.HasAccess(r.PrivateChatAccess) {
+	if !r.PrivateChat || msg.User.Access < r.PrivateChatAccess {
 		return
 	}
 	r.relay(ev)
