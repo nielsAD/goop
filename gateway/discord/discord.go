@@ -177,6 +177,10 @@ func (d *Gateway) Say(s string) error {
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {
+	if _, err := strconv.ParseUint(uid, 10, 64); err != nil {
+		return err
+	}
+
 	ch, err := d.UserChannelCreate(uid)
 	if err != nil {
 		return err
@@ -675,6 +679,8 @@ func (c *Channel) updateOnline() {
 		go func() {
 			var msg = ""
 
+			time.Sleep(time.Second)
+
 			if messages, err := c.session.ChannelMessagesPinned(c.id); err == nil {
 				for _, m := range messages {
 					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(m.Content, "💬 **Online**") {
@@ -822,7 +828,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 			Content:  c.filter(msg.Content, gateway.AccessDefault),
 			Username: from.Discriminator(),
 		}
-		if c.session != nil {
+		if c.session != nil && c.session.State.User != nil {
 			p.AvatarURL = c.session.State.User.AvatarURL("")
 		}
 		return c.WebhookOrSay(p)

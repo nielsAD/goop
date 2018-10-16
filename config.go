@@ -28,36 +28,51 @@ var DefaultConfig = Config{
 	Log: LogConfig{
 		Time: true,
 	},
-	Commands: cmd.Commands{
-		Settings: cmd.Settings{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+	Commands: CommandsConfig{
+		Commands: cmd.Commands{
+			Settings: cmd.Settings{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+			},
+			Whois: cmd.Whois{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
+			},
+			SayPrivate: cmd.SayPrivate{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
+			},
+			Say: cmd.Say{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+			},
+			Kick: cmd.Kick{
+				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+				AccessProtect:  gateway.AccessWhitelist,
+				AccessOverride: gateway.AccessAdmin,
+			},
+			Ban: cmd.Ban{
+				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+				AccessProtect:  gateway.AccessWhitelist,
+				AccessOverride: gateway.AccessAdmin,
+			},
+			Unban: cmd.Unban{
+				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+				AccessProtect:  gateway.AccessBlacklist,
+				AccessOverride: gateway.AccessAdmin,
+			},
+			Time: cmd.Time{
+				Format: "15:04:05 MST",
+			},
 		},
-		Whois: cmd.Whois{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
-		},
-		Say: cmd.Say{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-		},
-		SayPrivate: cmd.SayPrivate{
-			Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-		},
-		Kick: cmd.Kick{
-			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-			AccessProtect:  gateway.AccessWhitelist,
-			AccessOverride: gateway.AccessAdmin,
-		},
-		Ban: cmd.Ban{
-			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-			AccessProtect:  gateway.AccessWhitelist,
-			AccessOverride: gateway.AccessAdmin,
-		},
-		Unban: cmd.Unban{
-			Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-			AccessProtect:  gateway.AccessBlacklist,
-			AccessOverride: gateway.AccessAdmin,
-		},
-		Time: cmd.Time{
-			Format: "15:04:05 MST",
+		Alias: map[string]*cmd.Alias{
+			"whisper": &cmd.Alias{
+				Cmd:            cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+				Exe:            "SayPrivate",
+				Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
+				ArgExpected:    2,
+				WithPriviledge: gateway.AccessAdmin,
+			},
+			"s": &cmd.Alias{Exe: "say"},
+			"w": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
+			"k": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},
+			"b": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ban"},
 		},
 	},
 	Default: gateway.Config{
@@ -117,7 +132,7 @@ type Config struct {
 	Hash     string
 	Config   string
 	Log      LogConfig
-	Commands cmd.Commands
+	Commands CommandsConfig
 	Default  gateway.Config
 	StdIO    stdio.Config
 	BNet     BNetConfigWithDefault
@@ -131,6 +146,12 @@ type LogConfig struct {
 	Time         bool
 	Microseconds bool
 	UTC          bool
+}
+
+// CommandsConfig struct maps the layout of the Commands configuration section
+type CommandsConfig struct {
+	cmd.Commands
+	Alias map[string]*cmd.Alias
 }
 
 // BNetConfigWithDefault struct maps the layout of the BNet configuration section

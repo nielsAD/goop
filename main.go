@@ -42,6 +42,11 @@ func New(conf *Config) (*goop.Goop, error) {
 	if err := conf.Commands.AddTo(res); err != nil {
 		return nil, err
 	}
+	for c, a := range conf.Commands.Alias {
+		if err := res.AddCommand(c, a); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := res.AddGateway("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
 		return nil, err
@@ -165,7 +170,7 @@ func main() {
 		cancel()
 	}()
 
-	g.AddCommand("Quit", &Quit{
+	g.AddCommand("quit", &Quit{
 		Cmd:    cmd.Cmd{Priviledge: gateway.AccessOwner},
 		cancel: cancel,
 	})
