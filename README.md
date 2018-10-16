@@ -2,6 +2,7 @@ Goop
 ===========
 [![Build Status](https://travis-ci.org/nielsAD/goop.svg?branch=master)](https://travis-ci.org/nielsAD/goop)
 [![Build status](https://ci.appveyor.com/api/projects/status/vfft3xr00pk2vpnu/branch/master?svg=true)](https://ci.appveyor.com/project/nielsAD/goop)
+[![GoDoc](https://godoc.org/github.com/nielsAD/goop?status.svg)](https://godoc.org/github.com/nielsAD/goop)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
 Goop (GO OPerator) is a BNCS Channel Operator.
