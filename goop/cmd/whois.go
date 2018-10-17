@@ -23,7 +23,7 @@ func (c *Whois) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var u = gateway.FindUserInChannel(gw, t.Arg[0])
+	var u = gateway.FindUser(gw, t.Arg[0])
 	switch len(u) {
 	case 0:
 		return t.Resp(MsgNoUserFound)

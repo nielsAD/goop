@@ -186,6 +186,11 @@ func (d *Gateway) User(uid string) (*gateway.User, error) {
 	return &res, nil
 }
 
+// Users with non-default access level
+func (d *Gateway) Users() map[string]gateway.AccessLevel {
+	return d.AccessUser
+}
+
 // AddUser overrides accesslevel for a specific user
 func (d *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	if err := validateUID(uid); err != nil {
@@ -574,6 +579,11 @@ func (c *Channel) User(uid string) (*gateway.User, error) {
 	}
 
 	return &res, nil
+}
+
+// Users with non-default access level
+func (c *Channel) Users() map[string]gateway.AccessLevel {
+	return c.AccessUser
 }
 
 // AddUser overrides accesslevel for a specific user

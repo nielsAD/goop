@@ -70,7 +70,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var users = gateway.FindUserInChannel(gw, t.Arg[0])
+	var users = gateway.FindUser(gw, t.Arg[0])
 	if len(users) == 0 {
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}

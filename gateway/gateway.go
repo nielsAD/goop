@@ -36,6 +36,7 @@ type Gateway interface {
 	Channel() *Channel
 	ChannelUsers() []User
 	User(uid string) (*User, error)
+	Users() map[string]AccessLevel
 	AddUser(uid string, a AccessLevel) (*AccessLevel, error)
 	Trigger() string
 	Say(s string) error
@@ -147,6 +148,39 @@ func FindUserInChannel(gw Gateway, pat string) []*User {
 	for i := range users {
 		if m, err := filepath.Match(pat, strings.ToLower(users[i].Name)); err == nil && m {
 			res = append(res, &users[i])
+		}
+	}
+
+	return res
+}
+
+// FindUser finds user(s) by pattern
+func FindUser(gw Gateway, pat string) []*User {
+	if u, err := gw.User(pat); err == nil {
+		if u == nil {
+			return nil
+		}
+		return []*User{u}
+	}
+	pat = strings.ToLower(pat)
+
+	var res = make([]*User, 0)
+
+	var users = gw.Users()
+	for k := range users {
+		u, err := gw.User(k)
+		if err != nil || u == nil {
+			continue
+		}
+		if m, err := filepath.Match(pat, strings.ToLower(u.Name)); err == nil && m {
+			res = append(res, u)
+		}
+	}
+
+	var cusers = gw.ChannelUsers()
+	for i := range cusers {
+		if m, err := filepath.Match(pat, strings.ToLower(cusers[i].Name)); err == nil && m && users[cusers[i].ID] == AccessDefault {
+			res = append(res, &cusers[i])
 		}
 	}
 

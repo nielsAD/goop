@@ -97,6 +97,11 @@ func (o *Gateway) User(uid string) (*gateway.User, error) {
 	return nil, gateway.ErrNoUser
 }
 
+// Users with non-default access level
+func (o *Gateway) Users() map[string]gateway.AccessLevel {
+	return nil
+}
+
 // AddUser overrides accesslevel for a specific user
 func (o *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	return nil, gateway.ErrNotImplemented

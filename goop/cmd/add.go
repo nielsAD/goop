@@ -23,7 +23,7 @@ func (c *Add) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var users = gateway.FindUserInChannel(gw, t.Arg[0])
+	var users = gateway.FindUser(gw, t.Arg[0])
 	if len(users) == 0 {
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}
@@ -51,7 +51,7 @@ func (c *Add) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 			if access < *prev {
 				action = "Demoted"
 			}
-			l = append(l, fmt.Sprintf("%s `%s` from %s to %s", action, u.Name, prev.String(), access.String()))
+			l = append(l, fmt.Sprintf("%s `%s@%s` from <%s> to <%s>", action, u.Name, gw.Discriminator(), prev.String(), access.String()))
 		case gateway.ErrNotImplemented:
 			return nil
 		default:
