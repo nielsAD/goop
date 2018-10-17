@@ -21,7 +21,7 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var users = gateway.FindUser(gw, t.Arg[0])
+	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 	if len(users) == 0 {
 		return t.Resp(MsgNoUserFound)
 	}

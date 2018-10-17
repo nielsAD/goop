@@ -87,14 +87,19 @@ func (o *Gateway) Channel() *gateway.Channel {
 	return nil
 }
 
-// Users currently in channel
-func (o *Gateway) Users() []gateway.User {
+// ChannelUsers online
+func (o *Gateway) ChannelUsers() []gateway.User {
 	return nil
 }
 
 // User by ID
 func (o *Gateway) User(uid string) (*gateway.User, error) {
 	return nil, gateway.ErrNoUser
+}
+
+// AddUser overrides accesslevel for a specific user
+func (o *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+	return nil, gateway.ErrNotImplemented
 }
 
 // Say sends a chat message

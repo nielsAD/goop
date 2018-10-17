@@ -101,8 +101,8 @@ func (b *Gateway) Channel() *gateway.Channel {
 	}
 }
 
-// Users currently in channel
-func (b *Gateway) Users() []gateway.User {
+// ChannelUsers online
+func (b *Gateway) ChannelUsers() []gateway.User {
 	var users = b.Client.Users()
 
 	var res = make([]gateway.User, 0, len(users))
@@ -131,6 +131,13 @@ func (b *Gateway) User(uid string) (*gateway.User, error) {
 	}
 
 	return nil, gateway.ErrNoUser
+}
+
+// AddUser overrides accesslevel for a specific user
+func (b *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+	var o = b.AccessUser[uid]
+	b.AccessUser[uid] = a
+	return &o, nil
 }
 
 func (b *Gateway) say(s string) error {

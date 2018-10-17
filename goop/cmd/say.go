@@ -27,7 +27,7 @@ func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goo
 	if len(t.Arg) < 2 {
 		return t.Resp("Expected 2 arguments: [user] [message]")
 	}
-	var u = gateway.FindUser(gw, t.Arg[0])
+	var u = gateway.FindUserInChannel(gw, t.Arg[0])
 	switch len(u) {
 	case 0:
 		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}

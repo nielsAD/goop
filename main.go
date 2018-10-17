@@ -111,6 +111,7 @@ func (c *Quit) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 func main() {
 	flag.Parse()
 
+start:
 	undecoded, err := Decode(&DefaultConfig, flag.Args()...)
 	if err != nil {
 		logErr.Fatalf("Error reading default configuration: %v\n", err)
@@ -175,6 +176,12 @@ func main() {
 		cancel: cancel,
 	})
 
+	var restart = false
+	g.AddCommand("restart", &Quit{
+		Cmd:    cmd.Cmd{Priviledge: gateway.AccessOwner},
+		cancel: func() { restart = true; cancel() },
+	})
+
 	var done = make(chan struct{})
 	go func() {
 		for ctx.Err() == nil {
@@ -194,4 +201,8 @@ func main() {
 	cancel()
 
 	<-done
+
+	if restart {
+		goto start
+	}
 }

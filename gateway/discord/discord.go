@@ -155,14 +155,46 @@ func (d *Gateway) Channel() *gateway.Channel {
 	return nil
 }
 
-// Users currently in channel
-func (d *Gateway) Users() []gateway.User {
+// ChannelUsers online
+func (d *Gateway) ChannelUsers() []gateway.User {
 	return nil
 }
 
 // User by ID
 func (d *Gateway) User(uid string) (*gateway.User, error) {
-	return nil, gateway.ErrNoUser
+	uid = strings.TrimSuffix(strings.TrimPrefix(uid, "<@"), ">")
+	if err := validateUID(uid); err != nil {
+		return nil, err
+	}
+
+	u, err := d.Session.User(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	var res = gateway.User{
+		ID:        u.ID,
+		Name:      u.Username,
+		AvatarURL: u.AvatarURL(""),
+		Access:    d.AccessDM,
+	}
+
+	if access := d.AccessUser[u.ID]; access != gateway.AccessDefault {
+		res.Access = access
+	}
+
+	return &res, nil
+}
+
+// AddUser overrides accesslevel for a specific user
+func (d *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+	if err := validateUID(uid); err != nil {
+		return nil, err
+	}
+
+	var o = d.AccessUser[uid]
+	d.AccessUser[uid] = a
+	return &o, nil
 }
 
 // Say sends a chat message
@@ -176,8 +208,15 @@ func (d *Gateway) Say(s string) error {
 	return err
 }
 
-func sayPrivate(d *discordgo.Session, uid string, s string) error {
+func validateUID(uid string) error {
 	if _, err := strconv.ParseUint(uid, 10, 64); err != nil {
+		return gateway.ErrNoUser
+	}
+	return nil
+}
+
+func sayPrivate(d *discordgo.Session, uid string, s string) error {
+	if err := validateUID(uid); err != nil {
 		return err
 	}
 
@@ -456,8 +495,8 @@ func (c *Channel) Channel() *gateway.Channel {
 	return &gateway.Channel{ID: c.id, Name: name}
 }
 
-// Users currently in channel
-func (c *Channel) Users() []gateway.User {
+// ChannelUsers online
+func (c *Channel) ChannelUsers() []gateway.User {
 	ch, err := c.session.State.Channel(c.id)
 	if err != nil {
 		return nil
@@ -470,10 +509,6 @@ func (c *Channel) Users() []gateway.User {
 
 	var res = make([]gateway.User, 0, len(g.Presences))
 	for _, p := range g.Presences {
-		if p.Status == discordgo.StatusOffline {
-			continue
-		}
-
 		perm, err := c.session.State.UserChannelPermissions(p.User.ID, c.id)
 		if err != nil || perm&discordgo.PermissionReadMessages == 0 {
 			continue
@@ -539,6 +574,17 @@ func (c *Channel) User(uid string) (*gateway.User, error) {
 	}
 
 	return &res, nil
+}
+
+// AddUser overrides accesslevel for a specific user
+func (c *Channel) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+	if err := validateUID(uid); err != nil {
+		return nil, err
+	}
+
+	var o = c.AccessUser[uid]
+	c.AccessUser[uid] = a
+	return &o, nil
 }
 
 func (c *Channel) say(s string) error {

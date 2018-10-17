@@ -21,7 +21,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var users = gateway.FindUser(gw, t.Arg[0])
+	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 	if len(users) == 0 {
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
 	}
@@ -33,7 +33,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		err := gw.Ban(u.ID)
 		switch err {
 		case nil:
-			//nothing
+			gw.AddUser(u.ID, gateway.AccessBan)
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
@@ -58,7 +58,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
-	var users = gateway.FindUser(gw, t.Arg[0])
+	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 	if len(users) == 0 {
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
 	}
@@ -70,7 +70,9 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		err := gw.Unban(u.ID)
 		switch err {
 		case nil:
-			//nothing
+			if u.Access < gateway.AccessDefault {
+				gw.AddUser(u.ID, gateway.AccessDefault)
+			}
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:

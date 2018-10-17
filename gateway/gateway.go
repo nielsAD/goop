@@ -34,8 +34,9 @@ type Gateway interface {
 	SetID(id string)
 	Discriminator() string
 	Channel() *Channel
-	Users() []User
+	ChannelUsers() []User
 	User(uid string) (*User, error)
+	AddUser(uid string, a AccessLevel) (*AccessLevel, error)
 	Trigger() string
 	Say(s string) error
 	SayPrivate(uid string, s string) error
@@ -130,8 +131,8 @@ func (c *Config) FindTrigger(s string) (bool, string, []string) {
 	return FindTrigger(c.Commands.Trigger, s)
 }
 
-// FindUser finds user(s) by pattern
-func FindUser(gw Gateway, pat string) []*User {
+// FindUserInChannel finds user(s) by pattern
+func FindUserInChannel(gw Gateway, pat string) []*User {
 	if u, err := gw.User(pat); err == nil {
 		return []*User{u}
 	}
@@ -139,7 +140,7 @@ func FindUser(gw Gateway, pat string) []*User {
 
 	var res = make([]*User, 0)
 
-	var users = gw.Users()
+	var users = gw.ChannelUsers()
 	for i := range users {
 		if m, err := filepath.Match(pat, strings.ToLower(users[i].Name)); err == nil && m {
 			res = append(res, &users[i])
