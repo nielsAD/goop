@@ -5,6 +5,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/goop"
 )
@@ -23,27 +26,36 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	}
 	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 	if len(users) == 0 {
-		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
+		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}
 
+	var l = make([]string, 0)
 	for _, u := range users {
-		if u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
+		if u.ID == t.User.ID || u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
 			continue
 		}
 		err := gw.Ban(u.ID)
 		switch err {
 		case nil:
-			gw.AddUser(u.ID, gateway.AccessBan)
+			if _, err := gw.AddUser(u.ID, gateway.AccessBan); err != nil && err != gateway.ErrNotImplemented {
+				t.Resp(MsgInternalError)
+				return err
+			}
+			l = append(l, fmt.Sprintf("`%s`", u.Name))
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
 			return t.Resp(MsgNoPermission)
 		default:
+			t.Resp(MsgInternalError)
 			return err
 		}
 	}
 
-	return nil
+	if len(l) == 0 {
+		return t.Resp(MsgNoUserFound)
+	}
+	return t.Resp(fmt.Sprintf("Banned [%s]", strings.Join(l, ", ")))
 }
 
 // Unban user
@@ -60,27 +72,36 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	}
 	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 	if len(users) == 0 {
-		users = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
+		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}
 
+	var l = make([]string, 0)
 	for _, u := range users {
-		if u.Access < c.AccessProtect && t.User.Access < c.AccessOverride {
+		if u.ID == t.User.ID || u.Access < c.AccessProtect && t.User.Access < c.AccessOverride {
 			continue
 		}
 		err := gw.Unban(u.ID)
 		switch err {
 		case nil:
 			if u.Access < gateway.AccessDefault {
-				gw.AddUser(u.ID, gateway.AccessDefault)
+				if _, err := gw.AddUser(u.ID, gateway.AccessDefault); err != nil && err != gateway.ErrNotImplemented {
+					t.Resp(MsgInternalError)
+					return err
+				}
 			}
+			l = append(l, fmt.Sprintf("`%s`", u.Name))
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
 			return t.Resp(MsgNoPermission)
 		default:
+			t.Resp(MsgInternalError)
 			return err
 		}
 	}
 
-	return nil
+	if len(l) == 0 {
+		return t.Resp(MsgNoUserFound)
+	}
+	return t.Resp(fmt.Sprintf("Unbanned [%s]", strings.Join(l, ", ")))
 }

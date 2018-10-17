@@ -33,7 +33,11 @@ func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goo
 		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
 		fallthrough
 	case 1:
-		return gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " "))
+		if err := gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " ")); err != nil && err != gateway.ErrNotImplemented {
+			t.Resp(MsgInternalError)
+			return err
+		}
+		return nil
 	default:
 		return t.Resp(MsgMoreUserFound)
 	}

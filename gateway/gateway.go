@@ -134,6 +134,9 @@ func (c *Config) FindTrigger(s string) (bool, string, []string) {
 // FindUserInChannel finds user(s) by pattern
 func FindUserInChannel(gw Gateway, pat string) []*User {
 	if u, err := gw.User(pat); err == nil {
+		if u == nil {
+			return nil
+		}
 		return []*User{u}
 	}
 	pat = strings.ToLower(pat)

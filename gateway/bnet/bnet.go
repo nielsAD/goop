@@ -135,6 +135,7 @@ func (b *Gateway) User(uid string) (*gateway.User, error) {
 
 // AddUser overrides accesslevel for a specific user
 func (b *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+	uid = strings.ToLower(uid)
 	var o = b.AccessUser[uid]
 	b.AccessUser[uid] = a
 	return &o, nil

@@ -33,6 +33,10 @@ var DefaultConfig = Config{
 			Settings: cmd.Settings{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
 			},
+			Add: cmd.Add{
+				Cmd:           cmd.Cmd{Priviledge: gateway.AccessAdmin},
+				DefaultAccess: gateway.AccessWhitelist,
+			},
 			Whois: cmd.Whois{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
@@ -64,11 +68,12 @@ var DefaultConfig = Config{
 		Alias: map[string]*cmd.Alias{
 			"whisper": &cmd.Alias{
 				Cmd:            cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-				Exe:            "SayPrivate",
+				Exe:            "sayprivate",
 				Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
 				ArgExpected:    2,
 				WithPriviledge: gateway.AccessAdmin,
 			},
+			"a": &cmd.Alias{Exe: "add"},
 			"s": &cmd.Alias{Exe: "say"},
 			"w": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
 			"k": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},

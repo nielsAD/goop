@@ -16,6 +16,7 @@ const (
 	MsgNoUserFound   = "No user found with that name"
 	MsgMoreUserFound = "Found more than one user with that name"
 	MsgNoPermission  = "No permission to perform action"
+	MsgInternalError = "Internal error prevented correct execution"
 )
 
 // Cmd is command base struct that implements Command.CanExecute
@@ -35,6 +36,7 @@ type Commands struct {
 	Whoami     Whoami
 	Whois      Whois
 	Settings   Settings
+	Add        Add
 	Say        Say
 	SayPrivate SayPrivate
 	Kick       Kick

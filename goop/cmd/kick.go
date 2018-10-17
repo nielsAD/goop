@@ -5,6 +5,9 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/goop"
 )
@@ -22,26 +25,28 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 		return t.Resp("Expected 1 argument: [user]")
 	}
 	var users = gateway.FindUserInChannel(gw, t.Arg[0])
-	if len(users) == 0 {
-		return t.Resp(MsgNoUserFound)
-	}
 
+	var l = make([]string, 0)
 	for _, u := range users {
-		if u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
+		if u.ID == t.User.ID || u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
 			continue
 		}
 		err := gw.Kick(u.ID)
 		switch err {
 		case nil:
-			//nothing
+			l = append(l, fmt.Sprintf("`%s`", u.Name))
 		case gateway.ErrNotImplemented:
 			return nil
 		case gateway.ErrNoPermission:
 			return t.Resp(MsgNoPermission)
 		default:
+			t.Resp(MsgInternalError)
 			return err
 		}
 	}
 
-	return nil
+	if len(l) == 0 {
+		return t.Resp(MsgNoUserFound)
+	}
+	return t.Resp(fmt.Sprintf("Kicked [%s]", strings.Join(l, ", ")))
 }
