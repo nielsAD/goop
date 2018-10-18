@@ -36,9 +36,9 @@ type Commands struct {
 	Whoami     Whoami
 	Whois      Whois
 	Settings   Settings
-	Add        Add
 	Say        Say
 	SayPrivate SayPrivate
+	Add        Add
 	Kick       Kick
 	Ban        Ban
 	Unban      Unban

@@ -33,10 +33,6 @@ var DefaultConfig = Config{
 			Settings: cmd.Settings{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
 			},
-			Add: cmd.Add{
-				Cmd:           cmd.Cmd{Priviledge: gateway.AccessAdmin},
-				DefaultAccess: gateway.AccessWhitelist,
-			},
 			Whois: cmd.Whois{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
@@ -45,6 +41,10 @@ var DefaultConfig = Config{
 			},
 			Say: cmd.Say{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+			},
+			Add: cmd.Add{
+				Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},
+				DefaultAccess: gateway.AccessWhitelist,
 			},
 			Kick: cmd.Kick{
 				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
@@ -73,11 +73,22 @@ var DefaultConfig = Config{
 				ArgExpected:    2,
 				WithPriviledge: gateway.AccessAdmin,
 			},
-			"a": &cmd.Alias{Exe: "add"},
-			"s": &cmd.Alias{Exe: "say"},
-			"w": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
-			"k": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},
-			"b": &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ban"},
+			"del": &cmd.Alias{
+				Exe: "add",
+				Arg: []string{gateway.AccessDefault.String()},
+			},
+			"ignore": &cmd.Alias{
+				Exe: "add",
+				Arg: []string{gateway.AccessIgnore.String()},
+			},
+			"unignore":  &cmd.Alias{Exe: "del"},
+			"squelch":   &cmd.Alias{Exe: "ignore"},
+			"unsquelch": &cmd.Alias{Exe: "unignore"},
+			"s":         &cmd.Alias{Exe: "say"},
+			"w":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
+			"i":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ignore"},
+			"k":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},
+			"b":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ban"},
 		},
 	},
 	Default: gateway.Config{
@@ -113,8 +124,15 @@ var DefaultConfig = Config{
 	},
 	Relay: RelayConfigWithDefault{
 		Default: goop.RelayConfig{
-			Chat:       true,
-			ChatAccess: gateway.AccessVoice,
+			Say:               true,
+			Chat:              true,
+			PrivateChat:       true,
+			ChatAccess:        gateway.AccessVoice,
+			PrivateChatAccess: gateway.AccessVoice,
+		},
+		DefaultSelf: goop.RelayConfig{
+			PrivateChat:       true,
+			PrivateChatAccess: gateway.AccessVoice,
 		},
 		To: map[string]*RelayToConfig{
 			"std" + gateway.Delimiter + "io": &RelayToConfig{
@@ -174,8 +192,9 @@ type DiscordConfigWithDefault struct {
 
 // RelayConfigWithDefault struct maps the layout of the Relay configuration section
 type RelayConfigWithDefault struct {
-	Default goop.RelayConfig
-	To      map[string]*RelayToConfig
+	Default     goop.RelayConfig
+	DefaultSelf goop.RelayConfig
+	To          map[string]*RelayToConfig
 }
 
 // RelayToConfig struct maps the layout of the inner part of the Relay matrix
@@ -269,6 +288,9 @@ func (c *Config) GetRelay(to, from string) *goop.RelayConfig {
 	}
 	if c.Relay.To[to].From[from] == nil {
 		var cfg = c.Relay.To[to].Default
+		if to == from {
+			cfg = c.Relay.DefaultSelf
+		}
 		c.Relay.To[to].From[from] = &cfg
 	}
 	return c.Relay.To[to].From[from]
@@ -337,11 +359,18 @@ func (c *Config) Map() map[string]interface{} {
 	DeleteEqual(dd, d)
 
 	var g1d = m["Relay"].(mi)["Default"].(mi)
+	var g1s = m["Relay"].(mi)["DefaultSelf"].(mi)
 	var gto = m["Relay"].(mi)["To"].(mi)
 	for k1, g1 := range gto {
 		var g2d = g1.(mi)["Default"].(mi)
 		var gfr = g1.(mi)["From"].(mi)
 		for k2, g2 := range gfr {
+			if k1 == k2 {
+				if reflect.DeepEqual(g1s, g2.(mi)) {
+					delete(gfr, k2)
+				}
+				continue
+			}
 			if reflect.DeepEqual(g2d, g2.(mi)) {
 				delete(gfr, k2)
 			}

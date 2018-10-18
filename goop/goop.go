@@ -83,11 +83,10 @@ func (g *Goop) AddGateway(id string, gw gateway.Gateway) error {
 	gw.On(&gateway.Trigger{}, g.execTrigger)
 
 	for wid := range g.Gateways {
+		g.Relay[id][wid] = NewRelay(g.Gateways[wid], g.Gateways[id], g.Config.GetRelay(id, wid))
 		if id == wid {
 			continue
 		}
-
-		g.Relay[id][wid] = NewRelay(g.Gateways[wid], g.Gateways[id], g.Config.GetRelay(id, wid))
 		g.Relay[wid][id] = NewRelay(g.Gateways[id], g.Gateways[wid], g.Config.GetRelay(wid, id))
 	}
 
