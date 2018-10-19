@@ -12,7 +12,6 @@ import (
 	"unicode"
 
 	"github.com/fatih/color"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -102,8 +101,8 @@ func (o *Gateway) Users() map[string]gateway.AccessLevel {
 	return nil
 }
 
-// AddUser overrides accesslevel for a specific user
-func (o *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+// SetUserAccess overrides accesslevel for a specific user
+func (o *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	return nil, gateway.ErrNotImplemented
 }
 

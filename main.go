@@ -12,13 +12,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/color"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
@@ -109,6 +109,7 @@ func (c *Quit) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 }
 
 func main() {
+	runtime.GOMAXPROCS(1)
 	flag.Parse()
 
 start:
@@ -153,6 +154,12 @@ start:
 	if err != nil {
 		logErr.Fatal("Initialization error: ", err)
 	}
+
+	g.On(&gateway.ConfigUpdate{}, func(ev *network.Event) {
+		if err := conf.MergeDefaults(); err != nil {
+			g.Fire(&network.AsyncError{Src: "ConfigUpdate", Err: err})
+		}
+	})
 
 	g.On(&network.AsyncError{}, func(ev *network.Event) {
 		var err = ev.Arg.(*network.AsyncError)

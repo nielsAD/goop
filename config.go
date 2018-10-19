@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/discord"
@@ -36,13 +35,16 @@ var DefaultConfig = Config{
 			Whois: cmd.Whois{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
+			List: cmd.List{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
+			},
 			SayPrivate: cmd.SayPrivate{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
 			Say: cmd.Say{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
 			},
-			Add: cmd.Add{
+			Set: cmd.Set{
 				Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},
 				DefaultAccess: gateway.AccessWhitelist,
 			},
@@ -73,15 +75,17 @@ var DefaultConfig = Config{
 				ArgExpected:    2,
 				WithPriviledge: gateway.AccessAdmin,
 			},
-			"del": &cmd.Alias{
-				Exe: "add",
-				Arg: []string{gateway.AccessDefault.String()},
+			"unset": &cmd.Alias{
+				Exe:         "set",
+				Arg:         []string{"%ARG1%", gateway.AccessDefault.String()},
+				ArgExpected: 1,
 			},
 			"ignore": &cmd.Alias{
-				Exe: "add",
-				Arg: []string{gateway.AccessIgnore.String()},
+				Exe:         "set",
+				Arg:         []string{"%ARG1%", gateway.AccessIgnore.String()},
+				ArgExpected: 1,
 			},
-			"unignore":  &cmd.Alias{Exe: "del"},
+			"unignore":  &cmd.Alias{Exe: "unset"},
 			"squelch":   &cmd.Alias{Exe: "ignore"},
 			"unsquelch": &cmd.Alias{Exe: "unignore"},
 			"s":         &cmd.Alias{Exe: "say"},

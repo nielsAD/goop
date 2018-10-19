@@ -8,6 +8,9 @@ import (
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
+// ConfigUpdate event
+type ConfigUpdate struct{}
+
 // Connected event
 type Connected struct{}
 

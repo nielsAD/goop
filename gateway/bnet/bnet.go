@@ -138,11 +138,25 @@ func (b *Gateway) Users() map[string]gateway.AccessLevel {
 	return b.AccessUser
 }
 
-// AddUser overrides accesslevel for a specific user
-func (b *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+// SetUserAccess overrides accesslevel for a specific user
+func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	uid = strings.ToLower(uid)
+	if uid == "" {
+		return nil, gateway.ErrNoUser
+	}
+
 	var o = b.AccessUser[uid]
-	b.AccessUser[uid] = a
+	if a != gateway.AccessDefault {
+		if b.AccessUser == nil {
+			b.AccessUser = make(map[string]gateway.AccessLevel)
+		}
+
+		b.AccessUser[uid] = a
+	} else {
+		delete(b.AccessUser, uid)
+	}
+
+	b.Fire(&gateway.ConfigUpdate{})
 	return &o, nil
 }
 

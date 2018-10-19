@@ -37,7 +37,7 @@ type Gateway interface {
 	ChannelUsers() []User
 	User(uid string) (*User, error)
 	Users() map[string]AccessLevel
-	AddUser(uid string, a AccessLevel) (*AccessLevel, error)
+	SetUserAccess(uid string, a AccessLevel) (*AccessLevel, error)
 	Trigger() string
 	Say(s string) error
 	SayPrivate(uid string, s string) error

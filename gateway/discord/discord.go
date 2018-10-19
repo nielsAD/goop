@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -191,14 +190,31 @@ func (d *Gateway) Users() map[string]gateway.AccessLevel {
 	return d.AccessUser
 }
 
-// AddUser overrides accesslevel for a specific user
-func (d *Gateway) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+func validateUID(uid string) error {
+	if _, err := strconv.ParseUint(uid, 10, 64); err != nil {
+		return gateway.ErrNoUser
+	}
+	return nil
+}
+
+// SetUserAccess overrides accesslevel for a specific user
+func (d *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	if err := validateUID(uid); err != nil {
 		return nil, err
 	}
 
 	var o = d.AccessUser[uid]
-	d.AccessUser[uid] = a
+	if a != gateway.AccessDefault {
+		if d.AccessUser == nil {
+			d.AccessUser = make(map[string]gateway.AccessLevel)
+		}
+
+		d.AccessUser[uid] = a
+	} else {
+		delete(d.AccessUser, uid)
+	}
+
+	d.Fire(&gateway.ConfigUpdate{})
 	return &o, nil
 }
 
@@ -211,13 +227,6 @@ func (d *Gateway) Say(s string) error {
 		}
 	}
 	return err
-}
-
-func validateUID(uid string) error {
-	if _, err := strconv.ParseUint(uid, 10, 64); err != nil {
-		return gateway.ErrNoUser
-	}
-	return nil
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {
@@ -586,14 +595,24 @@ func (c *Channel) Users() map[string]gateway.AccessLevel {
 	return c.AccessUser
 }
 
-// AddUser overrides accesslevel for a specific user
-func (c *Channel) AddUser(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
+// SetUserAccess overrides accesslevel for a specific user
+func (c *Channel) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.AccessLevel, error) {
 	if err := validateUID(uid); err != nil {
 		return nil, err
 	}
 
 	var o = c.AccessUser[uid]
-	c.AccessUser[uid] = a
+	if a != gateway.AccessDefault {
+		if c.AccessUser == nil {
+			c.AccessUser = make(map[string]gateway.AccessLevel)
+		}
+
+		c.AccessUser[uid] = a
+	} else {
+		delete(c.AccessUser, uid)
+	}
+
+	c.Fire(&gateway.ConfigUpdate{})
 	return &o, nil
 }
 

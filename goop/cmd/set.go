@@ -12,14 +12,14 @@ import (
 	"github.com/nielsAD/goop/goop"
 )
 
-// Add accesslevel for user
-type Add struct {
+// Set accesslevel for user
+type Set struct {
 	Cmd
 	DefaultAccess gateway.AccessLevel
 }
 
 // Execute command
-func (c *Add) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
+func (c *Set) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	if len(t.Arg) < 1 {
 		return t.Resp("Expected 1 argument: [user]")
 	}
@@ -44,14 +44,14 @@ func (c *Add) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		if u.ID == t.User.ID || u.Access == access || u.Access >= t.User.Access {
 			continue
 		}
-		prev, err := gw.AddUser(u.ID, access)
+		prev, err := gw.SetUserAccess(u.ID, access)
 		switch err {
 		case nil:
 			var action = "Promoted"
 			if access < *prev {
 				action = "Demoted"
 			}
-			l = append(l, fmt.Sprintf("%s `%s@%s` from <%s> to <%s>", action, u.Name, gw.Discriminator(), prev.String(), access.String()))
+			l = append(l, fmt.Sprintf("%s `%s` from <%s> to <%s>", action, u.Name, prev.String(), access.String()))
 		case gateway.ErrNotImplemented:
 			return nil
 		default:
@@ -61,7 +61,7 @@ func (c *Add) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoUserFound)
+		return t.Resp(MsgNoChanges)
 	}
 	return t.Resp(strings.Join(l, "\n"))
 }

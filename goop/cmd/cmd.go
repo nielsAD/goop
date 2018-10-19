@@ -15,6 +15,7 @@ import (
 const (
 	MsgNoUserFound   = "No user found with that name"
 	MsgMoreUserFound = "Found more than one user with that name"
+	MsgNoChanges     = "No changes made"
 	MsgNoPermission  = "No permission to perform action"
 	MsgInternalError = "Internal error prevented correct execution"
 )
@@ -36,9 +37,10 @@ type Commands struct {
 	Whoami     Whoami
 	Whois      Whois
 	Settings   Settings
+	List       List
 	Say        Say
 	SayPrivate SayPrivate
-	Add        Add
+	Set        Set
 	Kick       Kick
 	Ban        Ban
 	Unban      Unban

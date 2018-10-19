@@ -37,7 +37,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		err := gw.Ban(u.ID)
 		switch err {
 		case nil:
-			if _, err := gw.AddUser(u.ID, gateway.AccessBan); err != nil && err != gateway.ErrNotImplemented {
+			if _, err := gw.SetUserAccess(u.ID, gateway.AccessBan); err != nil && err != gateway.ErrNotImplemented {
 				t.Resp(MsgInternalError)
 				return err
 			}
@@ -53,7 +53,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoUserFound)
+		return t.Resp(MsgNoChanges)
 	}
 	return t.Resp(fmt.Sprintf("Banned [%s]", strings.Join(l, ", ")))
 }
@@ -84,7 +84,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		switch err {
 		case nil:
 			if u.Access < gateway.AccessDefault {
-				if _, err := gw.AddUser(u.ID, gateway.AccessDefault); err != nil && err != gateway.ErrNotImplemented {
+				if _, err := gw.SetUserAccess(u.ID, gateway.AccessDefault); err != nil && err != gateway.ErrNotImplemented {
 					t.Resp(MsgInternalError)
 					return err
 				}
@@ -101,7 +101,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoUserFound)
+		return t.Resp(MsgNoChanges)
 	}
 	return t.Resp(fmt.Sprintf("Unbanned [%s]", strings.Join(l, ", ")))
 }
