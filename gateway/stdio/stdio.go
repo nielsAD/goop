@@ -9,6 +9,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/fatih/color"
@@ -135,7 +136,12 @@ func (o *Gateway) Ban(uid string) error {
 
 // Unban user from channel
 func (o *Gateway) Unban(uid string) error {
-	return gateway.ErrNoChannel
+	return gateway.ErrNotImplemented
+}
+
+// Ping user to calculate RTT in milliseconds
+func (o *Gateway) Ping(uid string) (time.Duration, error) {
+	return 0, gateway.ErrNotImplemented
 }
 
 // Run reads packets and emits an event for each received packet

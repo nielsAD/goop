@@ -42,7 +42,7 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 				return err
 			}
 			l = append(l, fmt.Sprintf("`%s`", u.Name))
-		case gateway.ErrNotImplemented:
+		case gateway.ErrNotImplemented, gateway.ErrNoChannel:
 			return nil
 		case gateway.ErrNoPermission:
 			return t.Resp(MsgNoPermission)
@@ -90,7 +90,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 				}
 			}
 			l = append(l, fmt.Sprintf("`%s`", u.Name))
-		case gateway.ErrNotImplemented:
+		case gateway.ErrNotImplemented, gateway.ErrNoChannel:
 			return nil
 		case gateway.ErrNoPermission:
 			return t.Resp(MsgNoPermission)

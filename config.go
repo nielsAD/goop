@@ -63,6 +63,9 @@ var DefaultConfig = Config{
 				AccessProtect:  gateway.AccessBlacklist,
 				AccessOverride: gateway.AccessAdmin,
 			},
+			Ping: cmd.Ping{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+			},
 			Time: cmd.Time{
 				Format: "15:04:05 MST",
 			},
@@ -74,6 +77,12 @@ var DefaultConfig = Config{
 				Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
 				ArgExpected:    2,
 				WithPriviledge: gateway.AccessAdmin,
+			},
+			"pingme": &cmd.Alias{
+				Cmd:            cmd.Cmd{Priviledge: gateway.AccessVoice},
+				Exe:            "ping",
+				Arg:            []string{"%USTR%"},
+				WithPriviledge: gateway.AccessWhitelist,
 			},
 			"unset": &cmd.Alias{
 				Exe:         "set",
@@ -89,8 +98,10 @@ var DefaultConfig = Config{
 			"squelch":   &cmd.Alias{Exe: "ignore"},
 			"unsquelch": &cmd.Alias{Exe: "unignore"},
 			"s":         &cmd.Alias{Exe: "say"},
+			"p":         &cmd.Alias{Exe: "pingme"},
+			"l":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "list"},
+			"i":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "ignore"},
 			"w":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
-			"i":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ignore"},
 			"k":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},
 			"b":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ban"},
 		},

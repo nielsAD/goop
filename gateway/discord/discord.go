@@ -266,6 +266,11 @@ func (d *Gateway) Unban(uid string) error {
 	return gateway.ErrNoChannel
 }
 
+// Ping user to calculate RTT in milliseconds
+func (d *Gateway) Ping(uid string) (time.Duration, error) {
+	return 0, gateway.ErrNotImplemented
+}
+
 // Run reads packets and emits an event for each received packet
 func (d *Gateway) Run(ctx context.Context) error {
 	var err error
@@ -673,7 +678,12 @@ func (c *Channel) Ban(uid string) error {
 
 // Unban user from channel
 func (c *Channel) Unban(uid string) error {
-	return gateway.ErrNoChannel
+	return gateway.ErrNotImplemented
+}
+
+// Ping user to calculate RTT in milliseconds
+func (c *Channel) Ping(uid string) (time.Duration, error) {
+	return 0, gateway.ErrNotImplemented
 }
 
 // WebhookOrSay sends a chat message preferably via webhook

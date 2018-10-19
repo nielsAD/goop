@@ -9,6 +9,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -44,6 +45,7 @@ type Gateway interface {
 	Kick(uid string) error
 	Ban(uid string) error
 	Unban(uid string) error
+	Ping(uid string) (time.Duration, error)
 	Responder(gw Gateway, uid string, forcePrivate bool) Responder
 	Run(ctx context.Context) error
 	Relay(ev *network.Event, from Gateway) error

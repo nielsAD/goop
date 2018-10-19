@@ -225,6 +225,15 @@ func (b *Gateway) Unban(uid string) error {
 	return b.say(fmt.Sprintf("/unban %s", uid))
 }
 
+// Ping user to calculate RTT in milliseconds
+func (b *Gateway) Ping(uid string) (time.Duration, error) {
+	u, ok := b.Client.User(uid)
+	if !ok {
+		return 0, gateway.ErrNoUser
+	}
+	return time.Duration(u.Ping) * time.Millisecond, nil
+}
+
 // Run reads packets and emits an event for each received packet
 func (b *Gateway) Run(ctx context.Context) error {
 	go func() {
