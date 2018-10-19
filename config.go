@@ -35,14 +35,14 @@ var DefaultConfig = Config{
 			Whois: cmd.Whois{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
-			List: cmd.List{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
-			},
 			SayPrivate: cmd.SayPrivate{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
 			Say: cmd.Say{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+			},
+			List: cmd.List{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
 			},
 			Set: cmd.Set{
 				Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},

@@ -135,10 +135,8 @@ func (g *Goop) Run(ctx context.Context) {
 
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (g *Goop) InitDefaultHandlers() {
-	g.On(&gateway.Chat{}, g.onChat)
-	g.On(&gateway.PrivateChat{}, g.onPrivateChat)
-	g.On(&gateway.Join{}, g.onJoin)
-	g.On(&gateway.Leave{}, g.onLeave)
+	g.On(&gateway.Chat{}, g.autoKickChat)
+	g.On(&gateway.Join{}, g.autoKickJoin)
 }
 
 func checkTriggerChat(ev *network.Event) {
@@ -224,18 +222,55 @@ func (g *Goop) execTrigger(ev *network.Event) {
 	}
 }
 
-func (g *Goop) onChat(ev *network.Event) {
-	//var msg = ev.Arg.(*gateway.Chat)
+func (g *Goop) autoKick(gw gateway.Gateway, u *gateway.User) bool {
+	var err error
+	if u.Access <= gateway.AccessBan {
+		err = gw.Ban(u.ID)
+	} else {
+		err = gw.Kick(u.ID)
+	}
+
+	switch err {
+	case nil:
+		if err := gw.Say(fmt.Sprintf("Kicked `%s@%s`", u.Name, gw.Discriminator())); err != nil {
+			g.Fire(&network.AsyncError{Src: "autoKick[Say]", Err: err})
+		}
+		return true
+	case gateway.ErrNotImplemented, gateway.ErrNoPermission:
+		// ignore
+	default:
+		g.Fire(&network.AsyncError{Src: "autoKick", Err: err})
+	}
+
+	return false
 }
 
-func (g *Goop) onPrivateChat(ev *network.Event) {
-	//var msg = ev.Arg.(*gateway.PrivateChat)
+func (g *Goop) autoKickChat(ev *network.Event) {
+	var msg = ev.Arg.(*gateway.Chat)
+	if msg.User.Access > gateway.AccessKick {
+		return
+	}
+	gw, ok := ev.Opt[0].(gateway.Gateway)
+	if !ok {
+		return
+	}
+
+	if g.autoKick(gw, &msg.User) {
+		ev.PreventNext()
+	}
 }
 
-func (g *Goop) onJoin(ev *network.Event) {
-	//var user = ev.Arg.(*gateway.Join)
-}
+func (g *Goop) autoKickJoin(ev *network.Event) {
+	var user = ev.Arg.(*gateway.Join)
+	if user.Access > gateway.AccessKick {
+		return
+	}
+	gw, ok := ev.Opt[0].(gateway.Gateway)
+	if !ok {
+		return
+	}
 
-func (g *Goop) onLeave(ev *network.Event) {
-	//var user = ev.Arg.(*gateway.Leave)
+	if g.autoKick(gw, &user.User) {
+		ev.PreventNext()
+	}
 }
