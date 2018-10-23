@@ -275,7 +275,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 				case <-ctx.Done():
 				}
 
-				backoff = time.Duration(float64(backoff) * 1.5)
+				backoff = time.Duration(float64(backoff) * 2)
 				continue
 			}
 

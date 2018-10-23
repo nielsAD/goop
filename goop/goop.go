@@ -144,7 +144,7 @@ func (g *Goop) InitDefaultHandlers() {
 
 func checkTriggerChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.Chat)
-	if !strings.EqualFold(msg.Content, "?trigger") {
+	if msg.User.Access < gateway.AccessVoice || !strings.EqualFold(msg.Content, "?trigger") {
 		return
 	}
 	gw, ok := ev.Opt[0].(gateway.Gateway)
@@ -161,7 +161,7 @@ func checkTriggerChat(ev *network.Event) {
 
 func checkTriggerPrivateChat(ev *network.Event) {
 	var msg = ev.Arg.(*gateway.PrivateChat)
-	if !strings.EqualFold(msg.Content, "?trigger") {
+	if msg.User.Access < gateway.AccessVoice || !strings.EqualFold(msg.Content, "?trigger") {
 		return
 	}
 	gw, ok := ev.Opt[0].(gateway.Gateway)

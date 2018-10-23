@@ -6,6 +6,7 @@ package discord_test
 
 import (
 	"context"
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
@@ -57,6 +58,10 @@ func TestChannel(t *testing.T) {
 	gw := gateway.Gateway(c)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
+		if err, ok := err.Err.(*discordgo.RESTError); ok && err.Response.StatusCode == http.StatusNotFound {
+			return
+		}
+
 		t.Fatal(err)
 	})
 
