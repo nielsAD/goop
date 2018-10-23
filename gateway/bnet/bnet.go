@@ -151,7 +151,15 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 			b.AccessUser = make(map[string]gateway.AccessLevel)
 		}
 
+		if u, ok := b.Client.User(uid); ok {
+			b.Fire(&gateway.Leave{User: b.user(u)})
+		}
+
 		b.AccessUser[uid] = a
+
+		if u, ok := b.Client.User(uid); ok {
+			b.Fire(&gateway.Join{User: b.user(u)})
+		}
 	} else {
 		delete(b.AccessUser, uid)
 	}
@@ -290,6 +298,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 		}
 
 		b.Fire(&gateway.Disconnected{})
+		b.Fire(&gateway.Clear{})
 	}
 
 	return ctx.Err()
@@ -481,6 +490,7 @@ func (b *Gateway) onJoinError(ev *network.Event) {
 
 func (b *Gateway) onChannel(ev *network.Event) {
 	var c = ev.Arg.(*bnet.Channel)
+	b.Fire(&gateway.Clear{})
 	b.Fire(&gateway.Channel{ID: c.Name, Name: c.Name})
 }
 
@@ -501,6 +511,8 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 // Relay dumps the event content in current channel
 func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
+	case *gateway.Clear:
+		return nil
 	case *gateway.Connected:
 		return b.say(fmt.Sprintf("Established connection to %s", from.ID()))
 	case *gateway.Disconnected:

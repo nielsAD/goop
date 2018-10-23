@@ -48,8 +48,9 @@ func (r *Relay) InitDefaultHandlers() {
 	r.From.On(&network.AsyncError{}, r.onLog)
 	r.From.On(&gateway.Connected{}, r.onLog)
 	r.From.On(&gateway.Disconnected{}, r.onLog)
-	r.From.On(&gateway.SystemMessage{}, r.onSystemMessage)
 	r.From.On(&gateway.Channel{}, r.onChannel)
+	r.From.On(&gateway.SystemMessage{}, r.onSystemMessage)
+	r.From.On(&gateway.Clear{}, r.onClear)
 	r.From.On(&gateway.Join{}, r.onJoin)
 	r.From.On(&gateway.Leave{}, r.onLeave)
 	r.From.On(&gateway.Chat{}, r.onChat)
@@ -68,6 +69,13 @@ func (r *Relay) relay(ev *network.Event) {
 
 func (r *Relay) onLog(ev *network.Event) {
 	if !r.Log {
+		return
+	}
+	r.relay(ev)
+}
+
+func (r *Relay) onClear(ev *network.Event) {
+	if !r.Log && !r.Joins {
 		return
 	}
 	r.relay(ev)

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/gorilla/websocket"
-
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/gowarcraft3/network"
@@ -44,7 +44,15 @@ func Test(t *testing.T) {
 }
 
 func TestChannel(t *testing.T) {
-	c := &discord.Channel{ChannelConfig: &discord.ChannelConfig{}}
+	s, err := discordgo.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := discord.NewChannel(s, "", &discord.ChannelConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	gw := gateway.Gateway(c)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {

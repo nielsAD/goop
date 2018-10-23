@@ -156,6 +156,10 @@ start:
 	}
 
 	g.On(&gateway.ConfigUpdate{}, func(ev *network.Event) {
+		if _, ok := ev.Opt[0].(gateway.Gateway); ok {
+			// Assume this error has already been handled
+			return
+		}
 		if err := conf.MergeDefaults(); err != nil {
 			g.Fire(&network.AsyncError{Src: "ConfigUpdate", Err: err})
 		}
@@ -163,8 +167,11 @@ start:
 
 	g.On(&network.AsyncError{}, func(ev *network.Event) {
 		var err = ev.Arg.(*network.AsyncError)
-		if len(ev.Opt) > 1 {
-			return
+		if len(ev.Opt) > 0 {
+			if _, ok := ev.Opt[0].(gateway.Gateway); ok {
+				// Assume this error has already been handled
+				return
+			}
 		}
 
 		logErr.Println(color.RedString("[ERROR] %s", err.Error()))

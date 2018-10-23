@@ -170,6 +170,8 @@ func (o *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 		o.Out.Println(color.MagentaString("[%s] Established connection", from.ID()))
 	case *gateway.Disconnected:
 		o.Out.Println(color.MagentaString("[%s] Connection closed", from.ID()))
+	case *gateway.Clear:
+		o.Out.Println(color.MagentaString("[%s] Cleared", from.ID()))
 	case *network.AsyncError:
 		o.Out.Println(color.RedString("[%s][ERR] %s", from.ID(), msg.Error()))
 	case *gateway.SystemMessage:

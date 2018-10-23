@@ -17,6 +17,9 @@ type Connected struct{}
 // Disconnected event
 type Disconnected struct{}
 
+// Clear event
+type Clear struct{}
+
 // SystemMessage event
 type SystemMessage struct {
 	Type    string
@@ -53,6 +56,7 @@ type Leave struct {
 // RelayEvents types
 var RelayEvents = []interface{}{
 	&network.AsyncError{},
+	&Clear{},
 	&Connected{},
 	&Disconnected{},
 	&SystemMessage{},

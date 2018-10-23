@@ -80,7 +80,10 @@ func (g *Goop) AddGateway(id string, gw gateway.Gateway) error {
 	// These handlers are called after relay handlers
 	gw.On(&gateway.Chat{}, checkTriggerChat)
 	gw.On(&gateway.PrivateChat{}, checkTriggerPrivateChat)
+
 	gw.On(&gateway.Trigger{}, g.execTrigger)
+	gw.On(&gateway.Chat{}, g.autoKickChat)
+	gw.On(&gateway.Join{}, g.autoKickJoin)
 
 	for wid := range g.Gateways {
 		g.Relay[id][wid] = NewRelay(g.Gateways[wid], g.Gateways[id], g.Config.GetRelay(id, wid))
@@ -91,8 +94,8 @@ func (g *Goop) AddGateway(id string, gw gateway.Gateway) error {
 	}
 
 	gw.On(nil, func(ev *network.Event) {
-		// Add sender and sender_id info to all events
-		ev.Opt = append([]network.EventArg{gw, id}, ev.Opt...)
+		// Add sender to all events
+		ev.Opt = append([]network.EventArg{gw}, ev.Opt...)
 
 		// Fire on main object (called before relay handlers)
 		if g.Fire(ev.Arg, ev.Opt...) {
@@ -135,8 +138,8 @@ func (g *Goop) Run(ctx context.Context) {
 
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (g *Goop) InitDefaultHandlers() {
-	g.On(&gateway.Chat{}, g.autoKickChat)
-	g.On(&gateway.Join{}, g.autoKickJoin)
+	g.On(&gateway.Chat{}, g.checkPhraseChat)
+	g.On(&gateway.PrivateChat{}, g.checkPhrasePrivateChat)
 }
 
 func checkTriggerChat(ev *network.Event) {
@@ -272,5 +275,29 @@ func (g *Goop) autoKickJoin(ev *network.Event) {
 
 	if g.autoKick(gw, &user.User) {
 		ev.PreventNext()
+	}
+}
+
+func (g *Goop) phraseCheck(content string) bool {
+	return false
+}
+
+func (g *Goop) checkPhraseChat(ev *network.Event) {
+	var msg = ev.Arg.(*gateway.Chat)
+	if msg.User.Access >= gateway.AccessWhitelist {
+		return
+	}
+
+	if g.phraseCheck(msg.Content) {
+	}
+}
+
+func (g *Goop) checkPhrasePrivateChat(ev *network.Event) {
+	var msg = ev.Arg.(*gateway.PrivateChat)
+	if msg.User.Access >= gateway.AccessWhitelist {
+		return
+	}
+
+	if g.phraseCheck(msg.Content) {
 	}
 }

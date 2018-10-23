@@ -49,7 +49,7 @@ func (c *List) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 			continue
 		}
 		var u, err = gw.User(uid)
-		if u == nil || err != nil {
+		if err != nil || u == nil {
 			continue
 		}
 
