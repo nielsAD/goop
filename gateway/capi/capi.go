@@ -2,7 +2,7 @@
 // Project: goop (https://github.com/nielsAD/goop)
 // License: Mozilla Public License, v2.0
 
-package bnet
+package capi
 
 import (
 	"context"
@@ -16,46 +16,43 @@ import (
 
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
-	"github.com/nielsAD/gowarcraft3/network/bnet"
-	"github.com/nielsAD/gowarcraft3/protocol/bncs"
-	"github.com/nielsAD/gowarcraft3/protocol/w3gs"
+	"github.com/nielsAD/gowarcraft3/network/chat"
+	pcapi "github.com/nielsAD/gowarcraft3/protocol/capi"
 )
 
 // Errors
 var (
-	ErrSayBufferFull = errors.New("gw-bnet: Say buffer full")
-	ErrSayCommand    = errors.New("gw-bnet: Say prevented execution of command")
+	ErrSayBufferFull = errors.New("gw-capi: Say buffer full")
 )
 
-// Config stores the configuration of a single BNet server
+// Config stores the configuration of a single CAPI connection
 type Config struct {
 	GatewayConfig
-	bnet.Config
+	chat.Config
 }
 
-// GatewayConfig stores the config additions of bnet.Gateway over bnet.Client
+// GatewayConfig stores the config additions of capi.Gateway over chat.Bot
 type GatewayConfig struct {
 	gateway.Config
 
 	ReconnectDelay   time.Duration
-	HomeChannel      string
 	BufSize          uint8
-	AvatarIconURL    string
 	AvatarDefaultURL string
 
-	AccessWhisper    gateway.AccessLevel
-	AccessTalk       gateway.AccessLevel
-	AccessNoWarcraft gateway.AccessLevel
-	AccessOperator   gateway.AccessLevel
-	AccessLevel      map[int]gateway.AccessLevel
-	AccessClanTag    map[string]gateway.AccessLevel
-	AccessUser       map[string]gateway.AccessLevel
+	AccessWhisper  gateway.AccessLevel
+	AccessTalk     gateway.AccessLevel
+	AccessOperator gateway.AccessLevel
+	AccessUser     map[string]gateway.AccessLevel
 }
 
-// Gateway manages a BNet connection
+// Gateway manages a CAPI connection
 type Gateway struct {
 	gateway.Common
-	*bnet.Client
+	*chat.Bot
+
+	chatmut sync.Mutex
+	users   map[string]int64
+	name    string
 
 	smut  sync.Mutex
 	saych chan string
@@ -66,13 +63,13 @@ type Gateway struct {
 
 // New initializes a new Gateway struct
 func New(conf *Config) (*Gateway, error) {
-	c, err := bnet.NewClient(&conf.Config)
+	c, err := chat.NewBot(&conf.Config)
 	if err != nil {
 		return nil, err
 	}
 
 	var b = Gateway{
-		Client:        c,
+		Bot:           c,
 		GatewayConfig: &conf.GatewayConfig,
 	}
 
@@ -83,7 +80,7 @@ func New(conf *Config) (*Gateway, error) {
 
 // Operator in chat
 func (b *Gateway) Operator() bool {
-	if u, ok := b.Client.User(b.UniqueName); ok {
+	if u, ok := b.Bot.User(1); ok {
 		return u.Operator()
 	}
 	return false
@@ -91,7 +88,7 @@ func (b *Gateway) Operator() bool {
 
 // Channel currently being monitoring
 func (b *Gateway) Channel() *gateway.Channel {
-	var name = b.Client.Channel()
+	var name = b.Bot.Channel()
 	if name == "" {
 		return nil
 	}
@@ -103,11 +100,14 @@ func (b *Gateway) Channel() *gateway.Channel {
 
 // ChannelUsers online
 func (b *Gateway) ChannelUsers() []gateway.User {
-	var users = b.Client.Users()
+	var users = b.Bot.Users()
 
 	var res = make([]gateway.User, 0, len(users))
-	for _, u := range users {
-		res = append(res, b.user(&u))
+	for k, u := range users {
+		if k == 1 {
+			continue
+		}
+		res = append(res, b.userFromCapi(&u.UserUpdateEvent))
 	}
 
 	return res
@@ -115,8 +115,8 @@ func (b *Gateway) ChannelUsers() []gateway.User {
 
 // User by ID
 func (b *Gateway) User(uid string) (*gateway.User, error) {
-	if u, ok := b.Client.User(uid); ok {
-		var res = b.user(u)
+	if id, ok := b.uid(uid); ok {
+		var res = b.userFromID(id)
 		return &res, nil
 	}
 
@@ -151,14 +151,15 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 			b.AccessUser = make(map[string]gateway.AccessLevel)
 		}
 
-		if u, ok := b.Client.User(uid); ok {
-			b.Fire(&gateway.Leave{User: b.user(u)})
+		id, inchat := b.users[uid]
+		if inchat {
+			b.Fire(&gateway.Leave{User: b.userFromID(id)})
 		}
 
 		b.AccessUser[uid] = a
 
-		if u, ok := b.Client.User(uid); ok {
-			b.Fire(&gateway.Join{User: b.user(u)})
+		if inchat {
+			b.Fire(&gateway.Leave{User: b.userFromID(id)})
 		}
 	} else {
 		delete(b.AccessUser, uid)
@@ -175,7 +176,7 @@ func (b *Gateway) say(s string) error {
 
 		go func() {
 			for s := range b.saych {
-				err := b.Client.Say(s)
+				err := b.Bot.SendMessage(s)
 				if err != nil {
 					b.Fire(&network.AsyncError{Src: "Say", Err: err})
 				}
@@ -194,9 +195,6 @@ func (b *Gateway) say(s string) error {
 
 // Say sends a chat message
 func (b *Gateway) Say(s string) error {
-	if strings.HasPrefix(s, "/") {
-		return ErrSayCommand
-	}
 	if err := b.say(s); err != nil {
 		return err
 	}
@@ -206,7 +204,17 @@ func (b *Gateway) Say(s string) error {
 
 // SayPrivate sends a private chat message to uid
 func (b *Gateway) SayPrivate(uid string, s string) error {
-	return b.say(fmt.Sprintf("/w %s %s", uid, s))
+	id, ok := b.uid(uid)
+	if !ok {
+		return gateway.ErrNoUser
+	}
+	go func() {
+		err := b.Bot.SendWhisper(id, s)
+		if err != nil {
+			b.Fire(&network.AsyncError{Src: "SayPrivate", Err: err})
+		}
+	}()
+	return nil
 }
 
 // Kick user from channel
@@ -214,7 +222,17 @@ func (b *Gateway) Kick(uid string) error {
 	if !b.Operator() {
 		return gateway.ErrNoPermission
 	}
-	return b.say(fmt.Sprintf("/kick %s", uid))
+	id, ok := b.uid(uid)
+	if !ok {
+		return gateway.ErrNoUser
+	}
+	go func() {
+		err := b.Bot.KickUser(id)
+		if err != nil {
+			b.Fire(&network.AsyncError{Src: "Kick", Err: err})
+		}
+	}()
+	return nil
 }
 
 // Ban user from channel
@@ -222,7 +240,17 @@ func (b *Gateway) Ban(uid string) error {
 	if !b.Operator() {
 		return gateway.ErrNoPermission
 	}
-	return b.say(fmt.Sprintf("/ban %s", uid))
+	id, ok := b.uid(uid)
+	if !ok {
+		return gateway.ErrNoUser
+	}
+	go func() {
+		err := b.Bot.BanUser(id)
+		if err != nil {
+			b.Fire(&network.AsyncError{Src: "Ban", Err: err})
+		}
+	}()
+	return nil
 }
 
 // Unban user from channel
@@ -230,23 +258,25 @@ func (b *Gateway) Unban(uid string) error {
 	if !b.Operator() {
 		return gateway.ErrNoPermission
 	}
-	return b.say(fmt.Sprintf("/unban %s", uid))
+	go func() {
+		err := b.Bot.UnbanUser(uid)
+		if err != nil {
+			b.Fire(&network.AsyncError{Src: "Unban", Err: err})
+		}
+	}()
+	return nil
 }
 
 // Ping user to calculate RTT in milliseconds
 func (b *Gateway) Ping(uid string) (time.Duration, error) {
-	u, ok := b.Client.User(uid)
-	if !ok {
-		return 0, gateway.ErrNoUser
-	}
-	return time.Duration(u.Ping) * time.Millisecond, nil
+	return 0, gateway.ErrNotImplemented
 }
 
 // Run reads packets and emits an event for each received packet
 func (b *Gateway) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
-		b.Client.Close()
+		b.Bot.Close()
 	}()
 
 	var backoff = b.ReconnectDelay
@@ -257,18 +287,18 @@ func (b *Gateway) Run(ctx context.Context) error {
 			backoff = 4 * time.Hour
 		}
 
-		var err = b.Client.Logon()
+		var err = b.Bot.Connect()
 		if err != nil {
 			var reconnect bool
 			switch err {
-			case bnet.ErrCDKeyInUse, bnet.ErrUnexpectedPacket:
+			case chat.ErrUnexpectedPacket:
 				reconnect = true
 			default:
 				reconnect = network.IsConnClosedError(err) || os.IsTimeout(err)
 			}
 
 			if reconnect && ctx.Err() == nil {
-				b.Fire(&network.AsyncError{Src: "Run[Logon]", Err: err})
+				b.Fire(&network.AsyncError{Src: "Run[Connect]", Err: err})
 
 				select {
 				case <-time.After(backoff):
@@ -284,17 +314,9 @@ func (b *Gateway) Run(ctx context.Context) error {
 
 		b.Fire(&gateway.Connected{})
 
-		var channel = b.Client.Channel()
-		if channel == "" {
-			channel = b.HomeChannel
-		}
-		if channel != "" {
-			b.say("/join " + channel)
-		}
-
 		backoff = b.ReconnectDelay
-		if err := b.Client.Run(); err != nil && ctx.Err() == nil {
-			b.Fire(&network.AsyncError{Src: "Run[Client]", Err: err})
+		if err := b.Bot.Run(); err != nil && ctx.Err() == nil {
+			b.Fire(&network.AsyncError{Src: "Run[Bot]", Err: err})
 		}
 
 		b.Fire(&gateway.Disconnected{})
@@ -304,41 +326,15 @@ func (b *Gateway) Run(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (b *Gateway) user(u *bnet.User) gateway.User {
+func (b *Gateway) userFromCapi(u *pcapi.UserUpdateEvent) gateway.User {
 	var res = gateway.User{
-		ID:        strings.ToLower(u.Name),
-		Name:      u.Name,
+		ID:        strings.ToLower(u.Username),
+		Name:      u.Username,
 		Access:    b.AccessTalk,
 		AvatarURL: b.AvatarDefaultURL,
 	}
 
-	var prod, icon, lvl, tag = u.Stat()
-	if prod != 0 {
-		switch prod {
-		case w3gs.ProductDemo, w3gs.ProductROC, w3gs.ProductTFT:
-			if b.AvatarIconURL != "" {
-				res.AvatarURL = strings.Replace(b.AvatarIconURL, "${ICON}", icon.String(), -1)
-			}
-
-			var max = 0
-			for l, a := range b.AccessLevel {
-				if l >= max && lvl >= l {
-					max = l
-					res.Access = a
-				}
-			}
-
-			if access := b.AccessClanTag[tag.String()]; access != gateway.AccessDefault {
-				res.Access = access
-			}
-		default:
-			if b.AccessNoWarcraft != gateway.AccessDefault {
-				res.Access = b.AccessNoWarcraft
-			}
-		}
-	}
-
-	if b.AccessOperator != gateway.AccessDefault && u.Operator() {
+	if b.AccessOperator != gateway.AccessDefault && u.Flags&(pcapi.UserFlagAdmin|pcapi.UserFlagModerator) != 0 {
 		res.Access = b.AccessOperator
 	}
 
@@ -349,34 +345,86 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 	return res
 }
 
+func (b *Gateway) userFromID(uid int64) gateway.User {
+	if u, ok := b.Bot.User(uid); ok {
+		return b.userFromCapi(&u.UserUpdateEvent)
+	}
+
+	return gateway.User{
+		Access:    b.AccessTalk,
+		AvatarURL: b.AvatarDefaultURL,
+	}
+}
+
+func (b *Gateway) uid(uid string) (int64, bool) {
+	b.chatmut.Lock()
+	var res, ok = b.users[uid]
+	b.chatmut.Unlock()
+	return res, ok
+}
+
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (b *Gateway) InitDefaultHandlers() {
-	b.On(&bnet.UserJoined{}, b.onUserJoined)
-	b.On(&bnet.UserLeft{}, b.onUserLeft)
-	b.On(&bnet.Chat{}, b.onChat)
-	b.On(&bnet.Whisper{}, b.onWhisper)
-	b.On(&bnet.JoinError{}, b.onJoinError)
-	b.On(&bnet.Channel{}, b.onChannel)
-	b.On(&bnet.SystemMessage{}, b.onSystemMessage)
-	b.On(&bncs.FloodDetected{}, b.onFloodDetected)
+	b.On(&pcapi.ConnectEvent{}, b.onConnectEvent)
+	b.On(&pcapi.UserUpdateEvent{}, b.onUserUpdateEvent)
+	b.On(&pcapi.UserLeaveEvent{}, b.onUserLeaveEvent)
+	b.On(&pcapi.MessageEvent{}, b.onMessageEvent)
 }
 
-func (b *Gateway) onUserJoined(ev *network.Event) {
-	var user = ev.Arg.(*bnet.UserJoined)
-	if user.Name == b.UniqueName {
+func (b *Gateway) onConnectEvent(ev *network.Event) {
+	var pkt = ev.Arg.(*pcapi.ConnectEvent)
+
+	b.chatmut.Lock()
+	b.users = nil
+	b.chatmut.Unlock()
+
+	b.Fire(&gateway.Clear{})
+	b.Fire(&gateway.Channel{ID: pkt.Channel, Name: pkt.Channel})
+}
+
+func (b *Gateway) onUserUpdateEvent(ev *network.Event) {
+	var pkt = ev.Arg.(*pcapi.UserUpdateEvent)
+	if pkt.UserID == 1 {
+		b.name = pkt.Username
 		return
 	}
 
-	b.Fire(&gateway.Join{User: b.user(&user.User)})
+	var join bool
+
+	b.chatmut.Lock()
+	if b.users == nil {
+		b.users = make(map[string]int64)
+	}
+	var s = strings.ToLower(pkt.Username)
+	if _, ok := b.users[s]; !ok {
+		b.users[s] = pkt.UserID
+		join = true
+	}
+	b.chatmut.Unlock()
+
+	if join {
+		b.Fire(&gateway.Join{User: b.userFromCapi(pkt)})
+	}
 }
 
-func (b *Gateway) onUserLeft(ev *network.Event) {
-	var user = ev.Arg.(*bnet.UserLeft)
-	if user.Name == b.UniqueName {
+func (b *Gateway) onUserLeaveEvent(ev *network.Event) {
+	var pkt = ev.Arg.(*pcapi.UserLeaveEvent)
+	if pkt.UserID == 1 {
 		return
 	}
 
-	b.Fire(&gateway.Leave{User: b.user(&user.User)})
+	var u = b.userFromID(pkt.UserID)
+
+	b.chatmut.Lock()
+	var leave = b.users[u.ID] == pkt.UserID
+	if leave {
+		delete(b.users, u.ID)
+	}
+	b.chatmut.Unlock()
+
+	if leave {
+		b.Fire(&gateway.Leave{User: u})
+	}
 }
 
 func extractCmdAndArgs(s string) (bool, string, []string) {
@@ -400,7 +448,7 @@ func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
 
 	pat := s[:idx]
 	if !strings.EqualFold(pat, "goop") || strings.EqualFold(pat, "all") || (strings.EqualFold(pat, "ops") && b.Operator()) {
-		if m, _ := filepath.Match(pat, b.UniqueName); !m {
+		if m, _ := filepath.Match(pat, b.name); !m || len(b.name) == 0 {
 			return false, "", nil
 		}
 	}
@@ -408,104 +456,53 @@ func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
 	return extractCmdAndArgs(s[idx+2:])
 }
 
-func (b *Gateway) onChat(ev *network.Event) {
-	var msg = ev.Arg.(*bnet.Chat)
-	if msg.Content == "" {
+func (b *Gateway) onMessageEvent(ev *network.Event) {
+	var pkt = ev.Arg.(*pcapi.MessageEvent)
+	if pkt.Message == "" {
 		return
 	}
 
-	var chat = gateway.Chat{
-		User:    b.user(&msg.User),
-		Content: msg.Content,
-	}
+	switch pkt.Type {
+	case pcapi.MessageEmote, pcapi.MessageChannel, pcapi.MessageWhisper:
+		var u = b.userFromID(pkt.UserID)
 
-	switch msg.Type {
-	case bncs.ChatEmote:
-		chat.Content = fmt.Sprintf("%s %s", msg.User.Name, msg.Content)
+		var ev interface{}
+
+		switch pkt.Type {
+		case pcapi.MessageEmote:
+			ev = &gateway.Chat{
+				User:    u,
+				Content: fmt.Sprintf("%s %s", u.Name, pkt.Message),
+			}
+		case pcapi.MessageChannel:
+			ev = &gateway.Chat{
+				User:    u,
+				Content: pkt.Message,
+			}
+		case pcapi.MessageWhisper:
+			ev = &gateway.PrivateChat{
+				User:    u,
+				Content: pkt.Message,
+			}
+		}
+
+		b.Fire(ev)
+
+		if u.Access < b.Commands.Access {
+			return
+		}
+
+		if r, cmd, arg := b.FindTrigger(pkt.Message); r {
+			b.Fire(&gateway.Trigger{
+				User: u,
+				Cmd:  cmd,
+				Arg:  arg,
+				Resp: b.Responder(b, u.ID, true),
+			}, ev)
+		}
 	default:
-		chat.Content = msg.Content
+		b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(pkt.Type.String()), Content: pkt.Message})
 	}
-
-	b.Fire(&chat)
-
-	if chat.User.Access < b.Commands.Access {
-		return
-	}
-
-	if r, cmd, arg := b.FindTrigger(chat.Content); r {
-		b.Fire(&gateway.Trigger{
-			User: chat.User,
-			Cmd:  cmd,
-			Arg:  arg,
-			Resp: b.Responder(b, chat.User.ID, false),
-		}, &chat)
-	}
-}
-
-func (b *Gateway) onWhisper(ev *network.Event) {
-	var msg = ev.Arg.(*bnet.Whisper)
-	if msg.Content == "" {
-		return
-	}
-
-	if msg.Username[:1] == "#" {
-		b.Fire(&gateway.SystemMessage{Type: msg.Username, Content: msg.Content})
-		return
-	}
-
-	var chat = gateway.PrivateChat{
-		User: gateway.User{
-			ID:        strings.ToLower(msg.Username),
-			Name:      msg.Username,
-			Access:    b.AccessWhisper,
-			AvatarURL: b.AvatarDefaultURL,
-		},
-		Content: msg.Content,
-	}
-
-	if access := b.AccessUser[chat.ID]; access != gateway.AccessDefault {
-		chat.User.Access = access
-	}
-
-	b.Fire(&chat)
-
-	if chat.User.Access < b.Commands.Access {
-		return
-	}
-
-	if r, cmd, arg := b.FindTrigger(chat.Content); r {
-		b.Fire(&gateway.Trigger{
-			User: chat.User,
-			Cmd:  cmd,
-			Arg:  arg,
-			Resp: b.Responder(b, chat.User.ID, true),
-		}, &chat)
-	}
-}
-
-func (b *Gateway) onJoinError(ev *network.Event) {
-	var err = ev.Arg.(*bnet.JoinError)
-	b.Fire(&gateway.SystemMessage{Type: "JOINERROR", Content: fmt.Sprintf("Could not join %s (%s)", err.Channel, err.Error.String())})
-}
-
-func (b *Gateway) onChannel(ev *network.Event) {
-	var c = ev.Arg.(*bnet.Channel)
-	b.Fire(&gateway.Clear{})
-	b.Fire(&gateway.Channel{ID: c.Name, Name: c.Name})
-}
-
-func (b *Gateway) onSystemMessage(ev *network.Event) {
-	var msg = ev.Arg.(*bnet.SystemMessage)
-
-	if msg.Type == bncs.ChatInfo && msg.Content == "No one hears you." {
-		return
-	}
-
-	b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(msg.Type.String()), Content: msg.Content})
-}
-
-func (b *Gateway) onFloodDetected(ev *network.Event) {
-	b.Fire(&gateway.SystemMessage{Type: "FLOOD", Content: "Flood detected"})
 }
 
 // Relay dumps the event content in current channel

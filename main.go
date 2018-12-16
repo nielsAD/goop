@@ -21,6 +21,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
+	"github.com/nielsAD/goop/gateway/capi"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
@@ -50,6 +51,17 @@ func New(conf *Config) (*goop.Goop, error) {
 
 	if err := res.AddGateway("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
 		return nil, err
+	}
+
+	for k, g := range conf.Capi.Gateways {
+		gw, err := capi.New(g)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := res.AddGateway("capi"+gateway.Delimiter+k, gw); err != nil {
+			return nil, err
+		}
 	}
 
 	for k, g := range conf.BNet.Gateways {

@@ -15,10 +15,13 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
+	"github.com/nielsAD/goop/gateway/capi"
 	"github.com/nielsAD/goop/gateway/discord"
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
 	"github.com/nielsAD/goop/goop/cmd"
+	"github.com/nielsAD/gowarcraft3/network/chat"
+	pcapi "github.com/nielsAD/gowarcraft3/protocol/capi"
 )
 
 // DefaultConfig values used as fallback
@@ -116,6 +119,19 @@ var DefaultConfig = Config{
 		Read:   true,
 		Access: gateway.AccessOwner,
 	},
+	Capi: CapiConfigWithDefault{
+		Default: capi.Config{
+			Config: chat.Config{
+				Endpoint: pcapi.Endpoint,
+			},
+			GatewayConfig: capi.GatewayConfig{
+				BufSize:        16,
+				ReconnectDelay: 30 * time.Second,
+				AccessWhisper:  gateway.AccessIgnore,
+				AccessTalk:     gateway.AccessVoice,
+			},
+		},
+	},
 	BNet: BNetConfigWithDefault{
 		Default: bnet.Config{
 			GatewayConfig: bnet.GatewayConfig{
@@ -173,6 +189,7 @@ type Config struct {
 	Commands CommandsConfig
 	Default  gateway.Config
 	StdIO    stdio.Config
+	Capi     CapiConfigWithDefault
 	BNet     BNetConfigWithDefault
 	Discord  DiscordConfigWithDefault
 	Relay    RelayConfigWithDefault
@@ -190,6 +207,12 @@ type LogConfig struct {
 type CommandsConfig struct {
 	cmd.Commands
 	Alias map[string]*cmd.Alias
+}
+
+// CapiConfigWithDefault struct maps the layout of the Capi configuration section
+type CapiConfigWithDefault struct {
+	Default  capi.Config
+	Gateways map[string]*capi.Config
 }
 
 // BNetConfigWithDefault struct maps the layout of the BNet configuration section
@@ -316,6 +339,9 @@ func (c *Config) MergeDefaults() error {
 	if _, err := Merge(&c.StdIO.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
+	if _, err := Merge(&c.Capi.Default.GatewayConfig.Config, c.Default, &MergeOptions{}); err != nil {
+		return err
+	}
 	if _, err := Merge(&c.BNet.Default.GatewayConfig.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
 	}
@@ -324,6 +350,12 @@ func (c *Config) MergeDefaults() error {
 	}
 	if _, err := Merge(&c.Discord.ChannelDefault.Config, c.Default, &MergeOptions{}); err != nil {
 		return err
+	}
+
+	for _, r := range c.Capi.Gateways {
+		if _, err := Merge(r, c.Capi.Default, &MergeOptions{}); err != nil {
+			return err
+		}
 	}
 
 	for _, r := range c.BNet.Gateways {
@@ -355,6 +387,12 @@ func (c *Config) Map() map[string]interface{} {
 
 	var d = m["Default"].(mi)
 	DeleteEqual(m["StdIO"].(mi), d)
+
+	var cn = m["Capi"].(mi)["Default"].(mi)
+	for _, g := range m["Capi"].(mi)["Gateways"].(mi) {
+		DeleteEqual(g.(mi), cn)
+	}
+	DeleteEqual(cn, d)
 
 	var bn = m["BNet"].(mi)["Default"].(mi)
 	for _, g := range m["BNet"].(mi)["Gateways"].(mi) {

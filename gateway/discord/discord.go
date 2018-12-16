@@ -431,7 +431,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 						Cmd:  cmd,
 						Arg:  arg,
 						Resp: func(s string) error { _, err = d.ChannelMessageSend(msg.ChannelID, s); return err },
-					}, chat)
+					}, &chat)
 				}
 			}
 		}
@@ -465,7 +465,7 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 			Cmd:  cmd,
 			Arg:  arg,
 			Resp: c.Responder(c, chat.User.ID, false),
-		}, chat)
+		}, &chat)
 	}
 }
 

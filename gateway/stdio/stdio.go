@@ -77,7 +77,7 @@ func (o *Gateway) read() error {
 				Cmd:  cmd,
 				Arg:  arg,
 				Resp: o.Say,
-			}, chat)
+			}, &chat)
 		}
 	}
 }
