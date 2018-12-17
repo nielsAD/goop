@@ -500,6 +500,11 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 				Resp: b.Responder(b, u.ID, true),
 			}, ev)
 		}
+	case pcapi.MessageServerInfo:
+		if pkt.Message == "No one hears you." {
+			return
+		}
+		fallthrough
 	default:
 		b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(pkt.Type.String()), Content: pkt.Message})
 	}

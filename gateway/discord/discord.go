@@ -375,7 +375,7 @@ func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.Presence
 	d.updatePresence(msg.GuildID, &msg.Presence)
 }
 
-var patternEmotiji = regexp.MustCompile("<a?:([^:]*):[^>]>")
+var patternEmotiji = regexp.MustCompile("<a?:([^:]*):[^>]*>")
 
 func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) string {
 	var res = msg.Content
