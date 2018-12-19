@@ -357,11 +357,11 @@ func (c *Channel) updateOnline() {
 				last = content
 
 				if msg == "" {
-					m, err := c.session.ChannelMessageSend(c.chanID, content)
-					if err != nil {
+					if m, err := c.session.ChannelMessageSend(c.chanID, content); err != nil {
 						c.Fire(&network.AsyncError{Src: "updateOnline[Send]", Err: err})
+					} else {
+						msg = m.ID
 					}
-					msg = m.ID
 					continue
 				}
 
