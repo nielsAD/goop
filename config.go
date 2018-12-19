@@ -104,9 +104,9 @@ var DefaultConfig = Config{
 			"p":         &cmd.Alias{Exe: "pingme"},
 			"l":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "list"},
 			"i":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "ignore"},
-			"w":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "whisper"},
-			"k":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "kick"},
-			"b":         &cmd.Alias{Exe: "bnet" + gateway.Delimiter + "ban"},
+			"w":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "whisper"},
+			"k":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "kick"},
+			"b":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "ban"},
 		},
 	},
 	Default: gateway.Config{
