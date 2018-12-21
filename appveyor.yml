@@ -20,7 +20,7 @@ environment:
       MSYSTEM: MINGW64
       MSYS2_ARCH: x86_64
 
-stack: go 1.10
+stack: go 1.11
 
 install:
   # Initialize environment
@@ -45,7 +45,17 @@ test_script:
 
 after_test:
   - md5sum ./bin/*
-  - 7z a release_windows_%MSYS2_ARCH%.zip bin LICENSE
+  - >
+    bash -lc "echo -e
+    \"Author:   Niels A.D.
+    \nProject:  goop (https://github.com/nielsAD/goop)
+    \nPlatform: Windows $MSYS2_ARCH
+    \nRelease:  $APPVEYOR_REPO_TAG_NAME ($APPVEYOR_REPO_COMMIT)
+    \nDate:     `date --utc`\""
+    > VERSION
+  - mv config.toml.example config.toml
+  - mv bin/goop.exe goop.exe
+  - 7z a release_windows_%MSYS2_ARCH%_%APPVEYOR_REPO_TAG_NAME%.zip goop.exe config.toml LICENSE VERSION
 
 deploy:
   provider: GitHub

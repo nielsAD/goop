@@ -3,7 +3,7 @@
 # License: Mozilla Public License, v2.0
 
 language: go
-go: 1.10.x
+go: 1.11.x
 
 os:
   - linux
@@ -25,10 +25,20 @@ install:
 script:
   - make test
   - make release
-  - md5sum ./bin/*
 
 before_deploy:
-  - tar -czf release_$TRAVIS_OS_NAME.tar.gz bin LICENSE
+  - md5sum ./bin/*
+  - >
+    echo -e
+    "Author:   Niels A.D.
+    \nProject:  goop (https://github.com/nielsAD/goop)
+    \nPlatform: $TRAVIS_OS_NAME
+    \nRelease:  $TRAVIS_TAG ($TRAVIS_COMMIT)
+    \nDate:     `date --utc`"
+    > VERSION
+  - mv config.toml.example config.toml
+  - mv bin/goop goop
+  - tar -czf release_$TRAVIS_OS_NAME_$TRAVIS_TAG.tar.gz goop config.toml LICENSE VERSION
 
 deploy:
   provider: releases
