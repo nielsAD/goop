@@ -8,7 +8,7 @@ clone_folder: c:\gopath\src\github.com\nielsAD\goop
 
 artifacts:
   - path: bin\*
-  - path: release_*
+  - path: goop_*
 
 environment:
   GOPATH: c:\gopath
@@ -21,6 +21,9 @@ environment:
       MSYS2_ARCH: x86_64
 
 stack: go 1.11
+
+init:
+  - git config --global core.autocrlf true
 
 install:
   # Initialize environment
@@ -48,19 +51,20 @@ after_test:
   - >
     bash -lc "echo -e
     \"Author:   Niels A.D.
-    \nProject:  goop (https://github.com/nielsAD/goop)
-    \nPlatform: Windows $MSYS2_ARCH
-    \nRelease:  $APPVEYOR_REPO_TAG_NAME ($APPVEYOR_REPO_COMMIT)
-    \nDate:     `date --utc`\""
-    > VERSION
+    \r\nProject:  goop (https://github.com/nielsAD/goop)
+    \r\nPlatform: Windows ($MSYS2_ARCH)
+    \r\nRelease:  $APPVEYOR_REPO_TAG_NAME ($APPVEYOR_REPO_COMMIT)
+    \r\nDate:     `date --utc`\""
+    > VERSION.txt
   - mv config.toml.example config.toml
   - mv bin/goop.exe goop.exe
-  - 7z a release_windows_%MSYS2_ARCH%_%APPVEYOR_REPO_TAG_NAME%.zip goop.exe config.toml LICENSE VERSION
+  - mv LICENSE LICENSE.txt
+  - 7z a goop_%APPVEYOR_REPO_TAG_NAME%_windows_%MSYS2_ARCH%.zip goop.exe config.toml LICENSE.txt VERSION.txt
 
 deploy:
   provider: GitHub
   auth_token:
     secure: wDwXLoUDnL32TSi+DpnwB4o+8LitFI6eIoyOqjm6//LiGMBMpkLiu/PaIZdCw4G/
-  artifact: /release_.*/
+  artifact: /goop_.*/
   on:
     appveyor_repo_tag: true

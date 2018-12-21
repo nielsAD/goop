@@ -3,38 +3,12 @@
 # License: Mozilla Public License, v2.0
 
 [Capi]
-    [Capi.Gateways.Northrend]
+    [Capi.Gateways.BNet]
     APIKey = ""
-
-    [Capi.Gateways.Azeroth]
-    APIKey = ""
-
-    [Capi.Gateways.Lordaeron]
-    APIKey = ""
-
-    [Capi.Gateways.Kalimdor]
-    APIKey = ""
-
-[BNet]
-    [BNet.Default]
-    Username   = ""
-    Password   = ""
-
-    [BNet.Gateways.Northrend]
-    ServerAddr = "europe.battle.net"
-
-    [BNet.Gateways.Azeroth]
-    ServerAddr = "useast.battle.net"
-
-    [BNet.Gateways.Lordaeron]
-    ServerAddr = "uswest.battle.net"
-
-    [BNet.Gateways.Kalimdor]
-    ServerAddr = "asia.battle.net"
 
 [Discord]
     [Discord.Gateways.Bridge]
     AuthToken = ""
 
     [Discord.Gateways.Bridge.Channels.111111111111111111]
-    Webhook  = ""
+    Webhook = ""

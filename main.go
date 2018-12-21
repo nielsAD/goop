@@ -124,8 +124,13 @@ func main() {
 	runtime.GOMAXPROCS(1)
 	flag.Parse()
 
+	var args = flag.Args()
+	if len(args) == 0 {
+		args = []string{"./config.toml"}
+	}
+
 start:
-	undecoded, err := Decode(&DefaultConfig, flag.Args()...)
+	undecoded, err := Decode(&DefaultConfig, args...)
 	if err != nil {
 		logErr.Fatalf("Error reading default configuration: %v\n", err)
 	}
