@@ -235,9 +235,6 @@ func (g *Goop) autoKick(gw gateway.Gateway, u *gateway.User) bool {
 
 	switch err {
 	case nil:
-		if err := gw.Say(fmt.Sprintf("Kicked `%s@%s`", u.Name, gw.Discriminator())); err != nil {
-			g.Fire(&network.AsyncError{Src: "autoKick[Say]", Err: err})
-		}
 		return true
 	case gateway.ErrNotImplemented, gateway.ErrNoPermission:
 		// ignore
