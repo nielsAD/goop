@@ -469,18 +469,18 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 		var ev interface{}
 
 		switch pkt.Type {
+		case pcapi.MessageWhisper:
+			ev = &gateway.PrivateChat{
+				User:    u,
+				Content: pkt.Message,
+			}
 		case pcapi.MessageEmote:
 			ev = &gateway.Chat{
 				User:    u,
 				Content: fmt.Sprintf("%s %s", u.Name, pkt.Message),
 			}
-		case pcapi.MessageChannel:
+		default:
 			ev = &gateway.Chat{
-				User:    u,
-				Content: pkt.Message,
-			}
-		case pcapi.MessageWhisper:
-			ev = &gateway.PrivateChat{
 				User:    u,
 				Content: pkt.Message,
 			}
@@ -497,7 +497,7 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 				User: u,
 				Cmd:  cmd,
 				Arg:  arg,
-				Resp: b.Responder(b, u.ID, true),
+				Resp: b.Responder(b, u.ID, pkt.Type == pcapi.MessageWhisper),
 			}, ev)
 		}
 	case pcapi.MessageServerInfo:
