@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -456,6 +457,9 @@ func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
 	return extractCmdAndArgs(s[idx+2:])
 }
 
+var banPat = regexp.MustCompile("^([^ ]+) was banned by ([^ ]+).*\\.$")
+var unbanPat = regexp.MustCompile("^([^ ]+) was unbanned by ([^ ]+).*\\.$")
+
 func (b *Gateway) onMessageEvent(ev *network.Event) {
 	var pkt = ev.Arg.(*pcapi.MessageEvent)
 	if pkt.Message == "" {
@@ -504,6 +508,20 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 		if pkt.Message == "No one hears you." {
 			return
 		}
+
+		// Persist bans/unbans
+		if m := banPat.FindStringSubmatch(pkt.Message); m != nil {
+			var u = strings.ToLower(m[1])
+			if access := b.AccessUser[u]; access > gateway.AccessBan && access < gateway.AccessWhitelist {
+				b.SetUserAccess(u, gateway.AccessBan)
+			}
+		} else if m := unbanPat.FindStringSubmatch(pkt.Message); m != nil {
+			var u = strings.ToLower(m[1])
+			if access := b.AccessUser[u]; access < gateway.AccessDefault {
+				b.SetUserAccess(u, gateway.AccessDefault)
+			}
+		}
+
 		fallthrough
 	default:
 		b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(pkt.Type.String()), Content: pkt.Message})

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -494,11 +495,29 @@ func (b *Gateway) onChannel(ev *network.Event) {
 	b.Fire(&gateway.Channel{ID: c.Name, Name: c.Name})
 }
 
+var banPat = regexp.MustCompile("^([^ ]+) was banned by ([^ ]+).*\\.$")
+var unbanPat = regexp.MustCompile("^([^ ]+) was unbanned by ([^ ]+).*\\.$")
+
 func (b *Gateway) onSystemMessage(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.SystemMessage)
 
-	if msg.Type == bncs.ChatInfo && msg.Content == "No one hears you." {
-		return
+	if msg.Type == bncs.ChatInfo {
+		if msg.Content == "No one hears you." {
+			return
+		}
+
+		// Persist bans/unbans
+		if m := banPat.FindStringSubmatch(msg.Content); m != nil {
+			var u = strings.ToLower(m[1])
+			if access := b.AccessUser[u]; access > gateway.AccessBan && access < gateway.AccessWhitelist {
+				b.SetUserAccess(u, gateway.AccessBan)
+			}
+		} else if m := unbanPat.FindStringSubmatch(msg.Content); m != nil {
+			var u = strings.ToLower(m[1])
+			if access := b.AccessUser[u]; access < gateway.AccessDefault {
+				b.SetUserAccess(u, gateway.AccessDefault)
+			}
+		}
 	}
 
 	b.Fire(&gateway.SystemMessage{Type: strings.ToUpper(msg.Type.String()), Content: msg.Content})
