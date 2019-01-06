@@ -35,6 +35,8 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 		switch err {
 		case nil:
 			l = append(l, fmt.Sprintf("`%s`", u.Name))
+		case gateway.ErrNoUser:
+			// ignore
 		case gateway.ErrNotImplemented, gateway.ErrNoChannel:
 			return nil
 		case gateway.ErrNoPermission:
