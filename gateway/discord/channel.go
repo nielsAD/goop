@@ -320,7 +320,9 @@ func (c *Channel) updateOnline() {
 		go func() {
 			var msg = ""
 
-			time.Sleep(time.Second)
+			for c.session.State.User == nil {
+				time.Sleep(time.Second)
+			}
 
 			if messages, err := c.session.ChannelMessagesPinned(c.chanID); err == nil {
 				for _, m := range messages {
@@ -473,7 +475,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 			Content:  c.filter(msg.Content, gateway.AccessDefault),
 			Username: from.Discriminator(),
 		}
-		if c.session != nil && c.session.State.User != nil {
+		if c.session.State.User != nil {
 			p.AvatarURL = c.session.State.User.AvatarURL("")
 		}
 		return c.WebhookOrSay(p)
