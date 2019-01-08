@@ -86,7 +86,7 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 
 	var l = make([]string, 0)
 	for _, u := range users {
-		if u.ID == t.User.ID || u.Access < c.AccessProtect && t.User.Access < c.AccessOverride {
+		if u.ID == t.User.ID || (u.Access <= c.AccessProtect && t.User.Access < c.AccessOverride) {
 			continue
 		}
 
