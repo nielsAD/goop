@@ -97,6 +97,10 @@ var DefaultConfig = Config{
 				Arg:         []string{"%ARG1%", gateway.AccessIgnore.String()},
 				ArgExpected: 1,
 			},
+			"banlist": &cmd.Alias{
+				Exe: "list",
+				Arg: []string{gateway.AccessBlacklist.String(), gateway.AccessBan.String()},
+			},
 			"unignore":  &cmd.Alias{Exe: "unset"},
 			"squelch":   &cmd.Alias{Exe: "ignore"},
 			"unsquelch": &cmd.Alias{Exe: "unignore"},
