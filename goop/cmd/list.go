@@ -45,7 +45,7 @@ func (c *List) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 
 	var l = make([]string, 0)
 	for uid, a := range users {
-		if a >= a1 && a <= a2 {
+		if a < a1 || a > a2 {
 			continue
 		}
 		var u, err = gw.User(uid)
