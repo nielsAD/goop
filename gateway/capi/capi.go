@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
 	"github.com/nielsAD/gowarcraft3/network/chat"
@@ -292,7 +293,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 		if err != nil {
 			var reconnect bool
 			switch err {
-			case chat.ErrUnexpectedPacket:
+			case chat.ErrUnexpectedPacket, websocket.ErrBadHandshake:
 				reconnect = true
 			default:
 				reconnect = network.IsConnClosedError(err) || os.IsTimeout(err)
