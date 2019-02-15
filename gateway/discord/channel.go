@@ -348,7 +348,12 @@ func (c *Channel) updateOnline() {
 				c.omut.Lock()
 				var content = fmt.Sprintf("💬 **Online**: %d users", len(c.online))
 				for i := len(c.online) - 1; i >= 0; i-- {
-					content += fmt.Sprintf("\n`%s` *%s*", c.online[i].Name, time.Now().Sub(c.online[i].Since).Round(time.Second).String())
+					var s = fmt.Sprintf("\n`%s` *%s*", c.online[i].Name, time.Now().Sub(c.online[i].Since).Round(time.Second).String())
+					if len(content)+len(s) > 2000 {
+						break
+					}
+
+					content += s
 				}
 				c.omut.Unlock()
 
