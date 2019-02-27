@@ -304,7 +304,7 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 	var track = false
 	var channels = d.guilds[guildID]
 	for _, cid := range channels {
-		perm, err := d.State.UserChannelPermissions(presence.User.ID, cid)
+		perm, err := d.UserChannelPermissions(presence.User.ID, cid)
 		if err != nil {
 			d.Fire(&network.AsyncError{Src: "updatePresence[permissions]", Err: err})
 			continue
