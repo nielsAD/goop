@@ -83,7 +83,7 @@ func New(conf *Config) (*Gateway, error) {
 	return &d, nil
 }
 
-// Channel currently being monitoring
+// Channel residing in
 func (d *Gateway) Channel() *gateway.Channel {
 	return nil
 }
@@ -154,13 +154,7 @@ func (d *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 
 // Say sends a chat message
 func (d *Gateway) Say(s string) error {
-	var err error
-	for _, c := range d.Channels {
-		if e := c.Say(s); e != nil {
-			err = e
-		}
-	}
-	return err
+	return nil
 }
 
 func sayPrivate(d *discordgo.Session, uid string, s string) error {

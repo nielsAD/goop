@@ -71,7 +71,7 @@ func NewChannel(s *discordgo.Session, id string, conf *ChannelConfig) (*Channel,
 	return &c, nil
 }
 
-// Channel currently being monitoring\
+// Channel residing in
 func (c *Channel) Channel() *gateway.Channel {
 	var name = c.chanID
 	if ch, err := c.session.State.Channel(c.chanID); err == nil {

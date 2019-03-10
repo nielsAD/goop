@@ -16,6 +16,7 @@ Features:
   * Persist bans
   * Whitelist/blacklist
 * Fully configurable
+* Lua plugins
 * Cross platform (Windows, Linux, OSX)
 
 

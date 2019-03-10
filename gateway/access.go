@@ -26,30 +26,30 @@ var (
 	AccessKick      = AccessLevel(-100)
 	AccessBan       = AccessLevel(-200)
 	AccessBlacklist = AccessLevel(-300)
-)
 
-var accessLvl = []AccessLevel{AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessKick, AccessBan, AccessBlacklist}
-var accessStr = []string{"owner", "admin", "operator", "whitelist", "voice", "", "ignore", "kick", "ban", "blacklist"}
+	ConStrings = []string{"owner", "admin", "operator", "whitelist", "voice", "", "ignore", "kick", "ban", "blacklist"}
+	ConLevels  = []AccessLevel{AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessKick, AccessBan, AccessBlacklist}
+)
 
 func (l AccessLevel) String() string {
 	if l >= 0 {
-		for i := 0; i < len(accessLvl); i++ {
-			var v = accessLvl[i]
+		for i := 0; i < len(ConLevels); i++ {
+			var v = ConLevels[i]
 			if l == v {
-				return accessStr[i]
+				return ConStrings[i]
 			}
 			if l > v {
-				return fmt.Sprintf("%s+%d", accessStr[i], l-v)
+				return fmt.Sprintf("%s+%d", ConStrings[i], l-v)
 			}
 		}
 	} else {
-		for i := len(accessLvl) - 1; i >= 0; i-- {
-			var v = accessLvl[i]
+		for i := len(ConLevels) - 1; i >= 0; i-- {
+			var v = ConLevels[i]
 			if l == v {
-				return accessStr[i]
+				return ConStrings[i]
 			}
 			if l < v {
-				return fmt.Sprintf("%s-%d", accessStr[i], v-l)
+				return fmt.Sprintf("%s-%d", ConStrings[i], v-l)
 			}
 		}
 	}
@@ -61,7 +61,7 @@ func (l AccessLevel) MarshalText() (text []byte, err error) {
 	return []byte(l.String()), nil
 }
 
-var accessPat = regexp.MustCompile("(?i)^(" + strings.Join(accessStr, "|") + ")([+-][0-9]+)?$")
+var accessPat = regexp.MustCompile("(?i)^(" + strings.Join(ConStrings, "|") + ")([+-][0-9]+)?$")
 
 // UnmarshalText implements encoding.TextUnmarshaler
 func (l *AccessLevel) UnmarshalText(text []byte) error {
@@ -74,9 +74,9 @@ func (l *AccessLevel) UnmarshalText(text []byte) error {
 
 		var str = string(m[1])
 		var brk bool
-		for i, s := range accessStr {
+		for i, s := range ConStrings {
 			if strings.EqualFold(str, s) {
-				res = accessLvl[i]
+				res = ConLevels[i]
 				brk = true
 				break
 			}

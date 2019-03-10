@@ -7,6 +7,7 @@ package stdio
 import (
 	"bufio"
 	"context"
+	"io"
 	"log"
 	"strings"
 	"time"
@@ -31,12 +32,12 @@ type Gateway struct {
 	network.EventEmitter
 
 	*Config
-	In  *bufio.Reader
+	In  io.ReadCloser
 	Out *log.Logger
 }
 
 // New initializes a new Gateway struct
-func New(in *bufio.Reader, out *log.Logger, conf *Config) *Gateway {
+func New(in io.ReadCloser, out *log.Logger, conf *Config) *Gateway {
 	return &Gateway{
 		Config: conf,
 		In:     in,
@@ -45,8 +46,9 @@ func New(in *bufio.Reader, out *log.Logger, conf *Config) *Gateway {
 }
 
 func (o *Gateway) read() error {
+	var r = bufio.NewReader(o.In)
 	for {
-		line, err := o.In.ReadString('\n')
+		line, err := r.ReadString('\n')
 		if err != nil {
 			return err
 		}
@@ -82,7 +84,7 @@ func (o *Gateway) read() error {
 	}
 }
 
-// Channel currently being monitoring
+// Channel residing in
 func (o *Gateway) Channel() *gateway.Channel {
 	return nil
 }
@@ -149,6 +151,8 @@ func (o *Gateway) Run(ctx context.Context) error {
 	if !o.Read {
 		return nil
 	}
+
+	defer o.In.Close()
 
 	var res = make(chan error)
 	go func() {

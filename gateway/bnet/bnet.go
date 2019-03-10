@@ -90,7 +90,7 @@ func (b *Gateway) Operator() bool {
 	return false
 }
 
-// Channel currently being monitoring
+// Channel residing in
 func (b *Gateway) Channel() *gateway.Channel {
 	var name = b.Client.Channel()
 	if name == "" {

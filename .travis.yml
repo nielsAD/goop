@@ -38,7 +38,7 @@ before_deploy:
     > VERSION
   - mv config.toml.example config.toml
   - mv bin/goop goop-$TRAVIS_TAG
-  - tar -czf goop_${TRAVIS_TAG}_${TRAVIS_OS_NAME}.tar.gz goop-$TRAVIS_TAG config.toml LICENSE VERSION
+  - tar -czf goop_${TRAVIS_TAG}_${TRAVIS_OS_NAME}.tar.gz goop-$TRAVIS_TAG config.toml LICENSE VERSION plugins/*.lua
 
 deploy:
   provider: releases

@@ -12,3 +12,6 @@
 
     [Discord.Gateways.Bridge.Channels.111111111111111111]
     Webhook = ""
+
+[[Plugins]]
+    Path = "./plugins/security.lua"

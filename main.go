@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -26,6 +27,7 @@ import (
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
 	"github.com/nielsAD/goop/goop/cmd"
+	"github.com/nielsAD/goop/goop/plugin"
 	"github.com/nielsAD/gowarcraft3/network"
 )
 
@@ -37,7 +39,7 @@ var logOut = log.New(color.Output, "", 0)
 var logErr = log.New(color.Error, "", 0)
 
 // New initializes a Goop struct
-func New(conf *Config) (*goop.Goop, error) {
+func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
 	var res = goop.New(conf)
 
 	if err := conf.Commands.AddTo(res); err != nil {
@@ -49,7 +51,7 @@ func New(conf *Config) (*goop.Goop, error) {
 		}
 	}
 
-	if err := res.AddGateway("std"+gateway.Delimiter+"io", stdio.New(bufio.NewReader(os.Stdin), logOut, &conf.StdIO)); err != nil {
+	if err := res.AddGateway("std"+gateway.Delimiter+"io", stdio.New(stdin, logOut, &conf.StdIO)); err != nil {
 		return nil, err
 	}
 
@@ -105,6 +107,15 @@ func New(conf *Config) (*goop.Goop, error) {
 		}
 	}
 
+	var g = make(plugin.Globals)
+	g["goop"] = res
+
+	for _, p := range conf.Plugins {
+		if _, err := plugin.Load(p, g); err != nil {
+			return nil, err
+		}
+	}
+
 	return res, nil
 }
 
@@ -128,6 +139,22 @@ func main() {
 	if len(args) == 0 {
 		args = []string{"./config.toml"}
 	}
+
+	var sig = make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+
+	// Prevent closing stdin before restart
+	var pr, pw = io.Pipe()
+	go func() {
+		var r = bufio.NewReader(os.Stdin)
+		for {
+			line, err := r.ReadBytes('\n')
+			if err != nil {
+				break
+			}
+			pw.Write(line)
+		}
+	}()
 
 start:
 	undecoded, err := Decode(&DefaultConfig, args...)
@@ -167,7 +194,7 @@ start:
 		return
 	}
 
-	g, err := New(conf)
+	g, err := New(pr, conf)
 	if err != nil {
 		logErr.Fatal("Initialization error: ", err)
 	}
@@ -194,11 +221,14 @@ start:
 		logErr.Println(color.RedString("[ERROR] %s", err.Error()))
 	})
 
+	var restart bool
 	var ctx, cancel = context.WithCancel(context.Background())
 	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-		<-sig
+		select {
+		case <-ctx.Done():
+		case <-sig:
+			restart = false
+		}
 		cancel()
 	}()
 
@@ -207,7 +237,6 @@ start:
 		cancel: cancel,
 	})
 
-	var restart = false
 	g.AddCommand("restart", &Quit{
 		Cmd:    cmd.Cmd{Priviledge: gateway.AccessOwner},
 		cancel: func() { restart = true; cancel() },
@@ -234,6 +263,7 @@ start:
 	<-done
 
 	if restart {
+		pr, pw = io.Pipe()
 		goto start
 	}
 }

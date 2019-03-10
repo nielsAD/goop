@@ -5,9 +5,10 @@
 package stdio_test
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
@@ -20,7 +21,7 @@ import (
 )
 
 func Test(t *testing.T) {
-	gw := gateway.Gateway(stdio.New(bufio.NewReader(os.Stdin), log.New(os.Stdout, "", 0), &stdio.Config{Read: true}))
+	gw := gateway.Gateway(stdio.New(ioutil.NopCloser(&bytes.Buffer{}), log.New(os.Stdout, "", 0), &stdio.Config{Read: true}))
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
 		t.Fatal(err)

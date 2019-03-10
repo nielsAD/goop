@@ -20,6 +20,7 @@ import (
 	"github.com/nielsAD/goop/gateway/stdio"
 	"github.com/nielsAD/goop/goop"
 	"github.com/nielsAD/goop/goop/cmd"
+	"github.com/nielsAD/goop/goop/plugin"
 	"github.com/nielsAD/gowarcraft3/network/chat"
 	pcapi "github.com/nielsAD/gowarcraft3/protocol/capi"
 )
@@ -191,6 +192,7 @@ type Config struct {
 	Config   string
 	Log      LogConfig
 	Commands CommandsConfig
+	Plugins  PluginsConfig
 	Default  gateway.Config
 	StdIO    stdio.Config
 	Capi     CapiConfigWithDefault
@@ -212,6 +214,9 @@ type CommandsConfig struct {
 	cmd.Commands
 	Alias map[string]*cmd.Alias
 }
+
+// PluginsConfig struct maps the layout of the Plugins configuration section
+type PluginsConfig []*plugin.Config
 
 // CapiConfigWithDefault struct maps the layout of the Capi configuration section
 type CapiConfigWithDefault struct {

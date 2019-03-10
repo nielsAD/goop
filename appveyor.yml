@@ -59,7 +59,7 @@ after_test:
   - mv config.toml.example config.toml
   - mv bin/goop.exe goop.exe
   - mv LICENSE LICENSE.txt
-  - 7z a goop_%APPVEYOR_REPO_TAG_NAME%_windows_%MSYS2_ARCH%.zip goop.exe config.toml LICENSE.txt VERSION.txt
+  - 7z a goop_%APPVEYOR_REPO_TAG_NAME%_windows_%MSYS2_ARCH%.zip goop.exe config.toml LICENSE.txt VERSION.txt plugins/*.lua
 
 deploy:
   provider: GitHub
