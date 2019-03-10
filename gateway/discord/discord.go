@@ -299,13 +299,13 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 	var channels = d.guilds[guildID]
 	for _, cid := range channels {
 		perm, err := d.UserChannelPermissions(presence.User.ID, cid)
-		if err != nil {
+		if err != nil && !online {
 			d.Fire(&network.AsyncError{Src: "updatePresence[permissions]", Err: err})
 			continue
 		}
 
 		// Check if user is allowed to read channel
-		if perm&discordgo.PermissionReadMessages == 0 {
+		if perm&discordgo.PermissionReadMessages == 0 && !online {
 			continue
 		}
 

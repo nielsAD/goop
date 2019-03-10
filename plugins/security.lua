@@ -1,7 +1,7 @@
 -- Author:  Niels A.D.
 -- Project: goop (https://github.com/nielsAD/goop)
 -- License: Mozilla Public License, v2.0
-
+--
 -- Ban users with '@', '|r', or '|n' in their name
 --
 -- Options:

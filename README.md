@@ -1,5 +1,5 @@
 Goop
-===========
+====
 [![Build Status](https://travis-ci.org/nielsAD/goop.svg?branch=master)](https://travis-ci.org/nielsAD/goop)
 [![Build status](https://ci.appveyor.com/api/projects/status/vfft3xr00pk2vpnu/branch/master?svg=true)](https://ci.appveyor.com/project/nielsAD/goop)
 [![GoDoc](https://godoc.org/github.com/nielsAD/goop?status.svg)](https://godoc.org/github.com/nielsAD/goop)
@@ -22,7 +22,6 @@ Features:
 
 Installation
 ------------
-
 Official binaries are [available](https://github.com/nielsAD/goop/releases/latest). Simply download and run.
 
 Configuration
@@ -93,7 +92,6 @@ By default, only chat events are relayed between gateways. The `Relay` configura
 ```
 
 ### Access level
-
 Access levels determine what commands can be accessed, whether or not messages will be relayed to other realms, and whether or not the user will be banned upon joining the channel. 
 
 |Role        | Level|Description|
@@ -158,11 +156,9 @@ Commands
 |`.roll [n]`                    |                         |           |Roll a dice with `[n]` sides.|
 
 #### Glob
-
 Most commands accept a [glob pattern](https://en.wikipedia.org/wiki/Glob_(programming)#Syntax) as input. This can be useful to target several users at once. For example, `.kick 4k*` will kick all users from channel that have a name starting with 4k (`4k`, `4k.grubby`, but not `niels.4k`).
 
 #### Trigger
-
 Commands can be invoked by starting a chat message with the predefined trigger (`.` by default). As a special case, `?trigger` will query the current trigger. Alternatively, mentioning the bot's name will also act as a trigger.
 
 ```
