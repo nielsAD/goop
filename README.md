@@ -26,7 +26,7 @@ Official binaries are [available](https://github.com/nielsAD/goop/releases/lates
 
 Configuration
 -------------
-Configuration is stored in [TOML](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md) files. By default, Goop tries to load `config.toml` in the working directory. See [`config.toml.example`](/config.toml.example) for a minimal example. Running `./goop -makeconf` will generate a fresh configuration file containing all default values.
+Configuration is stored in [TOML](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.4.0.md) files. By default, Goop tries to load `config.toml` in the working directory. See [`config.toml.example`](./config.toml.example) for a minimal example. Running `./goop -makeconf` will generate a fresh configuration file containing all default values.
 
 
 ### Gateways
@@ -179,6 +179,12 @@ To trigger a command on another gateway, prefix the command with the gateway nam
 <niels>           .northrend:say world
 <goop@northrend>  world
 ```
+
+
+Plugins
+-------
+
+Goop can be customized and extended with Lua plugins. [Lua](https://www.lua.org/manual/5.1/manual.html) is a powerful, light-weight scripting language. See the [`plugins`](./plugins) directory for examples.
 
 
 Build
