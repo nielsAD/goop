@@ -17,7 +17,6 @@
 [submodule "vendor/github.com/gorilla/websocket"]
 	path = vendor/github.com/gorilla/websocket
 	url = https://github.com/gorilla/websocket.git
-
 [submodule "vendor/github.com/yuin/gopher-lua"]
 	path = vendor/github.com/yuin/gopher-lua
 	url = https://github.com/yuin/gopher-lua.git
