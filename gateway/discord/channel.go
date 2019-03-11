@@ -162,35 +162,35 @@ func (c *Channel) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		return nil, err
 	}
 
+	var online = false
+	if p, err := c.session.State.Presence(c.guildID, uid); err == nil && p.Status != discordgo.StatusOffline {
+		online = true
+	}
+	if online {
+		if u, err := c.User(uid); err == nil && u != nil {
+			c.Fire(&gateway.Leave{User: *u})
+		}
+	}
+
 	var o = c.AccessUser[uid]
 	if a != gateway.AccessDefault {
 		if c.AccessUser == nil {
 			c.AccessUser = make(map[string]gateway.AccessLevel)
 		}
 
-		var online = false
-		if p, err := c.session.State.Presence(c.guildID, uid); err == nil && p.Status != discordgo.StatusOffline {
-			online = true
-		}
-
-		if online {
-			if u, err := c.User(uid); err == nil && u != nil {
-				c.Fire(&gateway.Leave{User: *u})
-			}
-		}
-
 		c.AccessUser[uid] = a
-
-		if online {
-			if u, err := c.User(uid); err == nil && u != nil {
-				c.Fire(&gateway.Join{User: *u})
-			}
-		}
 	} else {
 		delete(c.AccessUser, uid)
 	}
 
 	c.Fire(&gateway.ConfigUpdate{})
+
+	if online {
+		if u, err := c.User(uid); err == nil && u != nil {
+			c.Fire(&gateway.Join{User: *u})
+		}
+	}
+
 	return &o, nil
 }
 

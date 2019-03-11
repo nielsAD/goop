@@ -146,26 +146,27 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		return nil, gateway.ErrNoUser
 	}
 
+	if u, ok := b.Client.User(uid); ok {
+		b.Fire(&gateway.Leave{User: b.user(u)})
+	}
+
 	var o = b.AccessUser[uid]
 	if a != gateway.AccessDefault {
 		if b.AccessUser == nil {
 			b.AccessUser = make(map[string]gateway.AccessLevel)
 		}
 
-		if u, ok := b.Client.User(uid); ok {
-			b.Fire(&gateway.Leave{User: b.user(u)})
-		}
-
 		b.AccessUser[uid] = a
-
-		if u, ok := b.Client.User(uid); ok {
-			b.Fire(&gateway.Join{User: b.user(u)})
-		}
 	} else {
 		delete(b.AccessUser, uid)
 	}
 
 	b.Fire(&gateway.ConfigUpdate{})
+
+	if u, ok := b.Client.User(uid); ok {
+		b.Fire(&gateway.Join{User: b.user(u)})
+	}
+
 	return &o, nil
 }
 
