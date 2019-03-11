@@ -161,7 +161,7 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		b.AccessUser[uid] = a
 
 		if inchat {
-			b.Fire(&gateway.Leave{User: b.userFromID(id)})
+			b.Fire(&gateway.Join{User: b.userFromID(id)})
 		}
 	} else {
 		delete(b.AccessUser, uid)
