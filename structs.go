@@ -77,7 +77,7 @@ type MergeOptions struct {
 	Delete    bool
 }
 
-func mergeMap(dst reflect.Value, key reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, error) {
+func mergeMap(dst reflect.Value, key reflect.Value, val reflect.Value, opt *MergeOptions) ([]string, error) {
 	if dst.Kind() != reflect.Map {
 		return nil, ErrTypeMismatch
 	}
@@ -94,7 +94,7 @@ func mergeMap(dst reflect.Value, key reflect.Value, src reflect.Value, opt *Merg
 		}
 	}
 
-	undecoded, err := merge(idx, src, opt)
+	undecoded, err := merge(idx, val, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +134,18 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 				return nil, Assign(dst, src)
 			}
 			dst.Set(reflect.MakeSlice(dst.Type(), src.Len(), src.Len()))
+		case reflect.Interface:
+			if !src.Type().AssignableTo(dst.Type()) {
+				return nil, ErrTypeMismatch
+			}
+			if !empty(dst) && !opt.Overwrite {
+				return nil, nil
+			}
+			if src.IsNil() {
+				return nil, Assign(dst, src)
+			}
+			dst.Set(reflect.MakeSlice(src.Type(), src.Len(), src.Len()))
+			dst = dst.Elem()
 		default:
 			return nil, ErrTypeMismatch
 		}
@@ -151,6 +163,21 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 		return undecoded, nil
 	case reflect.Map:
 		var dstmap = dst.Kind() == reflect.Map
+		if dst.Kind() == reflect.Interface {
+			if !src.Type().AssignableTo(dst.Type()) {
+				return nil, ErrTypeMismatch
+			}
+			if !empty(dst) && !opt.Overwrite {
+				return nil, nil
+			}
+			if src.IsNil() {
+				return nil, Assign(dst, src)
+			}
+			dst.Set(reflect.MakeMap(src.Type()))
+			dst = dst.Elem()
+			dstmap = true
+		}
+
 		var undecoded = make([]string, 0)
 		for _, key := range src.MapKeys() {
 			n := fmt.Sprintf("%v", key.Interface())
@@ -235,6 +262,8 @@ func Merge(dst interface{}, src interface{}, opt *MergeOptions) ([]string, error
 func Map(val interface{}) interface{} {
 	var v = reflect.ValueOf(val)
 	switch v.Kind() {
+	case reflect.Invalid:
+		return nil
 	case reflect.Interface:
 		fallthrough
 	case reflect.Ptr:
@@ -280,6 +309,8 @@ func Map(val interface{}) interface{} {
 
 func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 	switch val.Kind() {
+	case reflect.Invalid:
+		dst[strings.ToLower(prf)] = nil
 	case reflect.Interface:
 		fallthrough
 	case reflect.Ptr:

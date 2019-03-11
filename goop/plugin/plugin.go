@@ -5,12 +5,6 @@
 package plugin
 
 import (
-	"fmt"
-	"reflect"
-	"strings"
-
-	"github.com/nielsAD/goop/gateway"
-
 	luar "github.com/layeh/gopher-luar"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -26,18 +20,10 @@ type Globals map[string]interface{}
 
 // Plugin loads and executes a lua script
 type Plugin struct {
-	l *lua.LState
+	*lua.LState
 
 	// Set once before Run(), read-only after that
 	*Config
-}
-
-func luaTypeOf(i interface{}) string {
-	return reflect.TypeOf(i).String()
-}
-
-func luaInspect(i interface{}) string {
-	return fmt.Sprintf("%+v", i)
 }
 
 // Load a lua plugin
@@ -48,46 +34,30 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 
 	var p = Plugin{
 		Config: conf,
-		l: lua.NewState(lua.Options{
+		LState: lua.NewState(lua.Options{
 			IncludeGoStackTrace: true,
 		}),
 	}
 
-	// Import functions
-	p.l.SetGlobal("gotypeof", luar.New(p.l, luaTypeOf))
-	p.l.SetGlobal("inspect", luar.New(p.l, luaInspect))
+	p.SetGlobal("globals", g)
+	p.SetGlobal("options", conf.Options)
 
-	// Import script variables
-	p.l.SetGlobal("globals", luar.New(p.l, g))
-	p.l.SetGlobal("options", luar.New(p.l, conf.Options))
-
-	// Import event constants
-	var events = p.l.NewTable()
-	for _, e := range gateway.RelayEvents {
-		p.l.SetTable(events, lua.LString(luaTypeOf(e)[1:]), luar.New(p.l, e))
+	for k, v := range g {
+		p.SetGlobal(k, v)
 	}
-	p.l.SetGlobal("events", events)
 
-	// Import access level constants
-	var access = p.l.NewTable()
-	for i, str := range gateway.ConStrings {
-		if len(str) == 0 {
-			str = "Default"
-		}
-		str = strings.Title(str)
-		p.l.SetTable(access, lua.LString(str), lua.LNumber(gateway.ConLevels[i]))
-		p.l.SetTable(access, lua.LNumber(gateway.ConLevels[i]), lua.LString(str))
-	}
-	p.l.SetGlobal("access", access)
+	importFunctions(p.LState)
+	importEvents(p.LState)
+	importAccess(p.LState)
 
-	if err := p.l.DoFile(p.Path); err != nil {
+	if err := p.DoFile(p.Path); err != nil {
 		return nil, err
 	}
 
 	return &p, nil
 }
 
-// Close the lua context
-func (p *Plugin) Close() {
-	p.l.Close()
+// SetGlobal variable
+func (p *Plugin) SetGlobal(name string, val interface{}) {
+	p.LState.SetGlobal(name, luar.New(p.LState, val))
 }

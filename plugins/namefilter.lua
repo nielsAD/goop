@@ -2,20 +2,19 @@
 -- Project: goop (https://github.com/nielsAD/goop)
 -- License: Mozilla Public License, v2.0
 --
--- Ban users with '@', '|r', or '|n' in their name
+-- Ban Battle.net users with specified patterns in their name
 --
 -- Options:
---   AccessProtect: Whitelist access level
---   Kick:          Kick instead of ban
+--   Patterns:       Patterns to match
+--   AccessProtect:  Whitelist access level
+--   Kick:           Kick instead of ban
 
-goop = globals.goop
-
-goop:On(events["gateway.Join"], function(ev)
+goop:On(events.Join, function(ev)
     local user = ev.Arg
     local gw   = ev.Opt[1]
 
     local lvl = options["AccessProtect"] or access.Whitelist
-    if user.Access >= max_lvl then
+    if user.Access >= lvl then
         return
     end
 
@@ -23,7 +22,15 @@ goop:On(events["gateway.Join"], function(ev)
         return
     end
 
-    if not user.Name.find("@") and not user.Name.find("|[rn]") then
+    local patterns = options["Patterns"] or {"@", "|[cnr]"}
+    local found    = false
+    for _, p in ipairs(patterns) do
+        if gw:ID():find(p) then
+            found = true
+            break
+        end
+    end
+    if not found then
         return
     end
 

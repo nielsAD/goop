@@ -16,20 +16,25 @@
 --     * #g:     Gateway ID
 --     * #d:     Gateway discriminator
 
-goop = globals.goop
-
-goop:On(events["gateway.Join"], function(ev)
+goop:On(events.Join, function(ev)
     local user = ev.Arg
     local gw   = ev.Opt[1]
 
-    local min_lvl = options["AccessMin"] or access.Default
+    local min_lvl = options["AccessMin"] or access.Voice
     local max_lvl = options["AccessMax"] or access.Owner
     if user.Access < min_lvl or user.Access > max_lvl then
         return
     end
 
-    local target = options["Gateway"] or "^capi:.*$"
-    if not gw:ID():find(target) then
+    local targets = options["Gateway"] or {"^bnet:.*$", "^capi:.*$"}
+    local found   = false
+    for _, t in ipairs(targets) do
+        if gw:ID():find(t) then
+            found = true
+            break
+        end
+    end
+    if not found then
         return
     end
 
