@@ -166,7 +166,6 @@ var DefaultConfig = Config{
 			Say:               true,
 			Chat:              true,
 			PrivateChat:       true,
-			JoinAccess:        gateway.AccessMin,
 			ChatAccess:        gateway.AccessVoice,
 			PrivateChatAccess: gateway.AccessVoice,
 		},

@@ -422,6 +422,17 @@ func (c *Channel) updateOnline() {
 	}
 }
 
+func (c *Channel) sortOnline() {
+	c.omut.Lock()
+	sort.Slice(c.online, func(i, j int) bool {
+		if c.online[i].User.Access == c.online[j].User.Access {
+			return c.online[i].Since.Before(c.online[j].Since)
+		}
+		return c.online[i].User.Access > c.online[j].User.Access
+	})
+	c.omut.Unlock()
+}
+
 func (c *Channel) clearOnline(gw string) {
 	c.omut.Lock()
 	var n = make([]online, 0, len(c.online))
@@ -470,13 +481,8 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 				User:    msg.User,
 				Since:   time.Now(),
 			})
-			sort.Slice(c.online, func(i, j int) bool {
-				if c.online[i].User.Access == c.online[j].User.Access {
-					return c.online[i].Since.Before(c.online[j].Since)
-				}
-				return c.online[i].User.Access > c.online[j].User.Access
-			})
 			c.omut.Unlock()
+			c.sortOnline()
 			c.updateOnline()
 		}
 
@@ -496,6 +502,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 				break
 			}
 			c.omut.Unlock()
+			c.sortOnline()
 			c.updateOnline()
 		}
 		return nil
