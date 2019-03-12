@@ -100,7 +100,7 @@ var DefaultConfig = Config{
 			},
 			"banlist": &cmd.Alias{
 				Exe: "list",
-				Arg: []string{gateway.AccessBlacklist.String(), gateway.AccessBan.String()},
+				Arg: []string{gateway.AccessMin.String(), gateway.AccessBan.String()},
 			},
 			"unignore":  &cmd.Alias{Exe: "unset"},
 			"squelch":   &cmd.Alias{Exe: "ignore"},
@@ -163,6 +163,7 @@ var DefaultConfig = Config{
 			Say:               true,
 			Chat:              true,
 			PrivateChat:       true,
+			JoinAccess:        gateway.AccessMin,
 			ChatAccess:        gateway.AccessVoice,
 			PrivateChatAccess: gateway.AccessVoice,
 		},

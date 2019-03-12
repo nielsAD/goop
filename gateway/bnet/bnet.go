@@ -146,10 +146,6 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		return nil, gateway.ErrNoUser
 	}
 
-	if u, ok := b.Client.User(uid); ok {
-		b.Fire(&gateway.Leave{User: b.user(u)})
-	}
-
 	var o = b.AccessUser[uid]
 	if a != gateway.AccessDefault {
 		if b.AccessUser == nil {
@@ -163,8 +159,9 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 
 	b.Fire(&gateway.ConfigUpdate{})
 
-	if u, ok := b.Client.User(uid); ok {
-		b.Fire(&gateway.Join{User: b.user(u)})
+	if cu, ok := b.Client.User(uid); ok {
+		var u = b.user(cu)
+		b.Fire(&u)
 	}
 
 	return &o, nil
@@ -354,6 +351,7 @@ func (b *Gateway) user(u *bnet.User) gateway.User {
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (b *Gateway) InitDefaultHandlers() {
 	b.On(&bnet.UserJoined{}, b.onUserJoined)
+	b.On(&bnet.UserUpdate{}, b.onUserUpdate)
 	b.On(&bnet.UserLeft{}, b.onUserLeft)
 	b.On(&bnet.Chat{}, b.onChat)
 	b.On(&bnet.Whisper{}, b.onWhisper)
@@ -370,6 +368,16 @@ func (b *Gateway) onUserJoined(ev *network.Event) {
 	}
 
 	b.Fire(&gateway.Join{User: b.user(&user.User)})
+}
+
+func (b *Gateway) onUserUpdate(ev *network.Event) {
+	var user = ev.Arg.(*bnet.UserUpdate)
+	if user.Name == b.UniqueName {
+		return
+	}
+
+	var u = b.user(&user.User)
+	b.Fire(&u)
 }
 
 func (b *Gateway) onUserLeft(ev *network.Event) {
@@ -532,6 +540,8 @@ func (b *Gateway) onFloodDetected(ev *network.Event) {
 func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Clear:
+		return nil
+	case *gateway.User:
 		return nil
 	case *gateway.Connected:
 		return b.say(fmt.Sprintf("Established connection to %s", from.ID()))

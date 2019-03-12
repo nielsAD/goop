@@ -66,6 +66,7 @@ var RelayEvents = []interface{}{
 	&Say{},
 	&Join{},
 	&Leave{},
+	&User{},
 }
 
 // Responder callback

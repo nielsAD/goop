@@ -186,6 +186,8 @@ func (o *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 		o.Out.Println(color.YellowString("[%s][CHAT] %s@%s has joined the channel", from.ID(), msg.User.Name, from.Discriminator()))
 	case *gateway.Leave:
 		o.Out.Println(color.YellowString("[%s][CHAT] %s@%s has left the channel", from.ID(), msg.User.Name, from.Discriminator()))
+	case *gateway.User:
+		o.Out.Println(color.YellowString("[%s][CHAT] %s@%s updated", from.ID(), msg.Name, from.Discriminator()))
 	case *gateway.PrivateChat:
 		o.Out.Println(color.GreenString("[%s][PRIV] <%s@%s> %s", from.ID(), msg.User.Name, from.Discriminator(), msg.Content))
 	case *gateway.Chat:

@@ -52,6 +52,7 @@ func (r *Relay) InitDefaultHandlers() {
 	r.From.On(&gateway.SystemMessage{}, r.onSystemMessage)
 	r.From.On(&gateway.Clear{}, r.onClear)
 	r.From.On(&gateway.Join{}, r.onJoin)
+	r.From.On(&gateway.User{}, r.onUser)
 	r.From.On(&gateway.Leave{}, r.onLeave)
 	r.From.On(&gateway.Chat{}, r.onChat)
 	r.From.On(&gateway.PrivateChat{}, r.onPrivateChat)
@@ -97,6 +98,14 @@ func (r *Relay) onChannel(ev *network.Event) {
 
 func (r *Relay) onJoin(ev *network.Event) {
 	var user = ev.Arg.(*gateway.Join)
+	if !r.Joins || user.Access < r.JoinAccess {
+		return
+	}
+	r.relay(ev)
+}
+
+func (r *Relay) onUser(ev *network.Event) {
+	var user = ev.Arg.(*gateway.User)
 	if !r.Joins || user.Access < r.JoinAccess {
 		return
 	}

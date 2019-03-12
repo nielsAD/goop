@@ -7,6 +7,7 @@ package discord
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -49,8 +50,9 @@ type Channel struct {
 }
 
 type online struct {
+	gateway.User
 	Gateway string
-	Name    string
+	Discr   string
 	Since   time.Time
 }
 
@@ -162,16 +164,6 @@ func (c *Channel) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		return nil, err
 	}
 
-	var online = false
-	if p, err := c.session.State.Presence(c.guildID, uid); err == nil && p.Status != discordgo.StatusOffline {
-		online = true
-	}
-	if online {
-		if u, err := c.User(uid); err == nil && u != nil {
-			c.Fire(&gateway.Leave{User: *u})
-		}
-	}
-
 	var o = c.AccessUser[uid]
 	if a != gateway.AccessDefault {
 		if c.AccessUser == nil {
@@ -185,9 +177,9 @@ func (c *Channel) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 
 	c.Fire(&gateway.ConfigUpdate{})
 
-	if online {
+	if p, err := c.session.State.Presence(c.guildID, uid); err == nil && p.Status != discordgo.StatusOffline {
 		if u, err := c.User(uid); err == nil && u != nil {
-			c.Fire(&gateway.Join{User: *u})
+			c.Fire(u)
 		}
 	}
 
@@ -326,7 +318,7 @@ func (c *Channel) updateOnline() {
 
 			if messages, err := c.session.ChannelMessagesPinned(c.chanID); err == nil {
 				for _, m := range messages {
-					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(m.Content, "💬 **Online**") {
+					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(strings.TrimPrefix(m.Content, "__"), "💬 **Online**") {
 						continue
 					}
 					msg = m.ID
@@ -345,11 +337,25 @@ func (c *Channel) updateOnline() {
 					continue
 				}
 
+				var now = time.Now()
+
 				c.omut.Lock()
-				var content = fmt.Sprintf("💬 **Online**: %d users", len(c.online))
-				for i := len(c.online) - 1; i >= 0; i-- {
-					var s = fmt.Sprintf("\n`%s` *%s*", c.online[i].Name, time.Now().Sub(c.online[i].Since).Round(time.Second).String())
-					if len(content)+len(s) > 2000 {
+				var content = fmt.Sprintf("__💬 **Online**: %d users__\n\n", len(c.online))
+				for _, o := range c.online {
+					var a = ""
+					switch {
+					case o.User.Access >= gateway.AccessOperator:
+						a = "⚔️"
+					case o.User.Access >= gateway.AccessVoice:
+						a = "🔈"
+					case o.User.Access < gateway.AccessVoice:
+						a = "🔇"
+					case o.User.Access <= gateway.AccessBan:
+						a = "💩"
+					}
+
+					var s = fmt.Sprintf("%s `%-15s @ %-10s\u200B` *%s*\n", a, o.User.Name, o.Discr, now.Sub(o.Since).Round(time.Second).String())
+					if len(content)+len(s) >= 2000 {
 						break
 					}
 
@@ -357,6 +363,7 @@ func (c *Channel) updateOnline() {
 				}
 				c.omut.Unlock()
 
+				content += "\u200B"
 				if content == last {
 					continue
 				}
@@ -418,6 +425,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 		return c.say(fmt.Sprintf("📢 **%s** `%s` %s", from.Discriminator(), msg.Type, msg.Content))
 	case *gateway.Channel:
 		return c.say(fmt.Sprintf("💬 *Joined channel `%s@%s`*", msg.Name, from.Discriminator()))
+
 	case *gateway.Clear:
 		if c.RelayJoins&RelayJoinsList != 0 {
 			c.clearOnline(from.ID())
@@ -429,8 +437,15 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 			c.omut.Lock()
 			c.online = append(c.online, online{
 				Gateway: from.ID(),
-				Name:    fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
+				Discr:   from.Discriminator(),
+				User:    msg.User,
 				Since:   time.Now(),
+			})
+			sort.Slice(c.online, func(i, j int) bool {
+				if c.online[i].User.Access == c.online[j].User.Access {
+					return c.online[i].Since.Before(c.online[j].Since)
+				}
+				return c.online[i].User.Access < c.online[j].User.Access
 			})
 			c.omut.Unlock()
 			c.updateOnline()
@@ -441,13 +456,25 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 		}
 
 		return nil
-
+	case *gateway.User:
+		if c.RelayJoins&RelayJoinsList != 0 {
+			c.omut.Lock()
+			for i := range c.online {
+				if c.online[i].Gateway != from.ID() || c.online[i].User.ID != msg.ID {
+					continue
+				}
+				c.online[i].User = *msg
+				break
+			}
+			c.omut.Unlock()
+			c.updateOnline()
+		}
+		return nil
 	case *gateway.Leave:
 		if c.RelayJoins&RelayJoinsList != 0 {
-			var name = fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator())
 			c.omut.Lock()
 			for i := len(c.online) - 1; i >= 0; i-- {
-				if c.online[i].Gateway != from.ID() || c.online[i].Name != name {
+				if c.online[i].Gateway != from.ID() || c.online[i].User.ID != msg.User.ID {
 					continue
 				}
 				c.online = append(c.online[:i], c.online[i+1:]...)

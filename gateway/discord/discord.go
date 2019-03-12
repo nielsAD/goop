@@ -239,6 +239,7 @@ func (d *Gateway) InitDefaultHandlers() {
 
 	d.AddHandler(d.onGuildCreate)
 	d.AddHandler(d.onGuildUpdate)
+	d.AddHandler(d.onGuildMemberUpdate)
 	d.AddHandler(d.onPresenceUpdate)
 
 	d.AddHandler(d.onMessageCreate)
@@ -362,6 +363,19 @@ func (d *Gateway) onGuildCreate(s *discordgo.Session, msg *discordgo.GuildCreate
 func (d *Gateway) onGuildUpdate(s *discordgo.Session, msg *discordgo.GuildUpdate) {
 	for _, p := range msg.Presences {
 		d.updatePresence(msg.Guild.ID, p)
+	}
+}
+
+func (d *Gateway) onGuildMemberUpdate(s *discordgo.Session, msg *discordgo.GuildMemberUpdate) {
+	if _, online := d.users[msg.User.ID]; !online {
+		return
+	}
+
+	var channels = d.guilds[msg.GuildID]
+	for _, cid := range channels {
+		if u, err := d.Channels[cid].User(msg.User.ID); err == nil && u != nil {
+			d.Channels[cid].Fire(u)
+		}
 	}
 }
 

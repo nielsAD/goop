@@ -147,11 +147,6 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 		return nil, gateway.ErrNoUser
 	}
 
-	id, inchat := b.users[uid]
-	if inchat {
-		b.Fire(&gateway.Leave{User: b.userFromID(id)})
-	}
-
 	var o = b.AccessUser[uid]
 	if a != gateway.AccessDefault {
 		if b.AccessUser == nil {
@@ -165,8 +160,9 @@ func (b *Gateway) SetUserAccess(uid string, a gateway.AccessLevel) (*gateway.Acc
 
 	b.Fire(&gateway.ConfigUpdate{})
 
-	if inchat {
-		b.Fire(&gateway.Join{User: b.userFromID(id)})
+	if id, inchat := b.users[uid]; inchat {
+		var u = b.userFromID(id)
+		b.Fire(&u)
 	}
 
 	return &o, nil
@@ -405,8 +401,11 @@ func (b *Gateway) onUserUpdateEvent(ev *network.Event) {
 	}
 	b.chatmut.Unlock()
 
+	var u = b.userFromCapi(pkt)
 	if join {
-		b.Fire(&gateway.Join{User: b.userFromCapi(pkt)})
+		b.Fire(&gateway.Join{User: u})
+	} else {
+		b.Fire(&u)
 	}
 }
 
@@ -534,6 +533,8 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 func (b *Gateway) Relay(ev *network.Event, from gateway.Gateway) error {
 	switch msg := ev.Arg.(type) {
 	case *gateway.Clear:
+		return nil
+	case *gateway.User:
 		return nil
 	case *gateway.Connected:
 		return b.say(fmt.Sprintf("Established connection to %s", from.ID()))

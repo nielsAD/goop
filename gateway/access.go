@@ -6,6 +6,7 @@ package gateway
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ type AccessLevel int32
 
 // Access constants
 var (
+	AccessMax       = AccessLevel(math.MaxInt32)
 	AccessOwner     = AccessLevel(1000)
 	AccessAdmin     = AccessLevel(300)
 	AccessOperator  = AccessLevel(200)
@@ -26,9 +28,10 @@ var (
 	AccessKick      = AccessLevel(-100)
 	AccessBan       = AccessLevel(-200)
 	AccessBlacklist = AccessLevel(-300)
+	AccessMin       = AccessLevel(math.MinInt32)
 
-	ConStrings = []string{"owner", "admin", "operator", "whitelist", "voice", "", "ignore", "kick", "ban", "blacklist"}
-	ConLevels  = []AccessLevel{AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessKick, AccessBan, AccessBlacklist}
+	ConStrings = []string{"max", "owner", "admin", "operator", "whitelist", "voice", "", "ignore", "kick", "ban", "blacklist", "min"}
+	ConLevels  = []AccessLevel{AccessMax, AccessOwner, AccessAdmin, AccessOperator, AccessWhitelist, AccessVoice, AccessDefault, AccessIgnore, AccessKick, AccessBan, AccessBlacklist, AccessMin}
 )
 
 func (l AccessLevel) String() string {
