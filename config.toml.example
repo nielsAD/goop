@@ -14,4 +14,4 @@
     Webhook = ""
 
 [[Plugins]]
-    Path = "./plugins/greet.lua"
+    Path = "./plugins/namefilter.lua"
