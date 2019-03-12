@@ -303,6 +303,26 @@ func (c *Channel) FindTrigger(s string) (bool, string, []string) {
 	return false, "", nil
 }
 
+func fmtDuration(d time.Duration) string {
+	var s = (int64)(d.Round(time.Second) / time.Second)
+	var m = s / 60
+	var h = m / 60
+
+	if h > 0 {
+		m -= h * 60
+		return fmt.Sprintf("%dh%dm", h, m)
+	} else if m > 0 {
+		s -= m * 60
+		return fmt.Sprintf("%dm%ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
+}
+
+var plural = map[bool]string{
+	false: "",
+	true:  "s",
+}
+
 func (c *Channel) updateOnline() {
 	c.omut.Lock()
 	if c.ochan == nil {
@@ -316,7 +336,13 @@ func (c *Channel) updateOnline() {
 				time.Sleep(time.Second)
 			}
 
-			if messages, err := c.session.ChannelMessagesPinned(c.chanID); err == nil {
+			// TODO: save message ID in settings
+			for {
+				messages, err := c.session.ChannelMessagesPinned(c.chanID)
+				if err != nil {
+					time.Sleep(time.Second)
+					continue
+				}
 				for _, m := range messages {
 					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(strings.TrimPrefix(m.Content, "__"), "💬 **Online**") {
 						continue
@@ -324,6 +350,7 @@ func (c *Channel) updateOnline() {
 					msg = m.ID
 					break
 				}
+				break
 			}
 
 			var last = ""
@@ -340,12 +367,14 @@ func (c *Channel) updateOnline() {
 				var now = time.Now()
 
 				c.omut.Lock()
-				var content = fmt.Sprintf("__💬 **Online**: %d users__\n\n", len(c.online))
+				var content = fmt.Sprintf("__💬 **Online**: %d user%s__\n\n", len(c.online), plural[len(c.online) != 1])
 				for _, o := range c.online {
 					var a = ""
 					switch {
 					case o.User.Access >= gateway.AccessOperator:
 						a = "⚔️"
+					case o.User.Access >= gateway.AccessWhitelist:
+						a = "⭐"
 					case o.User.Access >= gateway.AccessVoice:
 						a = "🔈"
 					case o.User.Access < gateway.AccessVoice:
@@ -354,7 +383,7 @@ func (c *Channel) updateOnline() {
 						a = "💩"
 					}
 
-					var s = fmt.Sprintf("%s `%-15s @ %-10s\u200B` *%s*\n", a, o.User.Name, o.Discr, now.Sub(o.Since).Round(time.Second).String())
+					var s = fmt.Sprintf("%s `%-15s @ %-9s\u200B` *%s*\n", a, o.User.Name, o.Discr, fmtDuration(now.Sub(o.Since)))
 					if len(content)+len(s) >= 2000 {
 						break
 					}

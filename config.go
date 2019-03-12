@@ -122,7 +122,7 @@ var DefaultConfig = Config{
 	},
 	StdIO: stdio.Config{
 		Read:   true,
-		Access: gateway.AccessOwner,
+		Access: gateway.AccessOwner + 1,
 	},
 	Capi: CapiConfigWithDefault{
 		Default: capi.Config{
