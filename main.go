@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -109,6 +110,8 @@ func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
 
 	var g = make(plugin.Globals)
 	g["goop"] = res
+	g["version"] = BuildTag
+	g["commit"] = BuildCommit
 
 	for _, p := range conf.Plugins {
 		if _, err := plugin.Load(p, g); err != nil {
@@ -231,6 +234,12 @@ start:
 		}
 		cancel()
 	}()
+
+	g.AddCommand("version", &cmd.Alias{
+		Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+		Exe: "echo",
+		Arg: []string{fmt.Sprintf("goop %s (%s)", BuildTag, BuildCommit)},
+	})
 
 	g.AddCommand("quit", &Quit{
 		Cmd:    cmd.Cmd{Priviledge: gateway.AccessOwner},

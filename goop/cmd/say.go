@@ -11,7 +11,15 @@ import (
 	"github.com/nielsAD/goop/goop"
 )
 
-// Say echoes input
+// Echo input
+type Echo struct{ Cmd }
+
+// Execute command
+func (c *Echo) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
+	return t.Resp(strings.Join(t.Arg, " "))
+}
+
+// Say input in channel
 type Say struct{ Cmd }
 
 // Execute command

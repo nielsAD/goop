@@ -42,6 +42,9 @@ var DefaultConfig = Config{
 			SayPrivate: cmd.SayPrivate{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
 			},
+			Echo: cmd.Echo{
+				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+			},
 			Say: cmd.Say{
 				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
 			},

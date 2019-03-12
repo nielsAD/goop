@@ -474,7 +474,7 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 				if c.online[i].User.Access == c.online[j].User.Access {
 					return c.online[i].Since.Before(c.online[j].Since)
 				}
-				return c.online[i].User.Access < c.online[j].User.Access
+				return c.online[i].User.Access > c.online[j].User.Access
 			})
 			c.omut.Unlock()
 			c.updateOnline()

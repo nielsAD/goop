@@ -5,12 +5,13 @@
 GOW3=vendor/github.com/nielsAD/gowarcraft3
 VENDOR=$(GOW3)/vendor/bncsutil/build/libbncsutil_static.a
 
+GO_LDFLAGS=
 GO_FLAGS=
 GOTEST_FLAGS=-cover -cpu=1,2,4 -timeout=2m
 
 GO=go
 GOFMT=gofmt
-GOLINT=$(shell $(GO) env GOPATH)/bin/golint
+GOLINT:=$(shell $(GO) env GOPATH)/bin/golint
 
 DIR_BIN=bin
 DIR_PRE=github.com/nielsAD/goop
@@ -27,6 +28,10 @@ ifeq ($(TEST_RACE),1)
 	GOTEST_FLAGS+= -race
 endif
 
+GIT=git
+GIT_TAG:=$(shell $(GIT) describe --abbrev=0 --tags)
+GIT_COMMIT:=$(shell $(GIT) rev-parse HEAD)
+
 .PHONY: all release check test fmt lint vet list clean
 
 all: test release
@@ -41,7 +46,7 @@ $(GOW3)/vendor/%:
 	$(MAKE) -C $(GOW3)/vendor $(subst $(GOW3)/vendor/,,$@)
 
 release: $(VENDOR) $(DIR_BIN)
-	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) $(DIR_PRE)
+	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(GIT_TAG) -X main.BuildCommit=$(GIT_COMMIT) $(GO_LDFLAGS)' $(DIR_PRE)
 
 check: $(VENDOR)
 	$(GO) build $(PKG)

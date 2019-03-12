@@ -38,6 +38,7 @@ type Commands struct {
 	Whois      Whois
 	Settings   Settings
 	List       List
+	Echo       Echo
 	Say        Say
 	SayPrivate SayPrivate
 	Set        Set

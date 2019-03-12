@@ -44,7 +44,7 @@ build: off
 
 test_script:
   - bash -lc "cd $APPVEYOR_BUILD_FOLDER; make test TEST_RACE=0"
-  - bash -lc "cd $APPVEYOR_BUILD_FOLDER; make release GO_FLAGS=\"-ldflags '-linkmode external -extldflags -static'\""
+  - bash -lc "cd $APPVEYOR_BUILD_FOLDER; make release GO_LDFLAGS='-linkmode external -extldflags -static'"
 
 after_test:
   - md5sum ./bin/*
