@@ -238,7 +238,7 @@ start:
 	g.AddCommand("version", &cmd.Alias{
 		Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
 		Exe: "echo",
-		Arg: []string{fmt.Sprintf("goop %s (%s)", BuildTag, BuildCommit)},
+		Arg: []string{fmt.Sprintf("goop %s (%s)", BuildTag, BuildCommit[:10])},
 	})
 
 	g.AddCommand("quit", &Quit{
