@@ -22,7 +22,7 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    local patterns = options["Patterns"] or {"@", "|[cnr]"}
+    local patterns = options["Patterns"] or {"@", "|[nr]"}
     local found    = false
     for _, p in ipairs(patterns) do
         if user.Name:find(p) then
