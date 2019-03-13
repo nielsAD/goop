@@ -7,7 +7,7 @@
 print("ACCESS", inspect(access))
 print("EVENTS", inspect(events))
 
-blacklist = { "*discordgo.Event", "*discordgo.PresenceUpdate", "*capi.Packet" }
+local blacklist = { "*discordgo.Event", "*discordgo.PresenceUpdate", "*capi.Packet" }
 
 goop:On(nil, function(ev)
     local arg = ev.Arg

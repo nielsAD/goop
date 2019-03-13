@@ -13,7 +13,7 @@ goop:AddCommand("randkick", command(function(trig, gw)
     if trig.User.Access < lvl then
         return nil
     end
-    
+
     local chan = gw:ChannelUsers()
     if chan == nil then
         return nil
