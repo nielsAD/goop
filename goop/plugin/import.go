@@ -65,6 +65,7 @@ func importEvents(ls *lua.LState) {
 		"RunStop":  network.RunStop{},
 		"Error":    &network.AsyncError{},
 
+		"User":          &gateway.User{},
 		"Channel":       &gateway.Channel{},
 		"ConfigUpdate":  &gateway.ConfigUpdate{},
 		"Connected":     &gateway.Connected{},
