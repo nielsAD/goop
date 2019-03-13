@@ -46,9 +46,8 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 		p.SetGlobal(k, v)
 	}
 
-	importFunctions(p.LState)
-	importEvents(p.LState)
-	importAccess(p.LState)
+	importGlobal(p.LState)
+	importPreload(p.LState)
 
 	if err := p.DoFile(p.Path); err != nil {
 		return nil, err
