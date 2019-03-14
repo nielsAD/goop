@@ -7,22 +7,14 @@
 -- Options:
 --   Interval:  Check interval
 
-local errors  = require("go.errors")
-local ioutil  = require("go.io")
-local json    = require("go.json")
-local time    = require("go.time")
-local http    = require("go.http")
+local errors = require("go.errors")
+local ioutil = require("go.io")
+local json   = require("go.json")
+local time   = require("go.time")
+local http   = require("go.http")
 
 local API_URL = "https://api.github.com/repos/nielsAD/goop/releases/latest"
 local WEB_URL = "https://github.com/nielsAD/goop/releases/latest"
-
-local function async_error(err)
-    local e = events["network.AsyncError"]()
-    local d = debug.getinfo(2, "Sln")
-    e.Src = string.format("[%s:%d][%s]", d.source, d.currentline, d.name)
-    e.Err = err
-    return e
-end
 
 local last_check = {}
 
@@ -36,7 +28,7 @@ local function check()
 
     local resp, get_err = http.Get(API_URL)
     if get_err ~= nil then
-        goop:Fire(async_error(get_err))
+        goop:Fire(events.async_error(get_err))
         return false
     end
 
@@ -44,14 +36,14 @@ local function check()
     resp.Body:Close()
 
     if read_err ~= nil or resp.StatusCode ~= http.StatusOK then
-        goop:Fire(async_error(read_err or errors.New(resp.Status)))
+        goop:Fire(events.async_error(read_err or errors.New(resp.Status)))
         return false
     end
 
     local json_obj = interface()
     local json_err = json.Unmarshal(body, json_obj)
     if json_err ~= nil then
-        goop:Fire(async_error(read_err or errors.New(resp.Status)))
+        goop:Fire(events.async_error(read_err or errors.New(resp.Status)))
         return false
     end
 

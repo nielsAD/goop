@@ -64,6 +64,16 @@ func importGlobal(ls *lua.LState) {
 	}
 	ls.SetGlobal("events", importEvents(ls))
 	ls.SetGlobal("access", importAccess(ls))
+
+	ls.DoString(`
+	events.async_error = function(err)
+		local e = events["network.AsyncError"]()
+		local d = debug.getinfo(2, "Sln")
+		e.Src = string.format("[%s:%d][%s]", d.source, d.currentline, d.name)
+		e.Err = err
+		return e
+	end
+`)
 }
 
 func importPreload(ls *lua.LState) {
@@ -352,9 +362,10 @@ var _time = map[string]interface{}{
 }
 
 var _bytes = map[string]interface{}{
-	"New":             func(len int) []byte { return make([]byte, len) },
-	"String":          func(b []byte) string { return (string)(b) },
-	"Slice":           func(b []byte, s int, e int) []byte { return b[s:e] },
+	"New":    func(len int) []byte { return make([]byte, len) },
+	"String": func(b []byte) string { return (string)(b) },
+	"Slice":  func(b []byte, i int, j int) []byte { return b[i:j] },
+
 	"Compare":         bytes.Compare,
 	"Contains":        bytes.Contains,
 	"ContainsAny":     bytes.ContainsAny,
@@ -406,6 +417,10 @@ var _bytes = map[string]interface{}{
 }
 
 var _strings = map[string]interface{}{
+	"Bytes":  func(s string) []byte { return ([]byte)(s) },
+	"Slice":  func(s string, i int, j int) string { return s[i:j] },
+	"SSlice": func(s []string, i int, j int) []string { return s[i:j] },
+
 	"Compare":       strings.Compare,
 	"Contains":      strings.Contains,
 	"ContainsAny":   strings.ContainsAny,
