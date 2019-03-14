@@ -3,7 +3,7 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Echo everything said in channel or private message
--- 
+--
 -- Options:
 --   Access:  Min access level
 

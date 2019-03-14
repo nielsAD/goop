@@ -3,7 +3,7 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Add randkick command that randomly kicks a user from the channel when triggered
--- 
+--
 -- Options:
 --   AccessTrigger:  Access level required to trigger command
 --   AccessProtect:  Whitelist access level

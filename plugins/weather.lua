@@ -3,7 +3,7 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Add weather command that prints weather on location
--- 
+--
 -- Options:
 --   AccessTrigger:    Access level required to trigger command
 --   DefaultLocation:  Default location
@@ -13,7 +13,7 @@ local strings = require("go.strings")
 local http    = require("go.http")
 local url     = require("go.url")
 
-goop:AddCommand("weather", command(function(trig, gw)
+goop:AddCommand("weather", command(function(trig, _)
     local lvl = options["AccessTrigger"] or access.Whitelist
     if trig.User.Access < lvl then
         return nil

@@ -28,6 +28,11 @@ ifeq ($(TEST_RACE),1)
 	GOTEST_FLAGS+= -race
 endif
 
+LUACHECK:=$(shell command -v luacheck 2>/dev/null)
+ifndef LUACHECK
+	LUACHECK=: LUACHECK NOT INSTALLED, SKIPPING luacheck
+endif
+
 GIT=git
 GIT_TAG:=$(shell $(GIT) describe --abbrev=0 --tags)
 GIT_COMMIT:=$(shell $(GIT) rev-parse HEAD)
@@ -59,6 +64,7 @@ fmt:
 
 lint:
 	$(GOLINT) -set_exit_status $(PKG)
+	cd plugins; $(LUACHECK) .
 
 vet:
 	$(GO) vet $(PKG)
