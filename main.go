@@ -109,6 +109,7 @@ func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
 	}
 
 	var g = make(plugin.Globals)
+	g["log"] = logOut
 	g["goop"] = res
 	g["version"] = BuildTag
 	g["commit"] = BuildCommit

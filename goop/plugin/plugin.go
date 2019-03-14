@@ -35,6 +35,7 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 	var p = Plugin{
 		Config: conf,
 		LState: lua.NewState(lua.Options{
+			SkipOpenLibs:        true,
 			IncludeGoStackTrace: true,
 		}),
 	}
@@ -46,6 +47,7 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 		p.SetGlobal(k, v)
 	}
 
+	importModules(p.LState)
 	importGlobal(p.LState)
 	importPreload(p.LState)
 

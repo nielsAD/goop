@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/fatih/color"
 	"github.com/gorilla/websocket"
 	luar "github.com/layeh/gopher-luar"
 	lua "github.com/yuin/gopher-lua"
@@ -33,6 +35,29 @@ import (
 	"github.com/nielsAD/gowarcraft3/protocol/capi"
 )
 
+// Import all std modules except io and os
+var _modules = []struct {
+	libName string
+	libFunc lua.LGFunction
+}{
+	{lua.LoadLibName, lua.OpenPackage},
+	{lua.BaseLibName, lua.OpenBase},
+	{lua.TabLibName, lua.OpenTable},
+	{lua.StringLibName, lua.OpenString},
+	{lua.MathLibName, lua.OpenMath},
+	{lua.DebugLibName, lua.OpenDebug},
+	{lua.ChannelLibName, lua.OpenChannel},
+	{lua.CoroutineLibName, lua.OpenCoroutine},
+}
+
+func importModules(ls *lua.LState) {
+	for _, lib := range _modules {
+		ls.Push(ls.NewFunction(lib.libFunc))
+		ls.Push(lua.LString(lib.libName))
+		ls.Call(1, 0)
+	}
+}
+
 func importGlobal(ls *lua.LState) {
 	for k, t := range _global {
 		ls.SetGlobal(k, luar.New(ls, t))
@@ -43,16 +68,18 @@ func importGlobal(ls *lua.LState) {
 
 func importPreload(ls *lua.LState) {
 	ls.PreloadModule("go.errors", preloader(_errors))
-	ls.PreloadModule("go.fmt", preloader(_fmt))
 	ls.PreloadModule("go.io", preloader(_io))
 	ls.PreloadModule("go.context", preloader(_context))
 	ls.PreloadModule("go.time", preloader(_time))
 	ls.PreloadModule("go.bytes", preloader(_bytes))
 	ls.PreloadModule("go.strings", preloader(_strings))
 	ls.PreloadModule("go.strconv", preloader(_strconv))
-	ls.PreloadModule("go.regex", preloader(_regex))
+	ls.PreloadModule("go.fmt", preloader(_fmt))
+	ls.PreloadModule("go.color", preloader(_color))
+	ls.PreloadModule("go.regexp", preloader(_regexp))
 	ls.PreloadModule("go.json", preloader(_json))
 	ls.PreloadModule("go.sort", preloader(_sort))
+	ls.PreloadModule("go.net", preloader(_net))
 	ls.PreloadModule("go.url", preloader(_url))
 	ls.PreloadModule("go.http", preloader(_http))
 	ls.PreloadModule("go.websocket", preloader(_websocket))
@@ -241,28 +268,6 @@ var _errors = map[string]interface{}{
 	"New": errors.New,
 }
 
-var _fmt = map[string]interface{}{
-	"Errorf":   fmt.Errorf,
-	"Fprint":   fmt.Fprint,
-	"Fprintf":  fmt.Fprintf,
-	"Fprintln": fmt.Fprintln,
-	"Fscan":    fmt.Fscan,
-	"Fscanf":   fmt.Fscanf,
-	"Fscanln":  fmt.Fscanln,
-	"Print":    fmt.Print,
-	"Printf":   fmt.Printf,
-	"Println":  fmt.Println,
-	"Scan":     fmt.Scan,
-	"Scanf":    fmt.Scanf,
-	"Scanln":   fmt.Scanln,
-	"Sprint":   fmt.Sprint,
-	"Sprintf":  fmt.Sprintf,
-	"Sprintln": fmt.Sprintln,
-	"Sscan":    fmt.Sscan,
-	"Sscanf":   fmt.Sscanf,
-	"Sscanln":  fmt.Sscanln,
-}
-
 var _io = map[string]interface{}{
 	"Copy":        io.Copy,
 	"CopyBuffer":  io.CopyBuffer,
@@ -271,8 +276,17 @@ var _io = map[string]interface{}{
 	"ReadAtLeast": io.ReadAtLeast,
 	"ReadFull":    io.ReadFull,
 	"WriteString": io.WriteString,
-	"NopCloser":   ioutil.NopCloser,
-	"ReadAll":     ioutil.ReadAll,
+
+	"NopCloser": ioutil.NopCloser,
+	"ReadAll":   ioutil.ReadAll,
+	"Discard":   ioutil.Discard,
+
+	"EOF":              io.EOF,
+	"ErrClosedPipe":    io.ErrClosedPipe,
+	"ErrNoProgress":    io.ErrNoProgress,
+	"ErrShortBuffer":   io.ErrShortBuffer,
+	"ErrShortWrite":    io.ErrShortWrite,
+	"ErrUnexpectedEOF": io.ErrUnexpectedEOF,
 }
 var _context = map[string]interface{}{
 	"WithCancel":   context.WithCancel,
@@ -280,6 +294,9 @@ var _context = map[string]interface{}{
 	"WithTimeout":  context.WithTimeout,
 	"Background":   context.Background,
 	"TODO":         context.TODO,
+
+	"Canceled":         context.Canceled,
+	"DeadlineExceeded": context.DeadlineExceeded,
 }
 
 var _time = map[string]interface{}{
@@ -315,6 +332,9 @@ var _time = map[string]interface{}{
 }
 
 var _bytes = map[string]interface{}{
+	"New":             func(len int) []byte { return make([]byte, len) },
+	"String":          func(b []byte) string { return (string)(b) },
+	"Slice":           func(b []byte, s int, e int) []byte { return b[s:e] },
 	"Compare":         bytes.Compare,
 	"Contains":        bytes.Contains,
 	"ContainsAny":     bytes.ContainsAny,
@@ -360,6 +380,9 @@ var _bytes = map[string]interface{}{
 	"NewBuffer":       bytes.NewBuffer,
 	"NewBufferString": bytes.NewBufferString,
 	"NewReader":       bytes.NewReader,
+
+	"MinRead":     bytes.MinRead,
+	"ErrTooLarge": bytes.ErrTooLarge,
 }
 
 var _strings = map[string]interface{}{
@@ -422,9 +445,50 @@ var _strconv = map[string]interface{}{
 	"ParseFloat":  strconv.ParseFloat,
 	"ParseInt":    strconv.ParseInt,
 	"ParseUint":   strconv.ParseUint,
+
+	"ErrRange":  strconv.ErrRange,
+	"ErrSyntax": strconv.ErrSyntax,
 }
 
-var _regex = map[string]interface{}{
+var _fmt = map[string]interface{}{
+	"Errorf":   fmt.Errorf,
+	"Fprint":   fmt.Fprint,
+	"Fprintf":  fmt.Fprintf,
+	"Fprintln": fmt.Fprintln,
+	"Fscan":    fmt.Fscan,
+	"Fscanf":   fmt.Fscanf,
+	"Fscanln":  fmt.Fscanln,
+	"Print":    fmt.Print,
+	"Printf":   fmt.Printf,
+	"Println":  fmt.Println,
+	"Sprint":   fmt.Sprint,
+	"Sprintf":  fmt.Sprintf,
+	"Sprintln": fmt.Sprintln,
+	"Sscan":    fmt.Sscan,
+	"Sscanf":   fmt.Sscanf,
+	"Sscanln":  fmt.Sscanln,
+}
+
+var _color = map[string]interface{}{
+	"Black":     color.BlackString,
+	"Blue":      color.BlueString,
+	"Cyan":      color.CyanString,
+	"Green":     color.GreenString,
+	"HiBlack":   color.HiBlackString,
+	"HiBlue":    color.HiBlueString,
+	"HiCyan":    color.HiCyanString,
+	"HiGreen":   color.HiGreenString,
+	"HiMagenta": color.HiMagentaString,
+	"HiRed":     color.HiRedString,
+	"HiWhite":   color.HiWhiteString,
+	"HiYellow":  color.HiYellowString,
+	"Magenta":   color.MagentaString,
+	"Red":       color.RedString,
+	"White":     color.WhiteString,
+	"Yellow":    color.YellowString,
+}
+
+var _regexp = map[string]interface{}{
 	"Match":        regexp.Match,
 	"MatchString":  regexp.MatchString,
 	"QuoteMeta":    regexp.QuoteMeta,
@@ -451,6 +515,44 @@ var _sort = map[string]interface{}{
 	"Slice":             sort.Slice,
 	"SliceIsSorted":     sort.SliceIsSorted,
 	"Strings":           sort.Strings,
+}
+
+var _net = map[string]interface{}{
+	"JoinHostPort":    net.JoinHostPort,
+	"LookupAddr":      net.LookupAddr,
+	"LookupHost":      net.LookupHost,
+	"LookupPort":      net.LookupPort,
+	"LookupTXT":       net.LookupTXT,
+	"ParseCIDR":       net.ParseCIDR,
+	"Pipe":            net.Pipe,
+	"SplitHostPort":   net.SplitHostPort,
+	"Dial":            net.Dial,
+	"DialTimeout":     net.DialTimeout,
+	"IPv4":            net.IPv4,
+	"LookupIP":        net.LookupIP,
+	"ParseIP":         net.ParseIP,
+	"ResolveIPAddr":   net.ResolveIPAddr,
+	"DialIP":          net.DialIP,
+	"ListenIP":        net.ListenIP,
+	"CIDRMask":        net.CIDRMask,
+	"IPv4Mask":        net.IPv4Mask,
+	"ResolveTCPAddr":  net.ResolveTCPAddr,
+	"DialTCP":         net.DialTCP,
+	"ResolveUDPAddr":  net.ResolveUDPAddr,
+	"DialUDP":         net.DialUDP,
+	"ResolveUnixAddr": net.ResolveUnixAddr,
+	"DialUnix":        net.DialUnix,
+
+	"IPv4bcast":                  net.IPv4bcast,
+	"IPv4allsys":                 net.IPv4allsys,
+	"IPv4allrouter":              net.IPv4allrouter,
+	"IPv4zero":                   net.IPv4zero,
+	"IPv6zero":                   net.IPv6zero,
+	"IPv6unspecified":            net.IPv6unspecified,
+	"IPv6loopback":               net.IPv6loopback,
+	"IPv6interfacelocalallnodes": net.IPv6interfacelocalallnodes,
+	"IPv6linklocalallnodes":      net.IPv6linklocalallnodes,
+	"IPv6linklocalallrouters":    net.IPv6linklocalallrouters,
 }
 
 var _url = map[string]interface{}{
@@ -482,6 +584,7 @@ var _http = map[string]interface{}{
 	"StatusBadGateway":          http.StatusBadGateway,
 	"StatusServiceUnavailable":  http.StatusServiceUnavailable,
 	"StatusGatewayTimeout":      http.StatusGatewayTimeout,
+	"ErrBodyReadAfterClose":     http.ErrBodyReadAfterClose,
 }
 
 var _websocket = map[string]interface{}{

@@ -4,6 +4,8 @@
 --
 -- Print all events
 
+local color = require("go.color")
+
 print("ACCESS", inspect(access))
 print("EVENTS", inspect(events))
 
@@ -20,5 +22,5 @@ goop:On(nil, function(ev)
         end
     end
 
-    print("EVENT", gw:ID(), typ, inspect(arg))
+    log:Println(color.Blue("EVENT %s %s %+v", gw:ID(), typ, arg))
 end)
