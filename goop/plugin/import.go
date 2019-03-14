@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -46,7 +47,6 @@ var _modules = []struct {
 	{lua.StringLibName, lua.OpenString},
 	{lua.MathLibName, lua.OpenMath},
 	{lua.DebugLibName, lua.OpenDebug},
-	{lua.ChannelLibName, lua.OpenChannel},
 	{lua.CoroutineLibName, lua.OpenCoroutine},
 }
 
@@ -265,7 +265,14 @@ var _events = map[string]interface{}{
 }
 
 var _errors = map[string]interface{}{
-	"New": errors.New,
+	"New":                errors.New,
+	"IsPermission":       os.IsPermission,
+	"IsTimeout":          os.IsTimeout,
+	"IsConnClosed":       network.IsConnClosedError,
+	"IsConnRefused":      network.IsConnRefusedError,
+	"IsSysCall":          network.IsSysCallError,
+	"IsUseClosedNetwork": network.IsUseClosedNetworkError,
+	"Unnest":             network.UnnestError,
 }
 
 var _io = map[string]interface{}{

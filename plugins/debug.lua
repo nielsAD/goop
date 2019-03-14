@@ -14,7 +14,11 @@ local blacklist = { "*discordgo.Event", "*discordgo.PresenceUpdate", "*capi.Pack
 goop:On(nil, function(ev)
     local arg = ev.Arg
     local typ = gotypeof(arg)
-    local gw  = ev.Opt[1]
+
+    local gw = ""
+    if ev.Opt and #ev.Opt > 0 then
+        gw = ev.Opt[1]:ID()
+    end
 
     for _, bl in ipairs(blacklist) do
         if typ:find(bl) then
@@ -22,5 +26,5 @@ goop:On(nil, function(ev)
         end
     end
 
-    log:Println(color.Blue("EVENT %s %s %+v", gw:ID(), typ, arg))
+    log:Println(color.Blue("EVENT %s %s %+v", gw, typ, arg))
 end)

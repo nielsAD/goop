@@ -22,6 +22,12 @@ var (
 	ErrDuplicateCommand = errors.New("goop: Duplicate command")
 )
 
+// Start event
+type Start struct{}
+
+// Stop event
+type Stop struct{}
+
 // Config interface
 type Config interface {
 	GetRelay(to, from string) *RelayConfig
@@ -119,6 +125,8 @@ func (g *Goop) AddCommand(name string, c Command) error {
 
 // Run connects to each gateway and returns when all connections have ended
 func (g *Goop) Run(ctx context.Context) {
+	g.Fire(Start{})
+
 	var wg sync.WaitGroup
 	for i := range g.Gateways {
 		wg.Add(1)
@@ -134,6 +142,7 @@ func (g *Goop) Run(ctx context.Context) {
 	}
 
 	wg.Wait()
+	g.Fire(Stop{})
 }
 
 // InitDefaultHandlers adds the default callbacks for relevant packets

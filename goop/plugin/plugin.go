@@ -22,8 +22,22 @@ type Globals map[string]interface{}
 type Plugin struct {
 	*lua.LState
 
+	timers Timers
+
 	// Set once before Run(), read-only after that
 	*Config
+}
+
+// NewState prepares a new Lua environment
+func NewState() *lua.LState {
+	var ls = lua.NewState(lua.Options{
+		SkipOpenLibs:        true,
+		IncludeGoStackTrace: true,
+	})
+	importModules(ls)
+	importGlobal(ls)
+	importPreload(ls)
+	return ls
 }
 
 // Load a lua plugin
@@ -34,11 +48,10 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 
 	var p = Plugin{
 		Config: conf,
-		LState: lua.NewState(lua.Options{
-			SkipOpenLibs:        true,
-			IncludeGoStackTrace: true,
-		}),
+		LState: NewState(),
 	}
+
+	p.timers.ImportTo(p.LState)
 
 	p.SetGlobal("globals", g)
 	p.SetGlobal("options", conf.Options)
@@ -46,10 +59,6 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 	for k, v := range g {
 		p.SetGlobal(k, v)
 	}
-
-	importModules(p.LState)
-	importGlobal(p.LState)
-	importPreload(p.LState)
 
 	if err := p.DoFile(p.Path); err != nil {
 		return nil, err
@@ -61,4 +70,10 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 // SetGlobal variable
 func (p *Plugin) SetGlobal(name string, val interface{}) {
 	p.LState.SetGlobal(name, luar.New(p.LState, val))
+}
+
+// Close plugin
+func (p *Plugin) Close() {
+	p.timers.Stop()
+	p.LState.Close()
 }

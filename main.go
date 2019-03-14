@@ -115,9 +115,15 @@ func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
 	g["commit"] = BuildCommit
 
 	for _, p := range conf.Plugins {
-		if _, err := plugin.Load(p, g); err != nil {
+		p, err := plugin.Load(p, g)
+		if err != nil {
+			res.Fire(goop.Stop{})
 			return nil, err
 		}
+
+		res.Once(goop.Stop{}, func(_ *network.Event) {
+			p.Close()
+		})
 	}
 
 	return res, nil
