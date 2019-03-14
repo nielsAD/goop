@@ -13,7 +13,7 @@ local strings = require("go.strings")
 local http    = require("go.http")
 local url     = require("go.url")
 
-goop:AddCommand("weather", command(function(trig, _)
+goop:AddCommand("weather", command(function(trig)
     local lvl = options["AccessTrigger"] or access.Whitelist
     if trig.User.Access < lvl then
         return nil
@@ -24,21 +24,21 @@ goop:AddCommand("weather", command(function(trig, _)
         loc = strings.Join(trig.Arg, " ")
     end
 
-    local resp, err = http.Get("https://wttr.in/" .. url.PathEscape(loc) .. "?format=3")
-    if err ~= nil then
-        return err
+    local resp, err_get = http.Get("https://wttr.in/" .. url.PathEscape(loc) .. "?format=3")
+    if err_get ~= nil then
+        return err_get
     end
 
-    local res
-    if resp.StatusCode == http.StatusOK then
-        local body, r = ioutil.ReadAll(resp.Body)
-        if r == nil then
-            res = trig.Resp(strings.TrimSpace(body))
-        else
-            res = r
-        end
-    end
-
+    local body, err_read = ioutil.ReadAll(resp.Body)
     resp.Body:Close()
-    return res
+
+    if err_read ~= nil then
+        return err_read
+    end
+
+    if resp.StatusCode == http.StatusOK then
+        return trig.Resp(strings.TrimSpace(body))
+    else
+        return trig.Resp("Could not get weather for location (" .. resp.Status .. ")")
+    end
 end))

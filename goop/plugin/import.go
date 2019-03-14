@@ -98,6 +98,13 @@ func importEvents(ls *lua.LState) *lua.LTable {
 	for k, t := range _events {
 		var str = strings.TrimLeft(reflect.TypeOf(t).String(), "*")
 		ls.SetField(tab, k, luar.New(ls, t))
+
+		var v = reflect.ValueOf(t)
+		if v.Kind() != reflect.Ptr {
+			continue
+		}
+
+		t = v.Elem().Interface()
 		ls.SetField(tab, str, luar.NewType(ls, t))
 	}
 	return tab
@@ -144,12 +151,18 @@ var _global = map[string]interface{}{
 		}
 		return fmt.Sprintf("%+v", i)
 	},
+	"interface": func() interface{} {
+		var i interface{}
+		return &i
+	},
 	"command": func(cb cmdCallback) goop.Command {
 		return &cmd{cb}
 	},
 }
 
 var _events = map[string]interface{}{
+	"Start":    goop.Start{},
+	"Stop":     goop.Stop{},
 	"RunStart": network.RunStart{},
 	"RunStop":  network.RunStop{},
 	"Error":    &network.AsyncError{},
@@ -462,18 +475,12 @@ var _fmt = map[string]interface{}{
 	"Fprint":   fmt.Fprint,
 	"Fprintf":  fmt.Fprintf,
 	"Fprintln": fmt.Fprintln,
-	"Fscan":    fmt.Fscan,
-	"Fscanf":   fmt.Fscanf,
-	"Fscanln":  fmt.Fscanln,
 	"Print":    fmt.Print,
 	"Printf":   fmt.Printf,
 	"Println":  fmt.Println,
 	"Sprint":   fmt.Sprint,
 	"Sprintf":  fmt.Sprintf,
 	"Sprintln": fmt.Sprintln,
-	"Sscan":    fmt.Sscan,
-	"Sscanf":   fmt.Sscanf,
-	"Sscanln":  fmt.Sscanln,
 }
 
 var _color = map[string]interface{}{
