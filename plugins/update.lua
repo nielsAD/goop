@@ -43,7 +43,7 @@ local function check()
     local json_obj = interface()
     local json_err = json.Unmarshal(body, json_obj)
     if json_err ~= nil then
-        goop:Fire(events.async_error(read_err or errors.New(resp.Status)))
+        goop:Fire(events.async_error(json_err))
         return false
     end
 
