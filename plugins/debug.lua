@@ -9,7 +9,10 @@ local color = require("go.color")
 print("ACCESS", inspect(access))
 print("EVENTS", inspect(events))
 
-local blacklist = { "*discordgo.Event", "*discordgo.PresenceUpdate", "*capi.Packet" }
+local blacklist = {
+    "*capi.Packet", "*capi.Response",
+    "*discordgo.Event", "*discordgo.PresenceUpdate", "*discordgo.TypingStart"
+}
 
 goop:On(nil, function(ev)
     local arg = ev.Arg

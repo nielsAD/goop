@@ -109,7 +109,7 @@ func (b *Gateway) ChannelUsers() []gateway.User {
 		if k == 1 {
 			continue
 		}
-		res = append(res, b.userFromCapi(&u.UserUpdateEvent))
+		res = append(res, b.userFromCapi(&u))
 	}
 
 	return res
@@ -325,7 +325,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func (b *Gateway) userFromCapi(u *pcapi.UserUpdateEvent) gateway.User {
+func (b *Gateway) userFromCapi(u *chat.User) gateway.User {
 	var res = gateway.User{
 		ID:        strings.ToLower(u.Username),
 		Name:      u.Username,
@@ -333,7 +333,7 @@ func (b *Gateway) userFromCapi(u *pcapi.UserUpdateEvent) gateway.User {
 		AvatarURL: b.AvatarDefaultURL,
 	}
 
-	if b.AccessOperator != gateway.AccessDefault && u.Flags&(pcapi.UserFlagAdmin|pcapi.UserFlagModerator) != 0 {
+	if b.AccessOperator != gateway.AccessDefault && u.Operator() {
 		res.Access = b.AccessOperator
 	}
 
@@ -346,7 +346,7 @@ func (b *Gateway) userFromCapi(u *pcapi.UserUpdateEvent) gateway.User {
 
 func (b *Gateway) userFromID(uid int64) gateway.User {
 	if u, ok := b.Bot.User(uid); ok {
-		return b.userFromCapi(&u.UserUpdateEvent)
+		return b.userFromCapi(u)
 	}
 
 	return gateway.User{
@@ -365,9 +365,10 @@ func (b *Gateway) uid(uid string) (int64, bool) {
 // InitDefaultHandlers adds the default callbacks for relevant packets
 func (b *Gateway) InitDefaultHandlers() {
 	b.On(&pcapi.ConnectEvent{}, b.onConnectEvent)
-	b.On(&pcapi.UserUpdateEvent{}, b.onUserUpdateEvent)
-	b.On(&pcapi.UserLeaveEvent{}, b.onUserLeaveEvent)
 	b.On(&pcapi.MessageEvent{}, b.onMessageEvent)
+	b.On(&chat.UserJoined{}, b.onUserJoined)
+	b.On(&chat.UserUpdate{}, b.onUserUpdate)
+	b.On(&chat.UserLeft{}, b.onUserLeft)
 }
 
 func (b *Gateway) onConnectEvent(ev *network.Event) {
@@ -381,51 +382,49 @@ func (b *Gateway) onConnectEvent(ev *network.Event) {
 	b.Fire(&gateway.Channel{ID: pkt.Channel, Name: pkt.Channel})
 }
 
-func (b *Gateway) onUserUpdateEvent(ev *network.Event) {
-	var pkt = ev.Arg.(*pcapi.UserUpdateEvent)
-	if pkt.UserID == 1 {
-		b.name = pkt.Username
+func (b *Gateway) onUserJoined(ev *network.Event) {
+	var u = ev.Arg.(*chat.UserJoined)
+	if u.UserID == 1 {
+		b.name = u.Username
 		return
 	}
-
-	var join bool
 
 	b.chatmut.Lock()
 	if b.users == nil {
 		b.users = make(map[string]int64)
 	}
-	var s = strings.ToLower(pkt.Username)
-	if _, ok := b.users[s]; !ok {
-		b.users[s] = pkt.UserID
-		join = true
-	}
+	b.users[strings.ToLower(u.Username)] = u.UserID
 	b.chatmut.Unlock()
 
-	var u = b.userFromCapi(pkt)
-	if join {
-		b.Fire(&gateway.Join{User: u})
-	} else {
-		b.Fire(&u)
-	}
+	b.Fire(&gateway.Join{User: b.userFromCapi(&u.User)})
 }
 
-func (b *Gateway) onUserLeaveEvent(ev *network.Event) {
-	var pkt = ev.Arg.(*pcapi.UserLeaveEvent)
-	if pkt.UserID == 1 {
+func (b *Gateway) onUserUpdate(ev *network.Event) {
+	var u = ev.Arg.(*chat.UserUpdate)
+	if u.UserID == 1 {
 		return
 	}
 
-	var u = b.userFromID(pkt.UserID)
+	var user = b.userFromCapi(&u.User)
+	b.Fire(&user)
+}
+
+func (b *Gateway) onUserLeft(ev *network.Event) {
+	var u = ev.Arg.(*chat.UserLeft)
+	if u.UserID == 1 {
+		return
+	}
 
 	b.chatmut.Lock()
-	var leave = b.users[u.ID] == pkt.UserID
+	var id = strings.ToLower(u.Username)
+	var leave = b.users[id] == u.UserID
 	if leave {
-		delete(b.users, u.ID)
+		delete(b.users, id)
 	}
 	b.chatmut.Unlock()
 
 	if leave {
-		b.Fire(&gateway.Leave{User: u})
+		b.Fire(&gateway.Leave{User: b.userFromCapi(&u.User)})
 	}
 }
 
