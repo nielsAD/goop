@@ -154,7 +154,7 @@ func main() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 
 	// Prevent closing stdin before restart
-	var pr, pw = io.Pipe()
+	var pw io.Writer = os.Stdout
 	go func() {
 		var r = bufio.NewReader(os.Stdin)
 		for {
@@ -204,6 +204,7 @@ start:
 		return
 	}
 
+	pr, pw := io.Pipe()
 	g, err := New(pr, conf)
 	if err != nil {
 		logErr.Fatal("Initialization error: ", err)
@@ -279,7 +280,6 @@ start:
 	<-done
 
 	if restart {
-		pr, pw = io.Pipe()
 		goto start
 	}
 }

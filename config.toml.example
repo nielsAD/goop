@@ -2,18 +2,16 @@
 # Project: goop (https://github.com/nielsAD/goop)
 # License: Mozilla Public License, v2.0
 
-[Capi]
-    [Capi.Gateways.BNet]
-    APIKey = ""
+[Capi.Gateways.BNet]
+    # Register your bot on Battle.net with /register-bot and
+    # replace the zeroes with the API key you receive per email.
+    APIKey = "00000000000000000000000000000000000000000000000000000000"
 
-[Discord]
-    [Discord.Gateways.Bridge]
-    AuthToken = ""
+    # Assign roles to users. Pick one of:
+    # owner,admin,operator,whitelist,voice,ignore,kick,ban,blacklist
+    AccessUser = { niels = "owner", grubby = "admin" }
 
-    [Discord.Gateways.Bridge.Channels.111111111111111111]
-    Webhook = ""
-
+# Load update plugin to notify owner role when update is available.
 [[Plugins]]
     Path = "./plugins/update.lua"
-[[Plugins]]
-    Path = "./plugins/namefilter.lua"
+

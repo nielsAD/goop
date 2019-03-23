@@ -95,7 +95,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 		}
 	case "set", "s":
 		if len(t.Arg) < 3 {
-			return resp("Expected 2 arguments: set [setting] [value]")
+			return resp("Expected 3 arguments: set [setting] [value]")
 		}
 		var k = matchKeys(m, t.Arg[1])
 		var s = strings.Join(t.Arg[2:], " ")
