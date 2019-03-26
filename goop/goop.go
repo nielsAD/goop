@@ -22,12 +22,6 @@ var (
 	ErrDuplicateCommand = errors.New("goop: Duplicate command")
 )
 
-// Start event
-type Start struct{}
-
-// Stop event
-type Stop struct{}
-
 // Config interface
 type Config interface {
 	GetRelay(to, from string) *RelayConfig
@@ -66,8 +60,6 @@ func New(conf Config) *Goop {
 		Relay:    map[string]map[string]*Relay{},
 		Config:   conf,
 	}
-
-	res.InitDefaultHandlers()
 
 	return res
 }
@@ -109,6 +101,10 @@ func (g *Goop) AddGateway(id string, gw gateway.Gateway) error {
 		}
 	})
 
+	g.Fire(&NewGateway{
+		Gateway: gw,
+	})
+
 	return nil
 }
 
@@ -120,6 +116,12 @@ func (g *Goop) AddCommand(name string, c Command) error {
 	}
 
 	g.Commands[name] = c
+
+	g.Fire(&NewCommand{
+		Name:    name,
+		Command: c,
+	})
+
 	return nil
 }
 
@@ -143,12 +145,6 @@ func (g *Goop) Run(ctx context.Context) {
 
 	wg.Wait()
 	g.Fire(Stop{})
-}
-
-// InitDefaultHandlers adds the default callbacks for relevant packets
-func (g *Goop) InitDefaultHandlers() {
-	g.On(&gateway.Chat{}, g.checkPhraseChat)
-	g.On(&gateway.PrivateChat{}, g.checkPhrasePrivateChat)
 }
 
 func checkTriggerChat(ev *network.Event) {
@@ -281,29 +277,5 @@ func (g *Goop) autoKickJoin(ev *network.Event) {
 
 	if g.autoKick(gw, &user.User) {
 		ev.PreventNext()
-	}
-}
-
-func (g *Goop) phraseCheck(content string) bool {
-	return false
-}
-
-func (g *Goop) checkPhraseChat(ev *network.Event) {
-	var msg = ev.Arg.(*gateway.Chat)
-	if msg.User.Access >= gateway.AccessWhitelist {
-		return
-	}
-
-	if g.phraseCheck(msg.Content) {
-	}
-}
-
-func (g *Goop) checkPhrasePrivateChat(ev *network.Event) {
-	var msg = ev.Arg.(*gateway.PrivateChat)
-	if msg.User.Access >= gateway.AccessWhitelist {
-		return
-	}
-
-	if g.phraseCheck(msg.Content) {
 	}
 }

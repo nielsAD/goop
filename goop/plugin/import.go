@@ -183,8 +183,11 @@ var _global = map[string]interface{}{
 }
 
 var _events = map[string]interface{}{
-	"Start":    goop.Start{},
-	"Stop":     goop.Stop{},
+	"Start":      goop.Start{},
+	"Stop":       goop.Stop{},
+	"NewGateway": &goop.NewGateway{},
+	"NewCommand": &goop.NewCommand{},
+
 	"RunStart": network.RunStart{},
 	"RunStop":  network.RunStop{},
 	"Error":    &network.AsyncError{},
