@@ -165,6 +165,18 @@ var _global = map[string]interface{}{
 		var i interface{}
 		return &i
 	},
+	"topic": func(ls *luar.LState) int {
+		if ls.GetTop() != 1 {
+			ls.RaiseError("invalid number of function arguments (%d expected, got %d)", 1, ls.GetTop())
+		}
+
+		// Manually wrap in userdata here to prevent luar.New converting it to string
+		var ud = ls.NewUserData()
+		ud.Value = network.Topic(ls.ToString(1))
+
+		ls.Push(ud)
+		return 1
+	},
 	"command": func(cb cmdCallback) goop.Command {
 		return &cmd{cb}
 	},
