@@ -156,32 +156,33 @@ func TestFlatMap(t *testing.T) {
 	}
 
 	var m = cfg.FlatMap()
-	if m["bnet/default/username"] != "foo" {
+	if m["BNet/Default/Username"] != "foo" {
 		t.Fatal("BNet/Default/Username != foo")
 	}
-	if _, ok := m["bnet/default/password"]; !ok {
+	if _, ok := m["BNet/Default/Password"]; !ok {
 		t.Fatal("BNet/Default/Password does not exist")
 	}
-	if m["bnet/gateways/gw/username"] != "foo" {
+	if m["BNet/Gateways/gw/Username"] != "foo" {
 		t.Fatal("BNet/Gateways/gw/Username != foo")
 	}
-	if m["bnet/gateways/gw/password"] != "bar" {
+	if m["BNet/Gateways/gw/Password"] != "bar" {
 		t.Fatal("BNet/Gateways/gw/Password != bar")
 	}
 }
 
 func TestGet(t *testing.T) {
-	if v, _ := DefaultConfig.Get("StdIO/Access"); v != DefaultConfig.StdIO.Access {
+	var dc = DefaultConfig()
+	if v, _ := dc.Get("StdIO/Access"); v != dc.StdIO.Access {
 		t.Fatal("Access different from expected value")
 	}
-	if v, _ := DefaultConfig.Get("BNet/Default/BinPath"); v != DefaultConfig.BNet.Default.BinPath {
+	if v, _ := dc.Get("BNet/Default/BinPath"); v != dc.BNet.Default.BinPath {
 		t.Fatal("BinPath different from expected value")
 	}
 
-	if v, _ := DefaultConfig.GetString("StdIO/Access"); v != fmt.Sprintf("%v", DefaultConfig.StdIO.Access) {
+	if v, _ := dc.GetString("StdIO/Access"); v != fmt.Sprintf("%v", dc.StdIO.Access) {
 		t.Fatal("Access different from expected value")
 	}
-	if v, _ := DefaultConfig.GetString("BNet/Default/BinPath"); v != DefaultConfig.BNet.Default.BinPath {
+	if v, _ := dc.GetString("BNet/Default/BinPath"); v != dc.BNet.Default.BinPath {
 		t.Fatal("BinPath different from expected value")
 	}
 }

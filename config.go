@@ -26,167 +26,170 @@ import (
 )
 
 // DefaultConfig values used as fallback
-var DefaultConfig = Config{
-	Config: "./config.persist.toml",
-	Log: LogConfig{
-		Time: true,
-	},
-	Commands: CommandsConfig{
-		Commands: cmd.Commands{
-			Settings: cmd.Settings{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+func DefaultConfig() *Config {
+	return &Config{
+		Config: "./config.persist.toml",
+		Log: LogConfig{
+			Time: true,
+		},
+		Commands: CommandsConfig{
+			Commands: cmd.Commands{
+				Settings: cmd.Settings{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
+				},
+				Whois: cmd.Whois{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
+				},
+				SayPrivate: cmd.SayPrivate{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
+				},
+				Echo: cmd.Echo{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+				},
+				Say: cmd.Say{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+				},
+				List: cmd.List{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
+				},
+				Set: cmd.Set{
+					Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},
+					DefaultAccess: gateway.AccessWhitelist,
+				},
+				Kick: cmd.Kick{
+					Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+					AccessProtect:  gateway.AccessWhitelist,
+					AccessOverride: gateway.AccessAdmin,
+				},
+				Ban: cmd.Ban{
+					Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+					AccessProtect:  gateway.AccessWhitelist,
+					AccessOverride: gateway.AccessAdmin,
+				},
+				Unban: cmd.Unban{
+					Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
+					AccessProtect:  gateway.AccessBlacklist,
+					AccessOverride: gateway.AccessAdmin,
+				},
+				Ping: cmd.Ping{
+					Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+				},
+				Time: cmd.Time{
+					Format: "15:04:05 MST",
+				},
 			},
-			Whois: cmd.Whois{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
-			},
-			SayPrivate: cmd.SayPrivate{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessAdmin},
-			},
-			Echo: cmd.Echo{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-			},
-			Say: cmd.Say{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-			},
-			List: cmd.List{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
-			},
-			Set: cmd.Set{
-				Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},
-				DefaultAccess: gateway.AccessWhitelist,
-			},
-			Kick: cmd.Kick{
-				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-				AccessProtect:  gateway.AccessWhitelist,
-				AccessOverride: gateway.AccessAdmin,
-			},
-			Ban: cmd.Ban{
-				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-				AccessProtect:  gateway.AccessWhitelist,
-				AccessOverride: gateway.AccessAdmin,
-			},
-			Unban: cmd.Unban{
-				Cmd:            cmd.Cmd{Priviledge: gateway.AccessOperator},
-				AccessProtect:  gateway.AccessBlacklist,
-				AccessOverride: gateway.AccessAdmin,
-			},
-			Ping: cmd.Ping{
-				Cmd: cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-			},
-			Time: cmd.Time{
-				Format: "15:04:05 MST",
+			Alias: map[string]*cmd.Alias{
+				"whisper": &cmd.Alias{
+					Cmd:            cmd.Cmd{Priviledge: gateway.AccessWhitelist},
+					Exe:            "sayprivate",
+					Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
+					ArgExpected:    2,
+					WithPriviledge: gateway.AccessAdmin,
+				},
+				"pingme": &cmd.Alias{
+					Cmd:            cmd.Cmd{Priviledge: gateway.AccessVoice},
+					Exe:            "ping",
+					Arg:            []string{"%USTR%"},
+					WithPriviledge: gateway.AccessWhitelist,
+				},
+				"unset": &cmd.Alias{
+					Exe:         "set",
+					Arg:         []string{"%ARG1%", gateway.AccessDefault.String()},
+					ArgExpected: 1,
+				},
+				"ignore": &cmd.Alias{
+					Exe:         "set",
+					Arg:         []string{"%ARG1%", gateway.AccessIgnore.String()},
+					ArgExpected: 1,
+				},
+				"banlist": &cmd.Alias{
+					Exe: "list",
+					Arg: []string{gateway.AccessMin.String(), gateway.AccessBan.String()},
+				},
+				"unignore":  &cmd.Alias{Exe: "unset"},
+				"squelch":   &cmd.Alias{Exe: "ignore"},
+				"unsquelch": &cmd.Alias{Exe: "unignore"},
+				"s":         &cmd.Alias{Exe: "say"},
+				"p":         &cmd.Alias{Exe: "pingme"},
+				"l":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "list"},
+				"i":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "ignore"},
+				"w":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "whisper"},
+				"k":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "kick"},
+				"b":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "ban"},
 			},
 		},
-		Alias: map[string]*cmd.Alias{
-			"whisper": &cmd.Alias{
-				Cmd:            cmd.Cmd{Priviledge: gateway.AccessWhitelist},
-				Exe:            "sayprivate",
-				Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
-				ArgExpected:    2,
-				WithPriviledge: gateway.AccessAdmin,
-			},
-			"pingme": &cmd.Alias{
-				Cmd:            cmd.Cmd{Priviledge: gateway.AccessVoice},
-				Exe:            "ping",
-				Arg:            []string{"%USTR%"},
-				WithPriviledge: gateway.AccessWhitelist,
-			},
-			"unset": &cmd.Alias{
-				Exe:         "set",
-				Arg:         []string{"%ARG1%", gateway.AccessDefault.String()},
-				ArgExpected: 1,
-			},
-			"ignore": &cmd.Alias{
-				Exe:         "set",
-				Arg:         []string{"%ARG1%", gateway.AccessIgnore.String()},
-				ArgExpected: 1,
-			},
-			"banlist": &cmd.Alias{
-				Exe: "list",
-				Arg: []string{gateway.AccessMin.String(), gateway.AccessBan.String()},
-			},
-			"unignore":  &cmd.Alias{Exe: "unset"},
-			"squelch":   &cmd.Alias{Exe: "ignore"},
-			"unsquelch": &cmd.Alias{Exe: "unignore"},
-			"s":         &cmd.Alias{Exe: "say"},
-			"p":         &cmd.Alias{Exe: "pingme"},
-			"l":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "list"},
-			"i":         &cmd.Alias{Exe: "*" + gateway.Delimiter + "ignore"},
-			"w":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "whisper"},
-			"k":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "kick"},
-			"b":         &cmd.Alias{Exe: "capi" + gateway.Delimiter + "ban"},
-		},
-	},
-	Default: gateway.Config{
-		Commands: gateway.TriggerConfig{
-			Access:  gateway.AccessVoice,
-			Trigger: ".",
-		},
-	},
-	StdIO: stdio.Config{
-		Read:   true,
-		Access: gateway.AccessOwner + 1,
-	},
-	Capi: CapiConfigWithDefault{
-		Default: capi.Config{
-			Config: chat.Config{
-				Endpoint: pcapi.Endpoint,
-			},
-			GatewayConfig: capi.GatewayConfig{
-				BufSize:        16,
-				ReconnectDelay: 30 * time.Second,
-				AccessWhisper:  gateway.AccessIgnore,
-				AccessTalk:     gateway.AccessVoice,
+		Default: gateway.Config{
+			Commands: gateway.TriggerConfig{
+				Access:  gateway.AccessVoice,
+				Trigger: ".",
 			},
 		},
-	},
-	BNet: BNetConfigWithDefault{
-		Default: bnet.Config{
-			GatewayConfig: bnet.GatewayConfig{
-				BufSize:        16,
-				ReconnectDelay: 30 * time.Second,
-				AccessWhisper:  gateway.AccessIgnore,
-				AccessTalk:     gateway.AccessVoice,
-			},
+		StdIO: stdio.Config{
+			Read:   true,
+			Access: gateway.AccessOwner + 1,
 		},
-	},
-	Discord: DiscordConfigWithDefault{
-		Default: discord.Config{
-			Presence: "Battle.net",
-			AccessDM: gateway.AccessIgnore,
-		},
-		ChannelDefault: discord.ChannelConfig{
-			BufSize:        64,
-			AccessMentions: gateway.AccessWhitelist,
-			AccessTalk:     gateway.AccessVoice,
-		},
-	},
-	Relay: RelayConfigWithDefault{
-		Default: goop.RelayConfig{
-			Say:               true,
-			Chat:              true,
-			PrivateChat:       true,
-			ChatAccess:        gateway.AccessVoice,
-			PrivateChatAccess: gateway.AccessVoice,
-		},
-		DefaultSelf: goop.RelayConfig{
-			PrivateChat:       true,
-			PrivateChatAccess: gateway.AccessVoice,
-		},
-		To: map[string]*RelayToConfig{
-			"std" + gateway.Delimiter + "io": &RelayToConfig{
-				Default: goop.RelayConfig{
-					Log:         true,
-					System:      true,
-					Channel:     true,
-					Joins:       true,
-					Chat:        true,
-					PrivateChat: true,
-					Say:         true,
+		Capi: CapiConfigWithDefault{
+			Default: capi.Config{
+				Config: chat.Config{
+					Endpoint: pcapi.Endpoint,
+				},
+				GatewayConfig: capi.GatewayConfig{
+					BufSize:        16,
+					ReconnectDelay: 30 * time.Second,
+					AccessWhisper:  gateway.AccessIgnore,
+					AccessTalk:     gateway.AccessVoice,
 				},
 			},
 		},
-	},
+		BNet: BNetConfigWithDefault{
+			Default: bnet.Config{
+				GatewayConfig: bnet.GatewayConfig{
+					BufSize:        16,
+					ReconnectDelay: 30 * time.Second,
+					AccessWhisper:  gateway.AccessIgnore,
+					AccessTalk:     gateway.AccessVoice,
+				},
+			},
+		},
+		Discord: DiscordConfigWithDefault{
+			Default: discord.Config{
+				Presence: "Battle.net",
+				AccessDM: gateway.AccessIgnore,
+			},
+			ChannelDefault: discord.ChannelConfig{
+				BufSize:        64,
+				AccessMentions: gateway.AccessWhitelist,
+				AccessTalk:     gateway.AccessVoice,
+			},
+		},
+		Relay: RelayConfigWithDefault{
+			Default: goop.RelayConfig{
+				Say:               true,
+				Chat:              true,
+				PrivateChat:       true,
+				ChatAccess:        gateway.AccessVoice,
+				PrivateChatAccess: gateway.AccessVoice,
+			},
+			DefaultSelf: goop.RelayConfig{
+				PrivateChat:       true,
+				PrivateChatAccess: gateway.AccessVoice,
+			},
+			To: map[string]*RelayToConfig{
+				"std" + gateway.Delimiter + "io": &RelayToConfig{
+					Default: goop.RelayConfig{
+						Log:         true,
+						System:      true,
+						Channel:     true,
+						Joins:       true,
+						Chat:        true,
+						PrivateChat: true,
+						Say:         true,
+					},
+				},
+			},
+		},
+		Plugins: map[string]plugin.Config{},
+	}
 }
 
 // Config struct maps the layout of main configuration file
@@ -219,7 +222,7 @@ type CommandsConfig struct {
 }
 
 // PluginsConfig struct maps the layout of the Plugins configuration section
-type PluginsConfig []*plugin.Config
+type PluginsConfig map[string]plugin.Config
 
 // CapiConfigWithDefault struct maps the layout of the Capi configuration section
 type CapiConfigWithDefault struct {
@@ -270,33 +273,33 @@ func Decode(v interface{}, files ...string) ([]string, error) {
 	return u, nil
 }
 
-// Load from DefaultConfig.Config file
-func Load() (*Config, error) {
-	conf, err := DefaultConfig.Copy()
+// Load from c.Config file
+func (c *Config) Load() (*Config, error) {
+	res, err := c.Copy()
 	if err != nil {
 		return nil, err
 	}
-	if _, err := Decode(conf, conf.Config); err != nil && !os.IsNotExist(err) {
+	if _, err := Decode(res, c.Config); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	if err := conf.MergeDefaults(); err != nil {
+	if err := res.MergeDefaults(); err != nil {
 		return nil, err
 	}
-	return conf, nil
+	return res, nil
 }
 
-// Save configuration to DefaultConfig.Config file
-func (c *Config) Save() error {
-	def, err := DefaultConfig.Copy()
+// Save configuration to c.Config file
+func (c *Config) Save(def *Config) error {
+	cp, err := def.Copy()
 	if err != nil {
 		return err
 	}
-	if err := def.MergeDefaults(); err != nil {
+	if err := cp.MergeDefaults(); err != nil {
 		return err
 	}
 
 	m := c.Map()
-	DeleteEqual(m, def.Map())
+	DeleteEqual(m, cp.Map())
 
 	delete(m, "Hash")
 	var sha = sha256.Sum256([]byte(fmt.Sprintf("%+v", m)))
@@ -307,7 +310,7 @@ func (c *Config) Save() error {
 	c.Hash = str
 	m["Hash"] = str
 
-	file, err := os.Create(DefaultConfig.Config)
+	file, err := os.Create(def.Config)
 	if err != nil {
 		return err
 	}
@@ -320,7 +323,7 @@ func (c *Config) Save() error {
 // Copy config
 func (c *Config) Copy() (*Config, error) {
 	var conf Config
-	if _, err := Merge(&conf, DefaultConfig, &MergeOptions{Overwrite: true}); err != nil {
+	if _, err := Merge(&conf, c, &MergeOptions{Overwrite: true}); err != nil {
 		return nil, err
 	}
 	return &conf, nil
@@ -384,6 +387,21 @@ func (c *Config) MergeDefaults() error {
 			if _, err := Merge(n, c.Discord.ChannelDefault, &MergeOptions{}); err != nil {
 				return err
 			}
+		}
+	}
+
+	for k, p := range c.Plugins {
+		if p == nil {
+			c.Plugins[k] = make(plugin.Config)
+			continue
+		}
+
+		var d, ok = p["_default"]
+		if !ok {
+			continue
+		}
+		if _, err := Merge(p, d, &MergeOptions{}); err != nil {
+			return err
 		}
 	}
 

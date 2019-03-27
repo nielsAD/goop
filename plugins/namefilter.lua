@@ -3,18 +3,18 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Ban Battle.net users with specified patterns in their name
---
--- Options:
---   Patterns:       Patterns to match
---   AccessProtect:  Whitelist access level
---   Kick:           Kick instead of ban
+
+options._default = {
+    Patterns      = {"|[cnr]"},   -- Patterns to match
+    AccessProtect = access.Voice, -- Min access level
+    Kick          = false,        -- Kick instead of ban
+}
 
 goop:On(events.Join, function(ev)
     local user = ev.Arg
     local gw   = ev.Opt[1]
 
-    local lvl = options["AccessProtect"] or access.Whitelist
-    if user.Access >= lvl then
+    if user.Access >= options.AccessProtect then
         return
     end
 
@@ -22,9 +22,8 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    local patterns = options["Patterns"] or {"|[cnr]"}
     local found    = false
-    for _, p in ipairs(patterns) do
+    for _, p in ipairs(options.Patterns) do
         if user.Name:find(p) then
             found = true
             break
@@ -34,7 +33,7 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    if options["Kick"] then
+    if options.Kick then
         user.Access = access.Kick
     else
         user.Access = access.Ban

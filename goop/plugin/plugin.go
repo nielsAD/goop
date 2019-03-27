@@ -9,11 +9,8 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-// Config stores the configuration of a single plugin
-type Config struct {
-	Path    string
-	Options map[string]interface{}
-}
+// Config stores the configuration of a single plugin, maps to lua.LTable
+type Config map[interface{}]interface{}
 
 // Globals stores shared variables
 type Globals map[string]interface{}
@@ -25,7 +22,7 @@ type Plugin struct {
 	timers Timers
 
 	// Set once before Run(), read-only after that
-	*Config
+	Config
 }
 
 // NewState prepares a new Lua environment
@@ -41,11 +38,7 @@ func NewState() *lua.LState {
 }
 
 // Load a lua plugin
-func Load(conf *Config, g Globals) (*Plugin, error) {
-	if conf.Options == nil {
-		conf.Options = make(map[string]interface{})
-	}
-
+func Load(path string, conf Config, g Globals) (*Plugin, error) {
 	var p = Plugin{
 		Config: conf,
 		LState: NewState(),
@@ -54,13 +47,13 @@ func Load(conf *Config, g Globals) (*Plugin, error) {
 	p.timers.ImportTo(p.LState)
 
 	p.SetGlobal("globals", g)
-	p.SetGlobal("options", conf.Options)
+	p.SetGlobal("options", conf)
 
 	for k, v := range g {
 		p.SetGlobal(k, v)
 	}
 
-	if err := p.DoFile(p.Path); err != nil {
+	if err := p.DoFile(path); err != nil {
 		return nil, err
 	}
 

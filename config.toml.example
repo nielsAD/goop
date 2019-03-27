@@ -11,7 +11,7 @@
     # owner,admin,operator,whitelist,voice,ignore,kick,ban,blacklist
     AccessUser = { niels = "owner", grubby = "admin" }
 
-# Load update plugin to notify owner role when update is available.
-[[Plugins]]
-    Path = "./plugins/update.lua"
-
+# Load plugins
+[Plugins.announce]
+[Plugins.update]
+[Plugins.weather]

@@ -3,9 +3,10 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Greet users when they join the channel
---
--- Options:
---   Interval:  Check interval
+
+options._default = {
+    Interval = "24h", -- Check interval
+}
 
 local errors = require("go.errors")
 local ioutil = require("go.io")
@@ -16,15 +17,15 @@ local http   = require("go.http")
 local API_URL = "https://api.github.com/repos/nielsAD/goop/releases/latest"
 local WEB_URL = "https://github.com/nielsAD/goop/releases/latest"
 
-local last_check = {}
-
 local function check()
     local now      = time.Now()
-    local interval = time.ParseDuration(options["Interval"] or "24h")
-    if interval <= 0 or now:Sub(last_check) < interval then
+    local interval = time.ParseDuration(options.Interval)
+    if interval <= 0 or now:Sub(time.Unix(options._last_check or 0, 0)) < interval then
         return false
     end
-    last_check = now
+
+    -- persist in config
+    options._last_check = now:Unix()
 
     local resp, get_err = http.Get(API_URL)
     if get_err ~= nil then
@@ -50,7 +51,7 @@ local function check()
     -- dereference *interface{} to interface{}
     json_obj = -json_obj
 
-    if json_obj.tag_name == globals["version"] then
+    if json_obj.tag_name == globals.version then
         return false
     end
 

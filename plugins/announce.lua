@@ -3,9 +3,10 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Add announce command that can repeat a message at specified interval
---
--- Options:
---   AccessTrigger:  Access level required to trigger command
+
+options._default = {
+    AccessTrigger = access.Operator, -- Access level required to trigger command
+}
 
 local time    = require("go.time")
 local strings = require("go.strings")
@@ -13,8 +14,7 @@ local strings = require("go.strings")
 local cancel
 
 goop:AddCommand("announce", command(function(trig, gw)
-    local lvl = options["AccessTrigger"] or access.Operator
-    if trig.User.Access < lvl then
+    if trig.User.Access < options.AccessTrigger then
         return nil
     end
 

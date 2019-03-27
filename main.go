@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path"
 	"runtime"
 	"strings"
 	"syscall"
@@ -40,7 +41,7 @@ var logOut = log.New(color.Output, "", 0)
 var logErr = log.New(color.Error, "", 0)
 
 // New initializes a Goop struct
-func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
+func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	var res = goop.New(conf)
 
 	if err := conf.Commands.AddTo(res); err != nil {
@@ -114,17 +115,31 @@ func New(stdin io.ReadCloser, conf *Config) (*goop.Goop, error) {
 	g["version"] = BuildTag
 	g["commit"] = BuildCommit
 
-	for _, p := range conf.Plugins {
-		p, err := plugin.Load(p, g)
+	for k, c := range conf.Plugins {
+		var f = k
+		if path.Ext(f) == "" {
+			f += ".lua"
+		}
+		if !path.IsAbs(f) {
+			f = path.Join("plugins", f)
+		}
+		p, err := plugin.Load(f, c, g)
 		if err != nil {
-			res.Fire(goop.Stop{})
 			return nil, err
 		}
 
 		res.Once(goop.Stop{}, func(_ *network.Event) {
 			p.Close()
 		})
+
+		if m, ok := c["_default"]; ok {
+			def.Plugins[k] = make(plugin.Config)
+			def.Plugins[k]["_default"] = Map(m)
+		}
 	}
+
+	// Merge plugin defaults
+	conf.MergeDefaults()
 
 	return res, nil
 }
@@ -167,17 +182,18 @@ func main() {
 	}()
 
 start:
-	undecoded, err := Decode(&DefaultConfig, args...)
-	if err != nil {
-		logErr.Fatalf("Error reading default configuration: %v\n", err)
-	}
-	if len(undecoded) > 0 {
+	// User configuration (config.toml)
+	var def = DefaultConfig()
+	if undecoded, err := Decode(def, args...); err != nil {
+		logErr.Fatalf("Error reading configuration: %v\n", err)
+	} else if len(undecoded) > 0 {
 		logErr.Printf("Undecoded configuration keys: [%s]\n", strings.Join(undecoded, ", "))
 	}
 
-	conf, err := Load()
+	// Persistent configuration, i.e. runtime changes (config.persist.toml)
+	conf, err := def.Load()
 	if err != nil {
-		logErr.Fatal("Error reading persistent configuration: ", err)
+		logErr.Fatal("Error loading persistent configuration: ", err)
 	}
 
 	var flags = 0
@@ -205,14 +221,14 @@ start:
 	}
 
 	pr, pw := io.Pipe()
-	g, err := New(pr, conf)
+	g, err := New(pr, def, conf)
 	if err != nil {
 		logErr.Fatal("Initialization error: ", err)
 	}
 
 	g.On(&gateway.ConfigUpdate{}, func(ev *network.Event) {
-		if _, ok := ev.Opt[0].(gateway.Gateway); ok {
-			// Assume this error has already been handled
+		if len(ev.Opt) == 0 {
+			// Assume this has already been handled
 			return
 		}
 		if err := conf.MergeDefaults(); err != nil {
@@ -266,7 +282,7 @@ start:
 			case <-time.After(time.Minute * 3):
 			case <-ctx.Done():
 			}
-			if err := conf.Save(); err != nil {
+			if err := conf.Save(def); err != nil {
 				logErr.Println(color.RedString("[ERROR][CONFIG] %s", err.Error()))
 			}
 		}

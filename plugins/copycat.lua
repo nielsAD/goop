@@ -3,16 +3,16 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Echo everything said in channel or private message
---
--- Options:
---   Access:  Min access level
+
+options._default = {
+    Access = access.Voice, -- Min access level
+}
 
 goop:On(events.Chat, function(ev)
     local msg = ev.Arg
     local gw  = ev.Opt[1]
 
-    local lvl = options["Access"] or access.Voice
-    if msg.User.Access < lvl then
+    if msg.User.Access < options.Access then
         return
     end
 
@@ -23,8 +23,7 @@ goop:On(events.PrivateChat, function(ev)
     local msg = ev.Arg
     local gw  = ev.Opt[1]
 
-    local lvl = options["Access"] or access.Voice
-    if msg.User.Access < lvl then
+    if msg.User.Access < options.Access then
         return
     end
 

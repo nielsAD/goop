@@ -4,15 +4,17 @@
 --
 -- Print all events
 
-local color = require("go.color")
-
-print("ACCESS", inspect(access))
-print("EVENTS", inspect(events))
-
-local blacklist = {
-    "*capi.Packet", "*capi.Response",
-    "*discordgo.Event", "*discordgo.PresenceUpdate", "*discordgo.TypingStart"
+options._default ={
+    Blacklist = {
+        ["*capi.Packet"]              = true,
+        ["*capi.Response"]            = true,
+        ["*discordgo.Event"]          = true,
+        ["*discordgo.PresenceUpdate"] = true,
+        ["*discordgo.TypingStart"]    = true,
+    },
 }
+
+local color = require("go.color")
 
 goop:On(nil, function(ev)
     local arg = ev.Arg
@@ -23,10 +25,8 @@ goop:On(nil, function(ev)
         gw = ev.Opt[1]:ID()
     end
 
-    for _, bl in ipairs(blacklist) do
-        if typ:find(bl) then
-            return
-        end
+    if options.Blacklist and options.Blacklist[typ] then
+        return
     end
 
     log:Println(color.Blue("EVENT %s %s %+v", gw, typ, arg))

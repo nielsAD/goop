@@ -3,14 +3,14 @@
 -- License: Mozilla Public License, v2.0
 --
 -- Add randkick command that randomly kicks a user from the channel when triggered
---
--- Options:
---   AccessTrigger:  Access level required to trigger command
---   AccessProtect:  Whitelist access level
+
+options._default = {
+    AccessTrigger = access.Operator,  -- Access level required to trigger command
+    AccessProtect = access.Whitelist, -- Whitelist access level
+}
 
 goop:AddCommand("randkick", command(function(trig, gw)
-    local lvl = options["AccessTrigger"] or access.Operator
-    if trig.User.Access < lvl then
+    if trig.User.Access < options.AccessTrigger then
         return nil
     end
 
@@ -20,9 +20,8 @@ goop:AddCommand("randkick", command(function(trig, gw)
     end
 
     local users   = {}
-    local max_lvl = options["AccessProtect"] or access.Whitelist
     for _, u in chan() do
-        if u.Access < max_lvl then
+        if u.Access < options.AccessProtect then
             table.insert(users, u)
         end
     end

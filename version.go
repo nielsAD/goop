@@ -8,4 +8,4 @@ package main
 var BuildTag = "v0.0.0"
 
 // BuildCommit placeholder
-var BuildCommit = "<dev>"
+var BuildCommit = "<buildcommit>"

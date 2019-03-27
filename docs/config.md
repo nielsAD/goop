@@ -14,17 +14,18 @@ A minimal example:
 # LINES STARTING WITH # ARE IGNORED, THEY ARE USED FOR COMMENTS
 
 [Capi.Gateways.BNet]
-    # Register your bot on Battle.net with /register-bot and replace
-    # the following zeroes with the API key you receive per email.
+    # Register your bot on Battle.net with /register-bot and
+    # replace the zeroes with the API key you receive per email.
     APIKey = "00000000000000000000000000000000000000000000000000000000"
 
     # Assign roles to users. Pick one of:
     # owner,admin,operator,whitelist,voice,ignore,kick,ban,blacklist
     AccessUser = { niels = "owner", grubby = "admin" }
 
-# Load update plugin to notify owner role when update is available.
-[[Plugins]]
-    Path = "./plugins/update.lua"
+# Load plugins
+[Plugins.announce]
+[Plugins.update]
+[Plugins.weather]
 ```
 
 ?> **TIP:** To reload the configuration while running, restart Goop with the `.restart` command.

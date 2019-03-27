@@ -69,7 +69,19 @@ _Example:_
 ```toml
 [BNet.Gateways.Northrend]
   ServerAddr = "europe.battle.net"
+  Username   = "chatbot"
+  Password   = "hunter2"
+  AccessUser = { niels = "owner", grubby = "admin" }
+```
+
+_Example (PvPGN):_
+```toml
+[BNet.Gateways.Rubattle]
+  ServerAddr = "rubattle.net"
   CDKeys     = ["FFFFFFFFFFFFFFFFFFFFFFFFFF", "FFFFFFFFFFFFFFFFFFFFFFFFFF"]
+  ExeVersion = 0x011b01ad
+  ExeHash    = 0xaaaba048
+  SHA1Auth   = true
   Username   = "chatbot"
   Password   = "hunter2"
   AccessUser = { niels = "owner", grubby = "admin" }
