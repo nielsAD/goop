@@ -27,9 +27,8 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    local targets = options.Gateways
     local found   = false
-    for _, t in ipairs(targets) do
+    for _, t in options.Gateways() do
         if gw:ID():find(t) then
             found = true
             break

@@ -7,6 +7,7 @@ package discord
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -22,6 +23,7 @@ type ChannelConfig struct {
 	gateway.Config
 	BufSize        uint8
 	Webhook        string
+	OnlineListID   string
 	RelayJoins     RelayJoinMode
 	AccessMentions gateway.AccessLevel
 	AccessTalk     gateway.AccessLevel
@@ -83,6 +85,7 @@ func (c *Channel) Channel() *gateway.Channel {
 			name = ch.Name
 		}
 	}
+
 	return &gateway.Channel{ID: c.chanID, Name: name}
 }
 
@@ -92,6 +95,8 @@ func (c *Channel) ChannelUsers() []gateway.User {
 	if err != nil {
 		return nil
 	}
+
+	c.session.State.RLock()
 
 	var res = make([]gateway.User, 0, len(g.Presences))
 	for _, p := range g.Presences {
@@ -106,6 +111,8 @@ func (c *Channel) ChannelUsers() []gateway.User {
 		}
 		res = append(res, *u)
 	}
+
+	c.session.State.RUnlock()
 
 	return res
 }
@@ -284,10 +291,64 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 	}
 }
 
-func (c *Channel) filter(s string, r gateway.AccessLevel) string {
-	if r < c.AccessMentions {
+var mentionPat = regexp.MustCompile(`(?:^|\s)(@\S+)(?:$|\s)`)
+var channelPat = regexp.MustCompile(`(?:^|\s)(#\S+)(?:$|\s)`)
+
+func (c *Channel) parse(s string, l gateway.AccessLevel) string {
+	if l < c.AccessMentions {
+		// Add zero width space to prevent mentions
 		s = strings.Replace(s, "@", "@\u200B", -1)
 	}
+
+	g, err := c.session.State.Guild(c.guildID)
+	if err != nil {
+		return s
+	}
+
+	c.session.RLock()
+
+	s = channelPat.ReplaceAllStringFunc(s, func(m string) string {
+		// Strip #
+		var m1 = m[1:]
+
+		for _, ch := range g.Channels {
+			if strings.EqualFold(m1, ch.Name) {
+				return ch.Mention()
+			}
+		}
+
+		return m
+	})
+
+	s = mentionPat.ReplaceAllStringFunc(s, func(m string) string {
+		if strings.EqualFold(m, "@everyone") || strings.EqualFold(m, "@here") {
+			return m
+		}
+
+		// Strip @
+		var m1 = m[1:]
+
+		for _, r := range g.Roles {
+			if r.Mentionable && strings.EqualFold(m1, r.Name) {
+				return r.Mention()
+			}
+		}
+
+		// TODO: Consider adding cache, but how often do we get here realistically?
+		for _, u := range g.Members {
+			if u.Nick != "" && strings.EqualFold(m1, u.Nick) {
+				return u.Mention()
+			}
+			if strings.EqualFold(m1, u.User.Username) || strings.EqualFold(m1, u.User.String()) {
+				return u.User.Mention()
+			}
+		}
+
+		return m
+	})
+
+	c.session.RUnlock()
+
 	return s
 }
 
@@ -334,27 +395,8 @@ func (c *Channel) updateOnline() {
 
 		var t = time.NewTicker(time.Minute)
 		go func() {
-			var msg = ""
-
 			for c.session.State.User == nil {
 				time.Sleep(time.Second)
-			}
-
-			// TODO: save message ID in settings
-			for {
-				messages, err := c.session.ChannelMessagesPinned(c.chanID)
-				if err != nil {
-					time.Sleep(time.Second)
-					continue
-				}
-				for _, m := range messages {
-					if m.Author.ID != c.session.State.User.ID || !strings.HasPrefix(strings.TrimPrefix(m.Content, "__"), "💬 **Online**") {
-						continue
-					}
-					msg = m.ID
-					break
-				}
-				break
 			}
 
 			var last = ""
@@ -403,17 +445,25 @@ func (c *Channel) updateOnline() {
 
 				last = content
 
-				if msg == "" {
+				if c.OnlineListID == "" {
 					if m, err := c.session.ChannelMessageSend(c.chanID, content); err != nil {
 						c.Fire(&network.AsyncError{Src: "updateOnline[Send]", Err: err})
 					} else {
-						msg = m.ID
+						c.OnlineListID = m.ID
 					}
 					continue
 				}
 
-				if _, err := c.session.ChannelMessageEdit(c.chanID, msg, content); err != nil {
+				if _, err := c.session.ChannelMessageEdit(c.chanID, c.OnlineListID, content); err != nil {
 					c.Fire(&network.AsyncError{Src: "updateOnline[Update]", Err: err})
+
+					switch err := err.(type) {
+					case *discordgo.RESTError:
+						if err.Message != nil && err.Message.Code == discordgo.ErrCodeUnknownMessage {
+							// Message has been deleted
+							c.OnlineListID = ""
+						}
+					}
 				}
 			}
 		}()
@@ -532,19 +582,19 @@ func (c *Channel) Relay(ev *network.Event, from gateway.Gateway) error {
 
 	case *gateway.PrivateChat:
 		return c.WebhookOrSay(&discordgo.WebhookParams{
-			Content:   c.filter(msg.Content, msg.User.Access),
+			Content:   c.parse(msg.Content, msg.User.Access),
 			Username:  fmt.Sprintf("%s@%s (Direct Message)", msg.User.Name, from.Discriminator()),
 			AvatarURL: msg.User.AvatarURL,
 		})
 	case *gateway.Chat:
 		return c.WebhookOrSay(&discordgo.WebhookParams{
-			Content:   c.filter(msg.Content, msg.User.Access),
+			Content:   c.parse(msg.Content, msg.User.Access),
 			Username:  fmt.Sprintf("%s@%s", msg.User.Name, from.Discriminator()),
 			AvatarURL: msg.User.AvatarURL,
 		})
 	case *gateway.Say:
 		var p = &discordgo.WebhookParams{
-			Content:  c.filter(msg.Content, gateway.AccessDefault),
+			Content:  c.parse(msg.Content, gateway.AccessDefault),
 			Username: from.Discriminator(),
 		}
 		if c.session.State.User != nil {

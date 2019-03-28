@@ -23,7 +23,7 @@ goop:On(events.Join, function(ev)
     end
 
     local found    = false
-    for _, p in ipairs(options.Patterns) do
+    for _, p in options.Patterns() do
         if user.Name:find(p) then
             found = true
             break
