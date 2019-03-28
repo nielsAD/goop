@@ -39,7 +39,7 @@ func (c *Set) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		return t.Resp("You cannot grant this access level")
 	}
 
-	var l = make([]string, 0)
+	var l = []string{}
 	for _, u := range users {
 		if u.ID == t.User.ID || u.Access == access || u.Access >= t.User.Access {
 			continue

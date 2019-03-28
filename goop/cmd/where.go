@@ -18,7 +18,7 @@ type Where struct{ Cmd }
 
 // Execute command
 func (c *Where) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
-	var channels = make([]string, 0)
+	var channels = []string{}
 	for _, gw := range g.Gateways {
 		var c = gw.Channel()
 		if c == nil {

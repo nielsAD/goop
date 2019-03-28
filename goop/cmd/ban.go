@@ -29,9 +29,12 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}
 
-	var l = make([]string, 0)
+	var p = 0
+	var l = []string{}
+
 	for _, u := range users {
 		if u.ID == t.User.ID || u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
+			p++
 			continue
 		}
 
@@ -62,7 +65,10 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoChanges)
+		if p == 0 {
+			return t.Resp(MsgNoUserFound)
+		}
+		return t.Resp(MsgNoPermission)
 	}
 	return t.Resp(fmt.Sprintf("Banned [%s]", strings.Join(l, ", ")))
 }
@@ -84,9 +90,12 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		users = []*gateway.User{&gateway.User{ID: t.Arg[0], Name: t.Arg[0]}}
 	}
 
-	var l = make([]string, 0)
+	var p = 0
+	var l = []string{}
+
 	for _, u := range users {
 		if u.ID == t.User.ID || (u.Access <= c.AccessProtect && t.User.Access < c.AccessOverride) {
+			p++
 			continue
 		}
 
@@ -119,7 +128,10 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoChanges)
+		if p == 0 {
+			return t.Resp(MsgNoUserFound)
+		}
+		return t.Resp(MsgNoPermission)
 	}
 	return t.Resp(fmt.Sprintf("Unbanned [%s]", strings.Join(l, ", ")))
 }

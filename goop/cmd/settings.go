@@ -47,7 +47,7 @@ func findKeys(m map[string]interface{}, pat ...string) []string {
 	for i := range pat {
 		pat[i] = strings.ToLower(pat[i])
 	}
-	var s = make([]string, 0)
+	var s = []string{}
 
 outer:
 	for k := range m {
@@ -69,7 +69,7 @@ outer:
 
 func matchKeys(m map[string]interface{}, pat string) []string {
 	var q = strings.ToLower(fixsep(pat))
-	var s = make([]string, 0)
+	var s = []string{}
 	for k := range m {
 		if ignore(k, m[k]) {
 			continue
@@ -94,7 +94,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 	}
 
 	var m = g.Config.FlatMap()
-	var l = make([]string, 0)
+	var l = []string{}
 	var u = false
 
 	switch strings.ToLower(t.Arg[0]) {

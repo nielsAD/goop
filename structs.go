@@ -150,7 +150,7 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 			return nil, ErrTypeMismatch
 		}
 
-		var undecoded = make([]string, 0)
+		var undecoded = []string{}
 		for i := 0; i < src.Len(); i++ {
 			undec, err := merge(dst.Index(i), src.Index(i), opt)
 			if err != nil {
@@ -178,7 +178,7 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 			dstmap = true
 		}
 
-		var undecoded = make([]string, 0)
+		var undecoded = []string{}
 		for _, key := range src.MapKeys() {
 			n := fmt.Sprintf("%v", key.Interface())
 			k := find(dst, []string{n})
@@ -216,7 +216,7 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 		}
 		return undecoded, nil
 	case reflect.Struct:
-		var undecoded = make([]string, 0)
+		var undecoded = []string{}
 		for i := 0; i < src.NumField(); i++ {
 			var f = src.Field(i)
 			if !f.CanInterface() || (empty(f) && !opt.Overwrite) {

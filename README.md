@@ -96,10 +96,10 @@ Access levels determine what commands can be accessed, whether or not messages w
 
 |Role        | Level|Description|
 |------------|-----:|-----------|
-|`owner`     | 1000 | Bot owner, has access to all commands and can appoint admins. |
-|`admin`     | 300  | Administrator, has access to everything except settings and can appoint operators. |
-|`operator`  | 200  | Channel operator, can kick/ban and appoint whitelisted users. |
-|`whitelist` | 100  | Trusted user, only kickable/bannable by admins.  |
+|`owner`     | 1000 | Bot owner, has access to everything. |
+|`admin`     | 300  | Administrator, has access to everything except settings. |
+|`operator`  | 200  | Channel operator, can kick/ban. |
+|`whitelist` | 100  | Trusted user, only kickable/bannable by admins. |
 |`voice`     | 1    | Chat will be relayed between gateways. |
 |`ignore`    | -1   | Ignore user, do not relay chat and do not process commands. |
 |`kick`      | -100 | Auto kick. |

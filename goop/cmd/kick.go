@@ -26,9 +26,12 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 	}
 	var users = gateway.FindUserInChannel(gw, t.Arg[0])
 
-	var l = make([]string, 0)
+	var p = 0
+	var l = []string{}
+
 	for _, u := range users {
 		if u.ID == t.User.ID || u.Access >= t.User.Access || (u.Access >= c.AccessProtect && t.User.Access < c.AccessOverride) {
+			p++
 			continue
 		}
 		err := gw.Kick(u.ID)
@@ -48,7 +51,10 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 	}
 
 	if len(l) == 0 {
-		return t.Resp(MsgNoUserFound)
+		if p == 0 {
+			return t.Resp(MsgNoUserFound)
+		}
+		return t.Resp(MsgNoPermission)
 	}
 	return t.Resp(fmt.Sprintf("Kicked [%s]", strings.Join(l, ", ")))
 }

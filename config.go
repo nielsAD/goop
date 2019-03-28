@@ -53,7 +53,7 @@ func DefaultConfig() *Config {
 					Cmd: cmd.Cmd{Priviledge: gateway.AccessOperator},
 				},
 				Set: cmd.Set{
-					Cmd:           cmd.Cmd{Priviledge: gateway.AccessOperator},
+					Cmd:           cmd.Cmd{Priviledge: gateway.AccessAdmin},
 					DefaultAccess: gateway.AccessWhitelist,
 				},
 				Kick: cmd.Kick{
@@ -259,7 +259,7 @@ type RelayToConfig struct {
 // Decode configuration file
 func Decode(v interface{}, files ...string) ([]string, error) {
 	var m = make(map[string]interface{})
-	var u = make([]string, 0)
+	var u = []string{}
 	for _, f := range files {
 		if _, err := toml.DecodeFile(f, &m); err != nil {
 			return nil, err
