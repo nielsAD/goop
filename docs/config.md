@@ -32,6 +32,25 @@ A minimal example:
 
 ?> **TIP:** Running `goop -makeconf` will generate a fresh configuration file containing all default values.
 
+Structure
+---------
+
+The following configuration sections are available:
+
+Section|Description
+-------|-----------
+[[Capi]](bnet.md#capi)|Battle.net chatbot API connection.
+[[BNet]](bnet.md#cd-keys)|Battle.net account connection (defunct for official servers).
+[[Discord]](discord.md)|Discord connection.
+[[Relay]](relay.md)|Chat relay configuration.
+[[Commands]](commands.md)|Command configuration.
+[[Plugins]](plugins.md)|Load external plugins.
+[[StdIO]](stdio.md)|Terminal configuration.
+[[Log]](log.md)|Log format.
+
+?> **TIP:**  The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
+Examining the source code is the best way to find out exactly how settings are used.
+
 At Runtime
 ----------
 
@@ -45,43 +64,43 @@ Examples usage:
 
 ##### Find all settings with `capi` and `apikey` in their name
   * _command_
-  ```
+  ```properties
   .settings find capi apikey
   ```
   * _response_
-  ```
-  > capi/default/apikey = 
-  > capi/gateways/bnet/apikey = 0000000000
+  ```properties
+  capi/default/apikey =
+  capi/gateways/bnet/apikey = 0000000000
   ```
 
 #####  Get the current value of `capi/gateways/bnet/accesstalk`
   * _command_ 
-  ```
+  ```properties
   .settings get capi/gateways/bnet/accesstalk
   ```
   * _response_
-  ```
-  > capi/gateways/bnet/accesstalk = voice
+  ```properties
+  capi/gateways/bnet/accesstalk = voice
   ```
 
 #####  Change value of `capi/gateways/bnet/accesstalk` to `ignore`
   * _command_
-  ```
+  ```properties
   .settings set capi/gateways/bnet/accesstalk ignore
   ```
   * _response_
-  ```
-  > Changed capi/gateways/bnet/accesstalk from voice to ignore
+  ```properties
+  Changed capi/gateways/bnet/accesstalk from voice to ignore
   ```
 
 #####  Revert the value of `capi/gateways/bnet/accesstalk` to its default
   * _command_
-  ```
+  ```properties
   .settings unset capi/gateways/bnet/accesstalk
   ```
   * _response_
-  ```
-  > Unset capi/gateways/bnet/accesstalk = ignore
+  ```properties
+  Unset capi/gateways/bnet/accesstalk = ignore
   ```
 
 <br>
@@ -89,8 +108,3 @@ Examples usage:
 ?> **TIP:** Use `*` as a wildcard and get/set multiple settings at once!  
 **For example**: `.settings set capi/gateways/*/accesstalk ignore`
 
-Structure
----------
-
-The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
-Examining the source code is the best way to find out exactly how settings are used.

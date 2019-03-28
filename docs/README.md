@@ -24,13 +24,13 @@ ___A classic Battle.net chat bot.___
 
 
 ### Getting started
-Simply [download](https://github.com/nielsAD/goop/releases/latest), unzip, and run!
-
-Edit [`config.toml`](/config) in your favorite text editor to connect to [Battle.net](/bnet.md) or [Discord](/discord.md).
+Simply [download](https://github.com/nielsAD/goop/releases/latest), unzip, and run!  
+Edit [`config.toml`](config.md) in your favorite text editor to connect to [Battle.net](bnet.md) or [Discord](discord.md).
 
 
 ### Development
-Development takes place on [GitHub](https://github.com/nielsAD/goop). Pull requests are welcome and feel free to [report](https://github.com/nielsAD/goop/issues/new) bugs.
+Development takes place on [GitHub](https://github.com/nielsAD/goop). Feel free to [report](https://github.com/nielsAD/goop/issues/new) bugs, pull requests are encouraged.  
+Start with [building from source](build.md). Code documentation is available at [GoDoc](https://godoc.org/github.com/nielsAD/goop).
 
 
 ### License

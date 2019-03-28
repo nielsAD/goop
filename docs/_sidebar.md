@@ -1,7 +1,6 @@
 * Getting Started
     * [Download](/)
     * [Configure](config.md)
-    * [Build From Source](build.md)
 * Connect Gateways
     * [Battle.net](bnet.md)
     * [Discord](discord.md)
@@ -14,3 +13,6 @@
 * Plugins
     * [Loading Plugins](loading_plugins.md)
     * [Writing Plugins](writing_plugins.md)
+* Other
+    * [Build From Source](build.md)
+    * [Log Format](log.md)

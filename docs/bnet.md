@@ -1,6 +1,6 @@
 Battle.net
 ==========
-Goop can connect to one or multiple gateways. Add a configuration section to [`config.toml`](/config.md) for each gateway.
+Goop can connect to one or multiple gateways. Add a configuration section to [`config.toml`](config.md) for each gateway.
 
 CAPI
 ----
