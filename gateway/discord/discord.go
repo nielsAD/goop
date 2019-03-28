@@ -240,6 +240,7 @@ func (d *Gateway) InitDefaultHandlers() {
 	d.AddHandler(d.onGuildCreate)
 	d.AddHandler(d.onGuildUpdate)
 	d.AddHandler(d.onGuildMemberUpdate)
+	d.AddHandler(d.onGuildMemberRemove)
 	d.AddHandler(d.onPresenceUpdate)
 
 	d.AddHandler(d.onMessageCreate)
@@ -312,8 +313,17 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 
 		evUser, err := d.Channels[cid].User(presence.User.ID)
 		if err != nil {
-			d.Fire(&network.AsyncError{Src: "updatePresence[user]", Err: err})
-			continue
+			if !online {
+				d.Fire(&network.AsyncError{Src: "updatePresence[user]", Err: err})
+				continue
+			}
+
+			// Assume user left the guild
+			evUser = &gateway.User{
+				ID:     presence.User.ID,
+				Name:   presence.User.Username,
+				Access: gateway.AccessMin,
+			}
 		}
 		if evUser == nil {
 			continue
@@ -377,6 +387,13 @@ func (d *Gateway) onGuildMemberUpdate(s *discordgo.Session, msg *discordgo.Guild
 			d.Channels[cid].Fire(u)
 		}
 	}
+}
+
+func (d *Gateway) onGuildMemberRemove(s *discordgo.Session, msg *discordgo.GuildMemberRemove) {
+	d.updatePresence(msg.GuildID, &discordgo.Presence{
+		User:   msg.User,
+		Status: discordgo.StatusOffline,
+	})
 }
 
 func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.PresenceUpdate) {
