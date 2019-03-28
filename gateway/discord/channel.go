@@ -249,6 +249,10 @@ func (c *Channel) Ping(uid string) (time.Duration, error) {
 
 // WebhookOrSay sends a chat message preferably via webhook
 func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
+	if len(p.Content) > 2000 {
+		p.Content = p.Content[:1997] + "..."
+	}
+
 	if c.Webhook == "" {
 		var s = p.Content
 		if p.Username != "" {
@@ -383,7 +387,7 @@ func (c *Channel) updateOnline() {
 						a = "💩"
 					}
 
-					var s = fmt.Sprintf("%s `%-15s @ %-9s\u200B` *%s*\n", a, o.User.Name, o.Discr, fmtDuration(now.Sub(o.Since)))
+					var s = fmt.Sprintf("%s `%-15s@ %-9s\u200B` *%s*\n", a, o.User.Name, o.Discr, fmtDuration(now.Sub(o.Since)))
 					if len(content)+len(s) >= 2000 {
 						break
 					}
