@@ -45,6 +45,42 @@ var logErr = log.New(color.Error, "", 0)
 func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	var res = goop.New(conf)
 
+	var globals = map[string]interface{}{
+		"log":           logOut,
+		"goop":          res,
+		"BUILD_VERSION": BuildTag,
+		"BUILD_COMMIT":  BuildCommit,
+		"GOOS":          runtime.GOOS,
+		"GOARCH":        runtime.GOARCH,
+		"GOVERSION":     runtime.Version(),
+	}
+
+	for k, c := range conf.Plugins {
+		var f = k
+		if path.Ext(f) == "" {
+			f += ".lua"
+		}
+		if !path.IsAbs(f) {
+			f = path.Join("plugins", f)
+		}
+		p, err := plugin.Load(f, c, globals)
+		if err != nil {
+			return nil, err
+		}
+
+		res.Once(goop.Stop{}, func(_ *network.Event) {
+			p.Close()
+		})
+
+		if m, ok := c["_default"]; ok {
+			def.Plugins[k] = make(plugin.Config)
+			def.Plugins[k]["_default"] = Map(m)
+		}
+	}
+
+	// Merge plugin defaults
+	conf.MergeDefaults()
+
 	if err := conf.Commands.AddTo(res); err != nil {
 		return nil, err
 	}
@@ -121,38 +157,6 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 			}
 		}
 	}
-
-	var g = make(plugin.Globals)
-	g["log"] = logOut
-	g["goop"] = res
-	g["version"] = BuildTag
-	g["commit"] = BuildCommit
-
-	for k, c := range conf.Plugins {
-		var f = k
-		if path.Ext(f) == "" {
-			f += ".lua"
-		}
-		if !path.IsAbs(f) {
-			f = path.Join("plugins", f)
-		}
-		p, err := plugin.Load(f, c, g)
-		if err != nil {
-			return nil, err
-		}
-
-		res.Once(goop.Stop{}, func(_ *network.Event) {
-			p.Close()
-		})
-
-		if m, ok := c["_default"]; ok {
-			def.Plugins[k] = make(plugin.Config)
-			def.Plugins[k]["_default"] = Map(m)
-		}
-	}
-
-	// Merge plugin defaults
-	conf.MergeDefaults()
 
 	return res, nil
 }

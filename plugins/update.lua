@@ -51,7 +51,7 @@ local function check()
     -- dereference *interface{} to interface{}
     json_obj = -json_obj
 
-    if json_obj.tag_name == globals.version then
+    if json_obj.tag_name == globals.BUILD_VERSION then
         return false
     end
 

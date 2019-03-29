@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -80,6 +81,7 @@ func importPreload(ls *lua.LState) {
 	ls.PreloadModule("go.errors", preloader(_errors))
 	ls.PreloadModule("go.io", preloader(_io))
 	ls.PreloadModule("go.context", preloader(_context))
+	ls.PreloadModule("go.sync", preloader(_sync))
 	ls.PreloadModule("go.time", preloader(_time))
 	ls.PreloadModule("go.bytes", preloader(_bytes))
 	ls.PreloadModule("go.strings", preloader(_strings))
@@ -155,9 +157,9 @@ var _global = map[string]interface{}{
 		}
 		return reflect.TypeOf(i).String()
 	},
-	"inspect": func(i interface{}) string {
-		if i == nil {
-			return "<nil>"
+	"inspect": func(i ...interface{}) string {
+		if len(i) == 1 {
+			return fmt.Sprintf("%+v", i[0])
 		}
 		return fmt.Sprintf("%+v", i)
 	},
@@ -342,6 +344,16 @@ var _context = map[string]interface{}{
 
 	"Canceled":         context.Canceled,
 	"DeadlineExceeded": context.DeadlineExceeded,
+}
+
+var _sync = map[string]interface{}{
+	"NewCond":   sync.NewCond,
+	"Map":       func() *sync.Map { return &sync.Map{} },
+	"Mutex":     func() *sync.Mutex { return &sync.Mutex{} },
+	"Once":      func() *sync.Once { return &sync.Once{} },
+	"Pool":      func() *sync.Pool { return &sync.Pool{} },
+	"RWMutex":   func() *sync.RWMutex { return &sync.RWMutex{} },
+	"WaitGroup": func() *sync.WaitGroup { return &sync.WaitGroup{} },
 }
 
 var _time = map[string]interface{}{
