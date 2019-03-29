@@ -291,8 +291,8 @@ func (c *Channel) WebhookOrSay(p *discordgo.WebhookParams) error {
 	}
 }
 
-var mentionPat = regexp.MustCompile(`(?:^|\s)(@\S+)(?:$|\s)`)
-var channelPat = regexp.MustCompile(`(?:^|\s)(#\S+)(?:$|\s)`)
+var mentionPat = regexp.MustCompile(`\B(@\S+)`)
+var channelPat = regexp.MustCompile(`\B(#\S+)`)
 
 func (c *Channel) parse(s string, l gateway.AccessLevel) string {
 	if l < c.AccessMentions {
