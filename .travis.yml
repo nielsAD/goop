@@ -39,7 +39,7 @@ before_deploy:
     \nProject:  goop (https://github.com/nielsAD/goop)
     \nPlatform: $TRAVIS_OS_NAME
     \nRelease:  $TRAVIS_TAG ($TRAVIS_COMMIT)
-    \nDate:     `date --utc`"
+    \nDate:     `date -u`"
     > VERSION
   - mv config.toml.example config.toml
   - mv bin/goop goop-$TRAVIS_TAG

@@ -106,7 +106,7 @@ var replacersInt = regexp.MustCompile("\\d+")
 var replacersPat = regexp.MustCompile((func() string {
 	var s = []string{}
 	for k := range Placeholders {
-		s = append(s, strings.ReplaceAll(regexp.QuoteMeta(k), "000", "\\d+"))
+		s = append(s, strings.Replace(regexp.QuoteMeta(k), "000", "\\d+", -1))
 	}
 	return strings.Join(s, "|")
 }()))

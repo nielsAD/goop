@@ -54,7 +54,7 @@ after_test:
     \r\nProject:  goop (https://github.com/nielsAD/goop)
     \r\nPlatform: Windows ($MSYS2_ARCH)
     \r\nRelease:  $APPVEYOR_REPO_TAG_NAME ($APPVEYOR_REPO_COMMIT)
-    \r\nDate:     `date --utc`\""
+    \r\nDate:     `date -u`\""
     > VERSION.txt
   - mv config.toml.example config.toml
   - mv bin/goop.exe goop.exe
