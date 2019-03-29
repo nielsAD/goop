@@ -22,6 +22,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/color"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/capi"
