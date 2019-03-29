@@ -16,7 +16,7 @@ options._default = {
     --   * #a:     Access level
     --   * #g:     Gateway ID
     --   * #d:     Gateway discriminator
-    Message = "Welcome to ##c, #n! Your access level is `#a`.",
+    Message = "Welcome to ##c, #n! Your access level is #a.",
 }
 
 goop:On(events.Join, function(ev)

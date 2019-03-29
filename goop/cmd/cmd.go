@@ -46,6 +46,7 @@ type Commands struct {
 	Ban        Ban
 	Unban      Unban
 	Where      Where
+	Who        Who
 	Ping       Ping
 	Time       Time
 	Uptime     Uptime
