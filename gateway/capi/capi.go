@@ -428,33 +428,25 @@ func (b *Gateway) onUserLeft(ev *network.Event) {
 	}
 }
 
-func extractCmdAndArgs(s string) (bool, string, []string) {
-	if len(s) < 1 || s[0] == ' ' {
-		return false, "", nil
-	}
-	f := strings.Fields(s)
-	return true, f[0], f[1:]
-}
-
-// FindTrigger checks if s starts with trigger, returns cmd and args if true
-func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
-	if r, cmd, arg := b.GatewayConfig.FindTrigger(s); r {
-		return r, cmd, arg
+// FindTrigger checks if s starts with trigger, return Trigger{} if true
+func (b *Gateway) FindTrigger(s string) *gateway.Trigger {
+	if t := b.GatewayConfig.FindTrigger(s); t != nil {
+		return t
 	}
 
 	idx := strings.IndexAny(s, ",:")
 	if idx <= 0 || idx+2 >= len(s) || s[idx+1] != ' ' {
-		return false, "", nil
+		return nil
 	}
 
 	pat := s[:idx]
 	if !strings.EqualFold(pat, "goop") || strings.EqualFold(pat, "all") || (strings.EqualFold(pat, "ops") && b.Operator()) {
 		if m, _ := filepath.Match(pat, b.name); !m || len(b.name) == 0 {
-			return false, "", nil
+			return nil
 		}
 	}
 
-	return extractCmdAndArgs(s[idx+2:])
+	return gateway.ExtractTrigger(s[idx+2:])
 }
 
 var banPat = regexp.MustCompile("^([^ ]+) was banned by ([^ ]+).*\\.$")
@@ -496,13 +488,10 @@ func (b *Gateway) onMessageEvent(ev *network.Event) {
 			return
 		}
 
-		if r, cmd, arg := b.FindTrigger(pkt.Message); r {
-			b.Fire(&gateway.Trigger{
-				User: u,
-				Cmd:  cmd,
-				Arg:  arg,
-				Resp: b.Responder(b, u.ID, pkt.Type == pcapi.MessageWhisper),
-			}, ev)
+		if t := b.FindTrigger(pkt.Message); t != nil {
+			t.User = u
+			t.Resp = b.Responder(b, u.ID, pkt.Type == pcapi.MessageWhisper)
+			b.Fire(t, ev)
 		}
 	case pcapi.MessageServerInfo:
 		if pkt.Message == "No one hears you." {

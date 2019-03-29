@@ -64,13 +64,17 @@ func (c *Ban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) erro
 		}
 	}
 
-	if len(l) == 0 {
+	switch len(l) {
+	case 0:
 		if p == 0 {
 			return t.Resp(MsgNoUserFound)
 		}
 		return t.Resp(MsgNoPermission)
+	case 1:
+		return t.Resp(fmt.Sprintf("Banned %s", l[0]))
+	default:
+		return t.Resp(fmt.Sprintf("Banned [%s]", strings.Join(l, ", ")))
 	}
-	return t.Resp(fmt.Sprintf("Banned [%s]", strings.Join(l, ", ")))
 }
 
 // Unban user
@@ -127,11 +131,15 @@ func (c *Unban) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) er
 		}
 	}
 
-	if len(l) == 0 {
+	switch len(l) {
+	case 0:
 		if p == 0 {
 			return t.Resp(MsgNoUserFound)
 		}
 		return t.Resp(MsgNoPermission)
+	case 1:
+		return t.Resp(fmt.Sprintf("Unbanned %s", l[0]))
+	default:
+		return t.Resp(fmt.Sprintf("Unbanned [%s]", strings.Join(l, ", ")))
 	}
-	return t.Resp(fmt.Sprintf("Unbanned [%s]", strings.Join(l, ", ")))
 }

@@ -75,13 +75,10 @@ func (o *Gateway) read() error {
 			continue
 		}
 
-		if r, cmd, arg := o.Config.FindTrigger(chat.Content); r {
-			o.Fire(&gateway.Trigger{
-				User: chat.User,
-				Cmd:  cmd,
-				Arg:  arg,
-				Resp: o.Responder(o, uid, true),
-			}, &chat)
+		if t := o.Config.FindTrigger(chat.Content); t != nil {
+			t.User = chat.User
+			t.Resp = o.Responder(o, uid, true)
+			o.Fire(t, &chat)
 		}
 	}
 }

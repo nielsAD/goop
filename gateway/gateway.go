@@ -8,8 +8,12 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -114,23 +118,50 @@ func (c *Config) Responder(gw Gateway, uid string, forcePrivate bool) Responder 
 	return func(s string) error { return gw.SayPrivate(uid, s) }
 }
 
-// FindTrigger checks if s starts with trigger t, returns cmd and args if true
-func FindTrigger(t, s string) (bool, string, []string) {
-	if len(t) == 0 || !strings.HasPrefix(s, t) {
-		return false, "", nil
+var argPat = regexp.MustCompile(`("(?:\\.|[^\"])*")|('(?:\\.|[^\'])*')|(\S+)(\s*)`)
+
+// ExtractTrigger from s
+func ExtractTrigger(s string) *Trigger {
+	if r, _ := utf8.DecodeRuneInString(s); len(s) < 1 || unicode.IsSpace(r) {
+		return nil
 	}
 
-	s = s[len(t):]
-	if len(s) < 1 || s[0] == ' ' {
-		return false, "", nil
+	var m = argPat.FindAllStringSubmatch(s, -1)
+	var r = make([]string, len(m))
+	var a = make([]string, len(m))
+	for i, g := range m {
+		r[i] = g[0]
+		if g[1] != "" {
+			if q, err := strconv.Unquote(g[1]); err == nil {
+				a[i] = q
+			} else {
+				a[i] = g[1][1 : len(g[1])-1]
+			}
+		} else if g[2] != "" {
+			a[i] = g[2][1 : len(g[2])-1]
+		} else {
+			a[i] = g[3]
+		}
 	}
 
-	f := strings.Fields(s)
-	return true, f[0], f[1:]
+	return &Trigger{
+		Cmd: a[0],
+		Raw: r[1:],
+		Arg: a[1:],
+	}
 }
 
-// FindTrigger checks if s starts with trigger, returns cmd and args if true
-func (c *Config) FindTrigger(s string) (bool, string, []string) {
+// FindTrigger checks if s starts with trigger t, return Trigger{} if true
+func FindTrigger(t, s string) *Trigger {
+	if len(t) == 0 || !strings.HasPrefix(s, t) {
+		return nil
+	}
+
+	return ExtractTrigger(s[len(t):])
+}
+
+// FindTrigger checks if s starts with trigger, return Trigger{} if true
+func (c *Config) FindTrigger(s string) *Trigger {
 	return FindTrigger(c.Commands.Trigger, s)
 }
 

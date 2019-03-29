@@ -34,13 +34,7 @@ func ignore(key string, val interface{}) bool {
 		return true
 	}
 
-	var v = reflect.ValueOf(val)
-	switch v.Kind() {
-	case reflect.Map, reflect.Slice, reflect.Array:
-		return v.Len() != 0
-	default:
-		return false
-	}
+	return false
 }
 
 func findKeys(m map[string]interface{}, pat ...string) []string {
@@ -84,6 +78,18 @@ func matchKeys(m map[string]interface{}, pat string) []string {
 	return s
 }
 
+func str(v interface{}) string {
+	r := reflect.ValueOf(v)
+	switch r.Kind() {
+	case reflect.Array, reflect.Slice:
+		return fmt.Sprintf("<list of len %d>", r.Len())
+	case reflect.Map:
+		return fmt.Sprintf("<map of size %d>", r.Len())
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 // Execute command
 func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
 	// Always respond in private
@@ -101,12 +107,12 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 	case "find", "f":
 		var k = findKeys(m, t.Arg[1:]...)
 		for _, v := range k {
-			l = append(l, fmt.Sprintf("%s = %v", strings.ToLower(v), m[v]))
+			l = append(l, fmt.Sprintf("%s = %s", strings.ToLower(v), str(m[v])))
 		}
 	case "get", "g":
 		var k = matchKeys(m, t.Arg[1])
 		for _, v := range k {
-			l = append(l, fmt.Sprintf("%s = %v", strings.ToLower(v), m[v]))
+			l = append(l, fmt.Sprintf("%s = %s", strings.ToLower(v), str(m[v])))
 		}
 	case "unset", "u", "us":
 		var k = matchKeys(m, t.Arg[1])
@@ -118,7 +124,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 				}
 				continue
 			}
-			l = append(l, fmt.Sprintf("Unset %s = %v", strings.ToLower(v), m[v]))
+			l = append(l, fmt.Sprintf("Unset %s = %s", strings.ToLower(v), str(m[v])))
 		}
 		u = true
 	case "set", "s":
@@ -127,7 +133,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 		}
 
 		var k = matchKeys(m, t.Arg[1])
-		var s = strings.Join(t.Arg[2:], " ")
+		var s = strings.Join(t.Raw[2:], "")
 		if len(k) == 0 {
 			k = []string{t.Arg[1]}
 		}
@@ -139,10 +145,7 @@ func (c *Settings) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop)
 				}
 				continue
 			}
-			if fmt.Sprintf("%v", m[v]) == s {
-				continue
-			}
-			l = append(l, fmt.Sprintf("Changed %s from %v to %s", strings.ToLower(v), m[v], s))
+			l = append(l, fmt.Sprintf("Changed %s from %v to %s", strings.ToLower(v), str(m[v]), s))
 		}
 		u = true
 	default:

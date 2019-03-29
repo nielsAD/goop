@@ -58,6 +58,10 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	}
 
 	for k, g := range conf.Capi.Gateways {
+		if g.APIKey == "" {
+			continue
+		}
+
 		gw, err := capi.New(g)
 		if err != nil {
 			return nil, err
@@ -69,6 +73,10 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	}
 
 	for k, g := range conf.BNet.Gateways {
+		if g.ServerAddr == "" {
+			continue
+		}
+
 		gw, err := bnet.New(g)
 		if err != nil {
 			return nil, err
@@ -80,6 +88,10 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	}
 
 	for k, g := range conf.Discord.Gateways {
+		if g.AuthToken == "" {
+			continue
+		}
+
 		gw, err := discord.New(g)
 		if err != nil {
 			return nil, err

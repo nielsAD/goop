@@ -21,7 +21,7 @@ goop:AddCommand("weather", command(function(trig)
 
     local loc = options.DefaultLocation
     if #trig.Arg > 0 then
-        loc = strings.Join(trig.Arg, " ")
+        loc = strings.Join(trig.Raw, "")
     end
 
     local resp, err_get = http.Get("https://wttr.in/" .. url.PathEscape(loc) .. "?format=3")

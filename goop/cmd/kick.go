@@ -50,11 +50,16 @@ func (c *Kick) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) err
 		}
 	}
 
-	if len(l) == 0 {
+	switch len(l) {
+	case 0:
 		if p == 0 {
 			return t.Resp(MsgNoUserFound)
 		}
 		return t.Resp(MsgNoPermission)
+	case 1:
+		return t.Resp(fmt.Sprintf("Kicked %s", l[0]))
+	default:
+		return t.Resp(fmt.Sprintf("Kicked [%s]", strings.Join(l, ", ")))
 	}
-	return t.Resp(fmt.Sprintf("Kicked [%s]", strings.Join(l, ", ")))
+
 }

@@ -357,15 +357,15 @@ func (c *Channel) Run(ctx context.Context) error {
 	return nil
 }
 
-// FindTrigger checks if s starts with trigger, returns cmd and args if true
-func (c *Channel) FindTrigger(s string) (bool, string, []string) {
-	if r, cmd, arg := c.Config.FindTrigger(s); r {
-		return r, cmd, arg
+// FindTrigger checks if s starts with trigger, return Trigger{} if true
+func (c *Channel) FindTrigger(s string) *gateway.Trigger {
+	if t := c.Config.FindTrigger(s); t != nil {
+		return t
 	}
-	if r, cmd, arg := gateway.FindTrigger(fmt.Sprintf("<@%s> ", c.session.State.User.ID), s); r {
-		return r, cmd, arg
+	if t := gateway.FindTrigger(fmt.Sprintf("<@%s> ", c.session.State.User.ID), s); t != nil {
+		return t
 	}
-	return false, "", nil
+	return nil
 }
 
 func fmtDuration(d time.Duration) string {

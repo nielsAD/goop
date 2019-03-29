@@ -11,6 +11,9 @@ options._default ={
         ["*discordgo.Event"]          = true,
         ["*discordgo.PresenceUpdate"] = true,
         ["*discordgo.TypingStart"]    = true,
+        ["*discordgo.MessageCreate"]  = true,
+        ["*discordgo.MessageUpdate"]  = true,
+        ["*discordgo.VoiceState"]     = true,
     },
 }
 

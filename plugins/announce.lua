@@ -33,7 +33,7 @@ goop:AddCommand("announce", command(function(trig, gw)
         return trig.Resp((dur_err and inspect(dur_err)) or "Invalid duration")
     end
 
-    local msg = strings.Join(strings.SSlice(trig.Arg, 1, #trig.Arg), " ")
+    local msg = strings.Join(strings.SSlice(trig.Raw, 1, #trig.Raw), "")
 
     local function announce()
         local chan = gw:ChannelUsers()

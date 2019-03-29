@@ -389,33 +389,25 @@ func (b *Gateway) onUserLeft(ev *network.Event) {
 	b.Fire(&gateway.Leave{User: b.user(&user.User)})
 }
 
-func extractCmdAndArgs(s string) (bool, string, []string) {
-	if len(s) < 1 || s[0] == ' ' {
-		return false, "", nil
-	}
-	f := strings.Fields(s)
-	return true, f[0], f[1:]
-}
-
-// FindTrigger checks if s starts with trigger, returns cmd and args if true
-func (b *Gateway) FindTrigger(s string) (bool, string, []string) {
-	if r, cmd, arg := b.GatewayConfig.FindTrigger(s); r {
-		return r, cmd, arg
+// FindTrigger checks if s starts with trigger, return Trigger{} if true
+func (b *Gateway) FindTrigger(s string) *gateway.Trigger {
+	if t := b.GatewayConfig.FindTrigger(s); t != nil {
+		return t
 	}
 
 	idx := strings.IndexAny(s, ",:")
 	if idx <= 0 || idx+2 >= len(s) || s[idx+1] != ' ' {
-		return false, "", nil
+		return nil
 	}
 
 	pat := s[:idx]
 	if !strings.EqualFold(pat, "goop") || strings.EqualFold(pat, "all") || (strings.EqualFold(pat, "ops") && b.Operator()) {
 		if m, _ := filepath.Match(pat, b.UniqueName); !m {
-			return false, "", nil
+			return nil
 		}
 	}
 
-	return extractCmdAndArgs(s[idx+2:])
+	return gateway.ExtractTrigger(s[idx+2:])
 }
 
 func (b *Gateway) onChat(ev *network.Event) {
@@ -442,13 +434,10 @@ func (b *Gateway) onChat(ev *network.Event) {
 		return
 	}
 
-	if r, cmd, arg := b.FindTrigger(chat.Content); r {
-		b.Fire(&gateway.Trigger{
-			User: chat.User,
-			Cmd:  cmd,
-			Arg:  arg,
-			Resp: b.Responder(b, chat.User.ID, false),
-		}, &chat)
+	if t := b.FindTrigger(chat.Content); t != nil {
+		t.User = chat.User
+		t.Resp = b.Responder(b, chat.User.ID, false)
+		b.Fire(t, &chat)
 	}
 }
 
@@ -483,13 +472,10 @@ func (b *Gateway) onWhisper(ev *network.Event) {
 		return
 	}
 
-	if r, cmd, arg := b.FindTrigger(chat.Content); r {
-		b.Fire(&gateway.Trigger{
-			User: chat.User,
-			Cmd:  cmd,
-			Arg:  arg,
-			Resp: b.Responder(b, chat.User.ID, true),
-		}, &chat)
+	if t := b.FindTrigger(chat.Content); t != nil {
+		t.User = chat.User
+		t.Resp = b.Responder(b, chat.User.ID, true)
+		b.Fire(t, &chat)
 	}
 }
 

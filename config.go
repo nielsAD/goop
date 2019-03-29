@@ -82,7 +82,7 @@ func DefaultConfig() *Config {
 				"whisper": &cmd.Alias{
 					Cmd:            cmd.Cmd{Priviledge: gateway.AccessWhitelist},
 					Exe:            "sayprivate",
-					Arg:            []string{"%ARG1%", "<%USTR%> %ARG2..%"},
+					Arg:            []string{"%ARG1%", "<%USTR%> %RARG2..%"},
 					ArgExpected:    2,
 					WithPriviledge: gateway.AccessAdmin,
 				},

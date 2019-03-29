@@ -16,7 +16,7 @@ type Echo struct{ Cmd }
 
 // Execute command
 func (c *Echo) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
-	return t.Resp(strings.Join(t.Arg, " "))
+	return t.Resp(strings.Join(t.Raw, ""))
 }
 
 // Say input in channel
@@ -24,7 +24,7 @@ type Say struct{ Cmd }
 
 // Execute command
 func (c *Say) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
-	return gw.Say(strings.Join(t.Arg, " "))
+	return gw.Say(strings.Join(t.Raw, ""))
 }
 
 // SayPrivate forwards input to user in private
@@ -41,7 +41,7 @@ func (c *SayPrivate) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goo
 		u = []*gateway.User{&gateway.User{ID: t.Arg[0]}}
 		fallthrough
 	case 1:
-		if err := gw.SayPrivate(u[0].ID, strings.Join(t.Arg[1:], " ")); err != nil && err != gateway.ErrNotImplemented {
+		if err := gw.SayPrivate(u[0].ID, strings.Join(t.Raw[1:], "")); err != nil && err != gateway.ErrNotImplemented {
 			t.Resp(MsgInternalError)
 			return err
 		}

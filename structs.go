@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // Errors
@@ -492,12 +494,26 @@ func AssignString(dst reflect.Value, src string) error {
 		dst.SetInt(n)
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		n, err := strconv.ParseUint(src, 10, 64)
+		n, err := strconv.ParseUint(src, 0, 64)
 		if err != nil {
 			return err
 		}
 		dst.SetUint(n)
 		return nil
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.Struct, reflect.Interface:
+		var tmp struct {
+			V interface{}
+		}
+
+		_, err := toml.Decode(fmt.Sprintf("V = %s", src), &tmp)
+		if err == nil {
+			_, err := merge(dst, reflect.ValueOf(tmp.V), &MergeOptions{Overwrite: true, Delete: true})
+			return err
+		} else if dst.Kind() != reflect.Interface {
+			return nil
+		}
+
+		fallthrough
 	default:
 		return Assign(dst, reflect.ValueOf(src))
 	}

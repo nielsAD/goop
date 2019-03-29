@@ -76,6 +76,7 @@ type Responder func(s string) error
 type Trigger struct {
 	User
 	Cmd  string
+	Raw  []string
 	Arg  []string
 	Resp Responder
 }

@@ -450,13 +450,10 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 			d.Fire(&chat)
 
 			if chat.User.Access >= d.Commands.Access {
-				if r, cmd, arg := d.FindTrigger(msg.Message.Content); r {
-					d.Fire(&gateway.Trigger{
-						User: chat.User,
-						Cmd:  cmd,
-						Arg:  arg,
-						Resp: func(s string) error { _, err = d.ChannelMessageSend(msg.ChannelID, s); return err },
-					}, &chat)
+				if t := d.FindTrigger(msg.Message.Content); t != nil {
+					t.User = chat.User
+					t.Resp = func(s string) error { _, err = d.ChannelMessageSend(msg.ChannelID, s); return err }
+					d.Fire(t, &chat)
 				}
 			}
 		}
@@ -484,13 +481,10 @@ func (d *Gateway) onMessageCreate(s *discordgo.Session, msg *discordgo.MessageCr
 		return
 	}
 
-	if r, cmd, arg := c.FindTrigger(msg.Message.Content); r {
-		c.Fire(&gateway.Trigger{
-			User: chat.User,
-			Cmd:  cmd,
-			Arg:  arg,
-			Resp: c.Responder(c, chat.User.ID, false),
-		}, &chat)
+	if t := c.FindTrigger(msg.Message.Content); t != nil {
+		t.User = chat.User
+		t.Resp = c.Responder(c, chat.User.ID, false)
+		c.Fire(t, &chat)
 	}
 }
 
