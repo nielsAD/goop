@@ -50,8 +50,6 @@ type Commands struct {
 	Ping       Ping
 	Time       Time
 	Uptime     Uptime
-	Flip       Flip
-	Roll       Roll
 }
 
 // AddTo goop
