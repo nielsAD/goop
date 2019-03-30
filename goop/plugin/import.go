@@ -305,6 +305,7 @@ var _events = map[string]interface{}{
 }
 
 var _errors = map[string]interface{}{
+	"panic":              func(v interface{}) { panic(v) },
 	"New":                errors.New,
 	"IsPermission":       os.IsPermission,
 	"IsTimeout":          os.IsTimeout,
