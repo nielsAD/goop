@@ -45,6 +45,7 @@ var logErr = log.New(color.Error, "", 0)
 func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	var res = goop.New(conf)
 
+	// Plugin globals
 	var globals = map[string]interface{}{
 		"log":           logOut,
 		"goop":          res,

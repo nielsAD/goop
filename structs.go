@@ -305,6 +305,9 @@ func Map(val interface{}) interface{} {
 		}
 		return m
 	default:
+		if !v.CanInterface() {
+			return nil
+		}
 		return v.Interface()
 	}
 }
@@ -362,7 +365,9 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 			flatMap(pre, f, dst)
 		}
 	default:
-		dst[prf] = val.Interface()
+		if val.CanInterface() {
+			dst[prf] = val.Interface()
+		}
 	}
 }
 
@@ -522,7 +527,7 @@ func AssignString(dst reflect.Value, src string) error {
 // Get config value via flat index string
 func Get(src interface{}, key string) (interface{}, error) {
 	var val = Find(src, key)
-	if val == nil {
+	if val == nil || !val.CanInterface() {
 		return nil, ErrUnknownKey
 	}
 	return val.Interface(), nil
