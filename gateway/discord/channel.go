@@ -450,6 +450,9 @@ func (c *Channel) updateOnline() {
 						c.Fire(&network.AsyncError{Src: "updateOnline[Send]", Err: err})
 					} else {
 						c.OnlineListID = m.ID
+
+						// Try to pin message, but ignore failure (requires Manage Messages permission)
+						c.session.ChannelMessagePin(c.chanID, m.ID)
 					}
 					continue
 				}
