@@ -33,11 +33,52 @@ ifndef LUACHECK
 	LUACHECK=: LUACHECK NOT INSTALLED, SKIPPING luacheck
 endif
 
+WINDRES:=$(shell command -v windres 2>/dev/null)
+ifndef WINDRES
+	WINDRES=: WINDRES NOT INSTALLED, SKIPPING windres
+endif
+
 GIT=git
 GIT_TAG:=$(shell $(GIT) describe --abbrev=0 --tags)
 GIT_COMMIT:=$(shell $(GIT) rev-parse HEAD)
 
-.PHONY: all release check test fmt lint vet list clean
+comma=,
+VERSION:=$(subst v,,$(subst .,$(comma),$(GIT_TAG)),$(shell date +'%y%m'))
+
+define RES
+1 VERSIONINFO
+FILEVERSION     $(VERSION)
+PRODUCTVERSION  $(VERSION)
+FILEFLAGSMASK   0X3FL
+FILEFLAGS       0L
+FILEOS          0X40004L
+FILETYPE        0X1
+FILESUBTYPE     0
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName", "nielsAD"
+			VALUE "FileDescription", "Goop is a BNCS Channel Operator."
+			VALUE "FileVersion", "$(GIT_TAG)"
+			VALUE "InternalName", "goop"
+			VALUE "LegalCopyright", "© nielsAD. All rights reserved."
+			VALUE "OriginalFilename", "goop.exe"
+			VALUE "ProductName", "Goop"
+			VALUE "ProductVersion", "$(GIT_TAG)"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+			VALUE "Translation", 0x0409, 0x04B0
+	END
+END
+1 ICON "goop.ico"
+endef
+export RES
+
+.PHONY: all release check test fmt lint vet list clean res.syso
 
 all: test release
 
@@ -50,8 +91,11 @@ $(PKG): $(VENDOR)
 $(GOW3)/vendor/%:
 	$(MAKE) -C $(GOW3)/vendor $(subst $(GOW3)/vendor/,,$@)
 
-release: $(VENDOR) $(DIR_BIN)
-	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(GIT_TAG) -X main.BuildCommit=$(GIT_COMMIT) $(GO_LDFLAGS)' $(DIR_PRE)
+res.syso:
+	echo "$$RES" | $(WINDRES) -c 65001 -O coff -o $@
+
+release: $(VENDOR) $(DIR_BIN) res.syso
+	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(GIT_TAG) -X main.BuildCommit=$(GIT_COMMIT) -X main.buildDate=$(shell date +'%s') $(GO_LDFLAGS)' $(DIR_PRE)
 
 check: $(VENDOR)
 	$(GO) build $(PKG)
@@ -73,6 +117,6 @@ list:
 	@echo $(PKG) | tr ' ' '\n'
 
 clean:
-	-rm -r $(DIR_BIN)
+	-rm -r $(DIR_BIN) res.syso
 	go clean $(PKG)
 	$(MAKE) -C $(GOW3)/vendor clean

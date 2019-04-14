@@ -1,5 +1,8 @@
 bin/
 
+# Windows resources
+*.syso
+
 # Test binary (go test -c)
 *.test
 

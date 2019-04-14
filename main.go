@@ -51,6 +51,7 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 		"goop":          res,
 		"BUILD_VERSION": BuildTag,
 		"BUILD_COMMIT":  BuildCommit,
+		"BUILD_DATE":    BuildDate,
 		"GOOS":          runtime.GOOS,
 		"GOARCH":        runtime.GOARCH,
 		"GOVERSION":     runtime.Version(),
@@ -280,7 +281,7 @@ start:
 	g.AddCommand("version", &cmd.Alias{
 		Cmd: cmd.Cmd{Priviledge: gateway.AccessOwner},
 		Exe: "echo",
-		Arg: []string{fmt.Sprintf("goop %s (%s)", BuildTag, BuildCommit[:10])},
+		Arg: []string{fmt.Sprintf("goop %s (%s), %s", BuildTag, BuildCommit[:10], BuildDate.Format("02 January 2006"))},
 	})
 
 	g.AddCommand("quit", &Quit{
