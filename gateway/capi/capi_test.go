@@ -24,14 +24,11 @@ func Test(t *testing.T) {
 
 	gw := gateway.Gateway(b)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
-		err := ev.Arg.(*network.AsyncError)
-		if !network.IsConnClosedError(err) {
-			t.Fatal(err)
-		}
+		t.Fatal(ev.Arg.(*network.AsyncError))
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	if err := gw.Run(ctx); !network.IsConnRefusedError(err) {
+	if err := gw.Run(ctx); !network.IsRefusedError(err) {
 		t.Fatal(err)
 	}
 	cancel()

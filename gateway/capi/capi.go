@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -176,7 +175,7 @@ func (b *Gateway) say(s string) error {
 		go func() {
 			for s := range b.saych {
 				err := b.Bot.SendMessage(s)
-				if err != nil {
+				if err != nil && !network.IsCloseError(err) {
 					b.Fire(&network.AsyncError{Src: "Say", Err: err})
 				}
 			}
@@ -293,7 +292,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 			case chat.ErrUnexpectedPacket, websocket.ErrBadHandshake:
 				reconnect = true
 			default:
-				reconnect = network.IsConnClosedError(err) || os.IsTimeout(err)
+				reconnect = network.IsTemporary(err) || network.IsCloseError(err) || network.IsUnexpectedCloseError(err)
 			}
 
 			if reconnect && ctx.Err() == nil {
@@ -320,6 +319,7 @@ func (b *Gateway) Run(ctx context.Context) error {
 
 		b.Fire(&gateway.Disconnected{})
 		b.Fire(&gateway.Clear{})
+		b.SetConn(nil)
 	}
 
 	return ctx.Err()

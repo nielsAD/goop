@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"net"
@@ -307,13 +308,15 @@ var _events = map[string]interface{}{
 var _errors = map[string]interface{}{
 	"panic":              func(v interface{}) { panic(v) },
 	"New":                errors.New,
-	"IsPermission":       os.IsPermission,
-	"IsTimeout":          os.IsTimeout,
-	"IsConnClosed":       network.IsConnClosedError,
-	"IsConnRefused":      network.IsConnRefusedError,
+	"Unnest":             network.UnnestError,
 	"IsSysCall":          network.IsSysCallError,
 	"IsUseClosedNetwork": network.IsUseClosedNetworkError,
-	"Unnest":             network.UnnestError,
+	"IsClose":            network.IsCloseError,
+	"IsRefused":          network.IsRefusedError,
+	"IsUnexpectedClosed": network.IsUnexpectedCloseError,
+	"IsTemporary":        network.IsTemporary,
+	"IsTimeout":          network.IsTimeout,
+	"IsPermission":       os.IsPermission,
 }
 
 var _io = map[string]interface{}{
@@ -348,13 +351,13 @@ var _context = map[string]interface{}{
 }
 
 var _sync = map[string]interface{}{
-	"NewCond":   sync.NewCond,
-	"Map":       func() *sync.Map { return &sync.Map{} },
-	"Mutex":     func() *sync.Mutex { return &sync.Mutex{} },
-	"Once":      func() *sync.Once { return &sync.Once{} },
-	"Pool":      func() *sync.Pool { return &sync.Pool{} },
-	"RWMutex":   func() *sync.RWMutex { return &sync.RWMutex{} },
-	"WaitGroup": func() *sync.WaitGroup { return &sync.WaitGroup{} },
+	"NewCond":      sync.NewCond,
+	"NewMap":       func() *sync.Map { return &sync.Map{} },
+	"NewMutex":     func() *sync.Mutex { return &sync.Mutex{} },
+	"NewOnce":      func() *sync.Once { return &sync.Once{} },
+	"NewPool":      func() *sync.Pool { return &sync.Pool{} },
+	"NewRWMutex":   func() *sync.RWMutex { return &sync.RWMutex{} },
+	"NewWaitGroup": func() *sync.WaitGroup { return &sync.WaitGroup{} },
 }
 
 var _time = map[string]interface{}{
@@ -448,6 +451,9 @@ var _strings = map[string]interface{}{
 	"Bytes":  func(s string) []byte { return ([]byte)(s) },
 	"Slice":  func(s string, i int, j int) string { return s[i:j] },
 	"SSlice": func(s []string, i int, j int) []string { return s[i:j] },
+
+	"NewBuilder":  func() *strings.Builder { return &strings.Builder{} },
+	"NewTemplate": template.New,
 
 	"Compare":       strings.Compare,
 	"Contains":      strings.Contains,
@@ -645,7 +651,7 @@ var _http = map[string]interface{}{
 }
 
 var _websocket = map[string]interface{}{
-	"Dialer": func() *websocket.Dialer { var d = *websocket.DefaultDialer; return &d },
+	"NewDialer": func() *websocket.Dialer { var d = *websocket.DefaultDialer; return &d },
 
 	"TextMessage":   websocket.TextMessage,
 	"BinaryMessage": websocket.BinaryMessage,

@@ -61,7 +61,7 @@ func (r *Relay) InitDefaultHandlers() {
 
 func (r *Relay) relay(ev *network.Event) {
 	err := r.To.Relay(ev, r.From)
-	if err == nil || network.IsConnClosedError(err) {
+	if err == nil || network.IsCloseError(err) {
 		return
 	}
 
