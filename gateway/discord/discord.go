@@ -71,7 +71,11 @@ func New(conf *Config) (*Gateway, error) {
 	}
 
 	for id, c := range d.Config.Channels {
-		ch, err := NewChannel(d.Session, id, c)
+		if c.ChannelID != id {
+			continue
+		}
+
+		ch, err := NewChannel(d.Session, c)
 		if err != nil {
 			return nil, err
 		}
@@ -400,7 +404,7 @@ func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.Presence
 	d.updatePresence(msg.GuildID, &msg.Presence)
 }
 
-var patternEmotiji = regexp.MustCompile("<a?:([^:]*):[^>]*>")
+var emotijiPat = regexp.MustCompile("<a?:([^:]*):[^>]*>")
 
 func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) string {
 	var res = msg.Content
@@ -411,7 +415,7 @@ func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) stri
 	}
 
 	// Replace emojis
-	res = patternEmotiji.ReplaceAllString(res, ":$1:")
+	res = emotijiPat.ReplaceAllString(res, ":$1:")
 
 	return res
 }

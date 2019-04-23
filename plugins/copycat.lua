@@ -4,9 +4,9 @@
 --
 -- Echo everything said in channel or private message
 
-options._default = {
+defoptions({
     Access = access.Voice, -- Min access level
-}
+})
 
 goop:On(events.Chat, function(ev)
     local msg = ev.Arg

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/gateway/bnet"
 	"github.com/nielsAD/goop/gateway/capi"
@@ -200,7 +201,7 @@ func DefaultConfig() *Config {
 				},
 			},
 		},
-		Plugins: map[string]plugin.Config{},
+		Plugins: map[string]*PluginConfigWithDefault{},
 	}
 }
 
@@ -234,7 +235,17 @@ type CommandsConfig struct {
 }
 
 // PluginsConfig struct maps the layout of the Plugins configuration section
-type PluginsConfig map[string]plugin.Config
+type PluginsConfig map[string]*PluginConfigWithDefault
+
+// PluginOptions stores arguments passed to the plugin
+type PluginOptions map[string]interface{}
+
+// PluginConfigWithDefault struct maps the layout of a plugin configuration section
+type PluginConfigWithDefault struct {
+	plugin.Config
+	Options        PluginOptions
+	DefaultOptions PluginOptions
+}
 
 // CapiConfigWithDefault struct maps the layout of the Capi configuration section
 type CapiConfigWithDefault struct {
@@ -402,17 +413,12 @@ func (c *Config) MergeDefaults() error {
 		}
 	}
 
-	for k, p := range c.Plugins {
-		if p == nil {
-			c.Plugins[k] = make(plugin.Config)
-			continue
+	for _, p := range c.Plugins {
+		if p.Options == nil {
+			p.Options = make(PluginOptions)
 		}
 
-		var d, ok = p["_default"]
-		if !ok {
-			continue
-		}
-		if _, err := Merge(p, d, &MergeOptions{}); err != nil {
+		if _, err := Merge(p.Options, p.DefaultOptions, &MergeOptions{}); err != nil {
 			return err
 		}
 	}
@@ -479,6 +485,10 @@ func (c *Config) Map() map[string]interface{} {
 		if len(g1.(mi)) == 0 {
 			delete(gto, k1)
 		}
+	}
+
+	for _, p := range m["Plugins"].(mi) {
+		DeleteEqual(p.(mi)["Options"].(mi), p.(mi)["DefaultOptions"].(mi))
 	}
 
 	return m

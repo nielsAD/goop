@@ -4,9 +4,9 @@
 --
 -- Greet users when they join the channel
 
-options._default = {
+defoptions({
     Interval = "24h", -- Check interval
-}
+})
 
 local errors = require("go.errors")
 local ioutil = require("go.io")
@@ -73,5 +73,14 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    gw:SayPrivate(user.ID, "Goop " .. available .. " available, be sure to update! " .. WEB_URL)
+    gw:SayPrivate(user.ID, "Goop " .. available .. " available, download update at " .. WEB_URL)
+end)
+
+goop:On(events.Start, function()
+    available = check()
+    if not available then
+        return
+    end
+
+    log:Printf("[UPDATE] Goop %s available, download update at %s\n", available, WEB_URL)
 end)

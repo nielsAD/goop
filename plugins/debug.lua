@@ -4,7 +4,7 @@
 --
 -- Print all events
 
-options._default ={
+defoptions({
     Blacklist = {
         ["*capi.Packet"]              = true,
         ["*capi.Response"]            = true,
@@ -15,7 +15,7 @@ options._default ={
         ["*discordgo.MessageUpdate"]  = true,
         ["*discordgo.VoiceState"]     = true,
     },
-}
+})
 
 local color = require("go.color")
 

@@ -4,9 +4,9 @@
 --
 -- Add roll/flip commands that can be used to roll a dice/flip a coin
 
-options._default = {
+defoptions({
     AccessTrigger = access.Voice, -- Access level required to trigger command
-}
+})
 
 goop:AddCommand("roll", command(function(trig, _)
     if trig.User.Access < options.AccessTrigger then

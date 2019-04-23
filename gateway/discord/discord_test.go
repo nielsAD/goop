@@ -50,7 +50,7 @@ func TestChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, err := discord.NewChannel(s, "", &discord.ChannelConfig{})
+	c, err := discord.NewChannel(s, &discord.ChannelConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}

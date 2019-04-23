@@ -60,8 +60,6 @@ Configuration files are static and only loaded during start-up. To make changes 
 
 !> **NOTE:** Not all changes can be applied at runtime, some require a restart (i.e. connection settings).
 
-Examples usage:
-
 ##### Find all settings with `capi` and `apikey` in their name
   * _command_
   ```properties
@@ -105,6 +103,6 @@ Examples usage:
 
 <br>
 
-?> **TIP:** Use `*` as a wildcard and get/set multiple settings at once!  
+?> **TIP:** Use `*` as a wildcard to get/set multiple settings at once!  
 **For example**: `.settings set capi/gateways/*/accesstalk ignore`
 

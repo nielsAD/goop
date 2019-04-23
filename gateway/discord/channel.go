@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/gowarcraft3/network"
 )
@@ -21,9 +22,10 @@ import (
 // ChannelConfig stores the configuration of a single Discord channel
 type ChannelConfig struct {
 	gateway.Config
-	BufSize        uint8
+	ChannelID      string
 	Webhook        string
 	OnlineListID   string
+	BufSize        uint8
 	RelayJoins     RelayJoinMode
 	AccessMentions gateway.AccessLevel
 	AccessTalk     gateway.AccessLevel
@@ -36,7 +38,6 @@ type Channel struct {
 	gateway.Common
 	network.EventEmitter
 
-	chanID  string
 	guildID string
 	session *discordgo.Session
 
@@ -48,6 +49,7 @@ type Channel struct {
 	ochan  chan struct{}
 	online []online
 
+	// Set once before Run(), read-only after that
 	*ChannelConfig
 }
 
@@ -59,16 +61,14 @@ type online struct {
 }
 
 // NewChannel initializes a new Channel struct
-func NewChannel(s *discordgo.Session, id string, conf *ChannelConfig) (*Channel, error) {
+func NewChannel(s *discordgo.Session, conf *ChannelConfig) (*Channel, error) {
 	var c = Channel{
 		ChannelConfig: conf,
 
-		chanID:  id,
 		session: s,
 	}
 
-	if ch, err := s.Channel(id); err == nil {
-		c.chanID = ch.ID
+	if ch, err := s.Channel(conf.ChannelID); err == nil {
 		c.guildID = ch.GuildID
 	}
 
@@ -77,8 +77,8 @@ func NewChannel(s *discordgo.Session, id string, conf *ChannelConfig) (*Channel,
 
 // Channel residing in
 func (c *Channel) Channel() *gateway.Channel {
-	var name = c.chanID
-	if ch, err := c.session.State.Channel(c.chanID); err == nil {
+	var name = c.ChannelID
+	if ch, err := c.session.State.Channel(c.ChannelID); err == nil {
 		if g, err := c.session.State.Guild(ch.GuildID); err == nil {
 			name = fmt.Sprintf("[%s]%s", g.Name, ch.Name)
 		} else {
@@ -86,7 +86,7 @@ func (c *Channel) Channel() *gateway.Channel {
 		}
 	}
 
-	return &gateway.Channel{ID: c.chanID, Name: name}
+	return &gateway.Channel{ID: c.ChannelID, Name: name}
 }
 
 // ChannelUsers online
@@ -100,7 +100,7 @@ func (c *Channel) ChannelUsers() []gateway.User {
 
 	var res = make([]gateway.User, 0, len(g.Presences))
 	for _, p := range g.Presences {
-		perm, err := c.session.State.UserChannelPermissions(p.User.ID, c.chanID)
+		perm, err := c.session.State.UserChannelPermissions(p.User.ID, c.ChannelID)
 		if err != nil || perm&discordgo.PermissionReadMessages == 0 {
 			continue
 		}
@@ -203,7 +203,7 @@ func (c *Channel) say(s string) error {
 				if len(s) > 2000 {
 					s = s[:1997] + "..."
 				}
-				_, err := c.session.ChannelMessageSend(c.chanID, s)
+				_, err := c.session.ChannelMessageSend(c.ChannelID, s)
 				if err != nil {
 					c.Fire(&network.AsyncError{Src: "Say", Err: err})
 				}
@@ -321,7 +321,7 @@ func (c *Channel) parse(s string, l gateway.AccessLevel) string {
 	})
 
 	s = mentionPat.ReplaceAllStringFunc(s, func(m string) string {
-		if strings.EqualFold(m, "@everyone") || strings.EqualFold(m, "@here") {
+		if m == "@everyone" || m == "@here" {
 			return m
 		}
 
@@ -446,18 +446,18 @@ func (c *Channel) updateOnline() {
 				last = content
 
 				if c.OnlineListID == "" {
-					if m, err := c.session.ChannelMessageSend(c.chanID, content); err != nil {
+					if m, err := c.session.ChannelMessageSend(c.ChannelID, content); err != nil {
 						c.Fire(&network.AsyncError{Src: "updateOnline[Send]", Err: err})
 					} else {
 						c.OnlineListID = m.ID
 
 						// Try to pin message, but ignore failure (requires Manage Messages permission)
-						c.session.ChannelMessagePin(c.chanID, m.ID)
+						c.session.ChannelMessagePin(c.ChannelID, m.ID)
 					}
 					continue
 				}
 
-				if _, err := c.session.ChannelMessageEdit(c.chanID, c.OnlineListID, content); err != nil {
+				if _, err := c.session.ChannelMessageEdit(c.ChannelID, c.OnlineListID, content); err != nil {
 					c.Fire(&network.AsyncError{Src: "updateOnline[Update]", Err: err})
 
 					switch err := err.(type) {

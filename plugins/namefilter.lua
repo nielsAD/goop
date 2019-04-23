@@ -4,11 +4,11 @@
 --
 -- Ban Battle.net users with specified patterns in their name
 
-options._default = {
+defoptions({
     Patterns      = {"|[cnr]"},   -- Patterns to match
     AccessProtect = access.Voice, -- Min access level
     Kick          = false,        -- Kick instead of ban
-}
+})
 
 goop:On(events.Join, function(ev)
     local user = ev.Arg
@@ -22,7 +22,7 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    local found    = false
+    local found = false
     for _, p in options.Patterns() do
         if user.Name:find(p) then
             found = true

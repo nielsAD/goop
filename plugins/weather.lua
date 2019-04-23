@@ -4,10 +4,10 @@
 --
 -- Add weather command that prints weather on location
 
-options._default = {
+defoptions({
     AccessTrigger   = access.Whitelist, -- Min access level
     DefaultLocation = "",               -- Default location
-}
+})
 
 local ioutil  = require("go.io")
 local strings = require("go.strings")

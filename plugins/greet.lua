@@ -4,7 +4,7 @@
 --
 -- Greet users when they join the channel
 
-options._default = {
+defoptions({
     AccessMin   = access.Voice,               -- Min access level
     AccessMax   = access.Owner,               -- Max access level
     Gateways    = {"^bnet:.*$", "^capi:.*$"}, -- Pattern for gateway IDs
@@ -17,7 +17,7 @@ options._default = {
     --   * #g:     Gateway ID
     --   * #d:     Gateway discriminator
     Message = "Welcome to ##c, #n! Your access level is <#a>.",
-}
+})
 
 goop:On(events.Join, function(ev)
     local user = ev.Arg
@@ -27,7 +27,7 @@ goop:On(events.Join, function(ev)
         return
     end
 
-    local found   = false
+    local found = false
     for _, t in options.Gateways() do
         if gw:ID():find(t) then
             found = true

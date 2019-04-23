@@ -4,10 +4,10 @@
 --
 -- Add randkick command that randomly kicks a user from the channel when triggered
 
-options._default = {
+defoptions({
     AccessTrigger = access.Operator,  -- Access level required to trigger command
     AccessProtect = access.Whitelist, -- Whitelist access level
-}
+})
 
 goop:AddCommand("randkick", command(function(trig, gw)
     if trig.User.Access < options.AccessTrigger then

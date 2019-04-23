@@ -4,9 +4,9 @@
 --
 -- Add announce command that can repeat a message at specified interval
 
-options._default = {
+defoptions({
     AccessTrigger = access.Operator, -- Access level required to trigger command
-}
+})
 
 local time    = require("go.time")
 local strings = require("go.strings")

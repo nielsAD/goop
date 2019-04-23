@@ -3,6 +3,15 @@
 // License: Mozilla Public License, v2.0
 
 // Goop (GO OPerator) is a BNet Channel Operator.
+//
+// Main package basically loads/updates configuration files and creates a Goop instance.
+// Configuration structure works with "Default" structs that are recursively merged into
+// the main struct; all zero values are overwritten by defaults.
+//
+// Order of precedence: config.persist.toml > config.toml > DefaultConfig()
+//
+// config.toml stores user configuration and is not modified by the application.
+// config.persist.toml persists all runtime changes and is managed by the application.
 package main
 
 import (
@@ -41,14 +50,70 @@ var (
 var logOut = log.New(color.Output, "", 0)
 var logErr = log.New(color.Error, "", 0)
 
+const intro = `
+   _____                      
+  / ____|                     
+ | |  __   ___    ___   _ __  
+ | | |_ | / _ \  / _ \ | '_ \ 
+ | |__| || (_) || (_) || |_) |
+  \_____| \___/  \___/ | .__/ 
+                       | |    
+                       |_|    
+`
+
+// Load configuration
+func Load(files ...string) (*Config, *Config, error) {
+
+	// User configuration (config.toml)
+	var def = DefaultConfig()
+	if undecoded, err := Decode(def, files...); err != nil {
+		return nil, nil, err
+	} else if len(undecoded) > 0 {
+		logErr.Printf("Undecoded configuration keys: [%s]\n", strings.Join(undecoded, ", "))
+	}
+
+	// Set plugin.Path if empty
+	for name, p := range def.Plugins {
+		if p.Path != "" {
+			continue
+		}
+		if path.Ext(name) == "" {
+			name += ".lua"
+		}
+		if !path.IsAbs(name) {
+			name = path.Join("plugins", name)
+		}
+		p.Path = name
+	}
+
+	// Set discord.Channel.ChannelID if empty
+	for _, d := range def.Discord.Gateways {
+		for id, c := range d.Channels {
+			if c.ChannelID == "" {
+				c.ChannelID = id
+			}
+		}
+	}
+
+	// Persistent configuration, i.e. runtime changes (config.persist.toml)
+	conf, err := def.Load()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return def, conf, nil
+}
+
+// TODO: Persistent config maybe become out-of-sync with user config after edit, resulting
+// in incomplete structs after merge. To minimize the impact of this phenomenon, we check
+// if essential fields are set before loading a specific section. Can this be done better?
+
 // New initializes a Goop struct
 func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	var res = goop.New(conf)
 
-	// Plugin globals
+	// Global map, shared between plugins
 	var globals = map[string]interface{}{
-		"log":           logOut,
-		"goop":          res,
 		"BUILD_VERSION": BuildTag,
 		"BUILD_COMMIT":  BuildCommit,
 		"BUILD_DATE":    BuildDate,
@@ -58,30 +123,39 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	}
 
 	for k, c := range conf.Plugins {
-		var f = k
-		if path.Ext(f) == "" {
-			f += ".lua"
+		if c.Path == "" {
+			continue
 		}
-		if !path.IsAbs(f) {
-			f = path.Join("plugins", f)
-		}
-		p, err := plugin.Load(f, c, globals)
+		p, err := plugin.Load(&c.Config)
 		if err != nil {
+			return nil, err
+		}
+
+		p.SetGlobal("goop", res)
+		p.SetGlobal("log", logOut)
+
+		p.SetGlobal("globals", globals)
+		p.SetGlobal("options", c.Options)
+		p.SetGlobal("defoptions", func(o PluginOptions) {
+			def.Plugins[k].DefaultOptions = o
+			if err := def.MergeDefaults(); err != nil {
+				res.Fire(&network.AsyncError{Src: "defoptions[MergeDefaults(def)]", Err: err})
+			}
+
+			conf.Plugins[k].DefaultOptions = o
+			if err := conf.MergeDefaults(); err != nil {
+				res.Fire(&network.AsyncError{Src: "defoptions[MergeDefaults(conf)]", Err: err})
+			}
+		})
+
+		if err := p.Run(); err != nil {
 			return nil, err
 		}
 
 		res.Once(goop.Stop{}, func(_ *network.Event) {
 			p.Close()
 		})
-
-		if m, ok := c["_default"]; ok {
-			def.Plugins[k] = make(plugin.Config)
-			def.Plugins[k]["_default"] = Map(m)
-		}
 	}
-
-	// Merge plugin defaults
-	conf.MergeDefaults()
 
 	if err := conf.Commands.AddTo(res); err != nil {
 		return nil, err
@@ -98,6 +172,7 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 
 	for k, g := range conf.Capi.Gateways {
 		if g.APIKey == "" {
+			logErr.Println(color.RedString("[ERROR] Unused capi configuration '%s'", k))
 			continue
 		}
 
@@ -112,7 +187,8 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 	}
 
 	for k, g := range conf.BNet.Gateways {
-		if g.ServerAddr == "" {
+		if g.Password == "" {
+			logErr.Println(color.RedString("[ERROR] Unused bnet configuration '%s'", k))
 			continue
 		}
 
@@ -128,6 +204,7 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 
 	for k, g := range conf.Discord.Gateways {
 		if g.AuthToken == "" {
+			logErr.Println(color.RedString("[ERROR] Unused discord configuration '%s'", k))
 			continue
 		}
 
@@ -155,7 +232,7 @@ func New(stdin io.ReadCloser, def *Config, conf *Config) (*goop.Goop, error) {
 		}
 		for g2 := range r.From {
 			if res.Gateways[g2] == nil {
-				logErr.Println(color.RedString("[ERROR]Unused relay configuration '%s.%s'", g1, g2))
+				logErr.Println(color.RedString("[ERROR] Unused relay configuration '%s.%s'", g1, g2))
 			}
 		}
 	}
@@ -202,17 +279,9 @@ func main() {
 
 start:
 	// User configuration (config.toml)
-	var def = DefaultConfig()
-	if undecoded, err := Decode(def, args...); err != nil {
-		logErr.Fatalf("Error reading configuration: %v\n", err)
-	} else if len(undecoded) > 0 {
-		logErr.Printf("Undecoded configuration keys: [%s]\n", strings.Join(undecoded, ", "))
-	}
-
-	// Persistent configuration, i.e. runtime changes (config.persist.toml)
-	conf, err := def.Load()
+	def, conf, err := Load(args...)
 	if err != nil {
-		logErr.Fatal("Error loading persistent configuration: ", err)
+		logErr.Fatalf("Error loading configuration: %v\n", err)
 	}
 
 	var flags = 0
@@ -308,7 +377,8 @@ start:
 		done <- struct{}{}
 	}()
 
-	logOut.Println(color.MagentaString("Starting goop.."))
+	logOut.Println(color.MagentaString(intro))
+	logOut.Println(color.MagentaString("Starting goop %s..", BuildTag))
 	g.Run(ctx)
 	cancel()
 
