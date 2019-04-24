@@ -6,10 +6,9 @@
     * [Discord](discord.md)
     * [Relay](relay.md)
 * Commands
-    * [Execution](trigger.md)
-    * [Built-in Commands](list_commands.md)
-    * [Custom Commands](custom_commands.md)
-    * [Access Level](access.md)
+    * [Introduction](commands.md)
+    * [Built-in Commands](commands_builtin.md)
+    * [Custom Commands](commands_custom.md)
 * Plugins
     * [Loading Plugins](loading_plugins.md)
     * [Writing Plugins](writing_plugins.md)

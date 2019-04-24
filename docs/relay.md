@@ -1,6 +1,9 @@
 Relay
 =====
 
+By default, only chat events are relayed between gateways. The `Relay` configuration section can be used to change this.
+
+
 Naming
 ------
 
@@ -18,31 +21,63 @@ _Example config:_
   AuthToken = "{AuthorizationToken}"
 ```
 
+In this example, curly braces mark *gateway identifiers*. These identifiers are used in the relay configuration section to refer to gateways.
+
+
 Config
 ------
 
-By default, only chat events are relayed between gateways. The `Relay` configuration section can be used to change this.
-
-_Example config:_
+_Default config:_
 ```toml
 [Relay]
-  # Relay everything everywhere by default
+  # Relay to other gateways
   [Relay.Default]
-  Log         = true
-  System      = true
-  Channel     = true
-  Joins       = true
-  Chat        = true
-  PrivateChat = true
-  Say         = true
+    Log         = false
+    System      = false
+    Channel     = false
+    Joins       = false
+    Say         = true
+    Chat        = true
+    PrivateChat = true
+    JoinAccess        = ""
+    ChatAccess        = "voice"
+    PrivateChatAccess = "voice"
 
-  # For BNet -> Discord, only relay chat + whispers + system messages
-  [Relay.To."discord:{discord_name}:{channel_id}".From."capi:{capi_name}"]
-  Joins  = true
-  Chat   = true
-  System = true
-
-  # For Discord -> BNet, only relay chat
-  [Relay.To."capi:{capi_name}".From."discord:{discord_name}:{channel_id}"]
-  Chat = true
+  # Relay to sender
+  [Relay.DefaultSelf]
+    Log         = false
+    System      = false
+    Channel     = false
+    Joins       = false
+    Say         = false
+    Chat        = false
+    PrivateChat = true
+    JoinAccess        = ""
+    ChatAccess        = ""
+    PrivateChatAccess = "voice"
 ```
+
+_Example:_
+```toml
+[Relay]
+  # Relay chat + joins from all other gateways to Discord
+  [Relay.To."discord:{discord_name}:{channel_id}".Default]
+    Joins      = true
+    Say        = true
+    Chat       = true
+    JoinAccess = "min"
+    ChatAccess = "voice"
+
+  # Only relay joins from Capi to Discord
+  [Relay.To."discord:{discord_name}:{channel_id}".From."capi:{capi_name}"]
+    Joins = true
+```
+
+### Precedence
+To find the relay configuration between two specific gateways, Goop searches in the following order and uses the first found section:
+
+1. `[Relay.To."A".From."B"]`
+2. `[Relay.To."A".Default]`
+3. `[Relay.Default]`
+
+!> Note that the relay subsections do not merge in `Default` records! Contrary to gateway configuration sections, the `Default` record is only used when a subsection between two gateways is not defined, it is not used as fallback for individual undefined fields.

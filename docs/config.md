@@ -32,6 +32,7 @@ A minimal example:
 
 ?> **TIP:** Running `goop -makeconf` will generate a fresh configuration file containing all default values.
 
+
 Structure
 ---------
 
@@ -43,7 +44,7 @@ Section|Description
 [[BNet]](bnet.md#cd-keys)|Battle.net account connection (defunct for official servers).
 [[Discord]](discord.md)|Discord connection.
 [[Relay]](relay.md)|Chat relay configuration.
-[[Commands]](commands.md)|Command configuration.
+[[Commands]](commands.md#config)|Command configuration.
 [[Plugins]](plugins.md)|Load external plugins.
 [[StdIO]](stdio.md)|Terminal configuration.
 [[Log]](log.md)|Log format.
@@ -51,12 +52,13 @@ Section|Description
 ?> **TIP:**  The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
 Examining the source code is the best way to find out exactly how settings are used.
 
+
 At Runtime
 ----------
 
-Configuration files are static and only loaded during start-up. To make changes while Goop is running, use the `.settings` command. These changes are saved on disk and will be loaded in future runs as well.
+Configuration files are static and only loaded during start-up. To make changes while Goop is running, use the [.settings](commands_builtin.md#settings) command. These changes are saved on disk and will be loaded in future runs as well.
 
-!> **NOTE:** It is preferable to make changes to `config.toml` directly rather than using the `.settings` command. Use the command to experiment with settings and make temporary changes.
+!> **NOTE:** It is preferable to make changes to `config.toml` directly rather than using the [.settings](commands_builtin.md#settings) command. Use the command to experiment with settings and make temporary changes.
 
 !> **NOTE:** Not all changes can be applied at runtime, some require a restart (i.e. connection settings).
 
@@ -104,5 +106,5 @@ Configuration files are static and only loaded during start-up. To make changes 
 <br>
 
 ?> **TIP:** Use `*` as a wildcard to get/set multiple settings at once!  
-**For example**: `.settings set capi/gateways/*/accesstalk ignore`
+**For example:** `.settings set capi/gateways/*/accesstalk ignore`
 
