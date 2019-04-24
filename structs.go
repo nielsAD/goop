@@ -88,20 +88,81 @@ func mergeMap(dst reflect.Value, key reflect.Value, val reflect.Value, opt *Merg
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
 
-	var idx = reflect.New(dst.Type().Elem()).Elem()
+	var tmp reflect.Value
+	var elt = dst.Type().Elem()
 	var old = dst.MapIndex(key)
+
+	// If interface{}, try to preserve element type info from old index
+	if old.IsValid() && elt.Kind() == reflect.Interface && elt.NumMethod() == 0 && !old.IsNil() && !opt.Delete {
+		old = old.Elem()
+		tmp = reflect.New(old.Type()).Elem()
+	} else {
+		tmp = reflect.New(elt).Elem()
+	}
+
 	if old.IsValid() {
-		if err := Assign(idx, old); err != nil {
+		if err := Assign(tmp, old); err != nil {
 			return nil, err
 		}
 	}
 
-	undecoded, err := merge(idx, val, opt)
+	undecoded, err := merge(tmp, val, opt)
 	if err != nil {
 		return nil, err
 	}
 
-	dst.SetMapIndex(key, idx)
+	dst.SetMapIndex(key, tmp)
+	return undecoded, nil
+}
+
+type mergeKeys struct {
+	src reflect.Value
+	dst reflect.Value
+}
+
+func mapKey(val reflect.Value) string {
+	if val.Kind() == reflect.String {
+		return val.Interface().(string)
+	}
+	return fmt.Sprintf("%v", val.Interface())
+}
+
+func mergeMaps(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, error) {
+	var keys = map[string]mergeKeys{}
+	for _, key := range src.MapKeys() {
+		var n = strings.ToLower(mapKey(key))
+		keys[n] = mergeKeys{
+			src: key,
+		}
+	}
+	for _, key := range dst.MapKeys() {
+		var n = strings.ToLower(mapKey(key))
+		var v = keys[n]
+		v.dst = key
+		keys[n] = v
+	}
+
+	var undecoded = []string{}
+	for idx, key := range keys {
+		if !key.src.IsValid() {
+			if opt.Delete {
+				dst.SetMapIndex(key.dst, reflect.Value{})
+			}
+			continue
+		}
+		if !key.dst.IsValid() {
+			key.dst = key.src
+		}
+
+		undec, err := mergeMap(dst, key.dst, src.MapIndex(key.src), opt)
+		if err != nil {
+			return nil, err
+		}
+		for _, u := range undec {
+			undecoded = append(undecoded, fmt.Sprintf("%s.%s", idx, u))
+		}
+	}
+
 	return undecoded, nil
 }
 
@@ -164,7 +225,6 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 		}
 		return undecoded, nil
 	case reflect.Map:
-		var dstmap = dst.Kind() == reflect.Map
 		if dst.Kind() == reflect.Interface {
 			if !src.Type().AssignableTo(dst.Type()) {
 				return nil, ErrTypeMismatch
@@ -177,28 +237,26 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 			}
 			dst.Set(reflect.MakeMap(src.Type()))
 			dst = dst.Elem()
-			dstmap = true
+		}
+
+		if dst.Kind() == reflect.Map {
+			return mergeMaps(dst, src, opt)
 		}
 
 		var undecoded = []string{}
 		for _, key := range src.MapKeys() {
-			n := fmt.Sprintf("%v", key.Interface())
-			k := find(dst, []string{n})
+			var n = mapKey(key)
+			var k = find(dst, []string{n})
 
-			var undec []string
-			var err error
-
-			if k != nil && k.CanSet() {
-				undec, err = merge(*k, src.MapIndex(key), opt)
-			} else if dstmap {
-				undec, err = mergeMap(dst, key, src.MapIndex(key), opt)
-			} else if k != nil {
-				return nil, ErrTypeMismatch
-			} else {
+			if k == nil {
 				undecoded = append(undecoded, n)
 				continue
 			}
+			if !k.CanSet() {
+				return nil, ErrTypeMismatch
+			}
 
+			undec, err := merge(*k, src.MapIndex(key), opt)
 			if err != nil {
 				return nil, err
 			}
@@ -206,16 +264,7 @@ func merge(dst reflect.Value, src reflect.Value, opt *MergeOptions) ([]string, e
 				undecoded = append(undecoded, fmt.Sprintf("%s.%s", n, u))
 			}
 		}
-		if dstmap && opt.Delete {
-			for _, key := range dst.MapKeys() {
-				n := fmt.Sprintf("%v", key.Interface())
-				if find(src, []string{n}) != nil {
-					continue
-				}
 
-				dst.SetMapIndex(key, reflect.Value{})
-			}
-		}
 		return undecoded, nil
 	case reflect.Struct:
 		var undecoded = []string{}
@@ -282,7 +331,7 @@ func Map(val interface{}) interface{} {
 	case reflect.Map:
 		var m = make(map[string]interface{})
 		for _, key := range v.MapKeys() {
-			m[fmt.Sprintf("%v", key.Interface())] = Map(v.MapIndex(key).Interface())
+			m[mapKey(key)] = Map(v.MapIndex(key).Interface())
 		}
 		return m
 	case reflect.Struct:
@@ -340,11 +389,9 @@ func flatMap(prf string, val reflect.Value, dst map[string]interface{}) {
 	case reflect.Map:
 		dst[prf] = val.Interface()
 		for _, key := range val.MapKeys() {
-			var pre string
-			if prf == "" {
-				pre = fmt.Sprintf("%v", key.Interface())
-			} else {
-				pre = fmt.Sprintf("%s/%v", prf, key.Interface())
+			var pre = mapKey(key)
+			if prf != "" {
+				pre = fmt.Sprintf("%s/%s", prf, pre)
 			}
 			flatMap(pre, val.MapIndex(key), dst)
 		}
@@ -398,8 +445,16 @@ func find(val reflect.Value, key []string) *reflect.Value {
 		}
 		return find(val.Index(int(n)), key[1:])
 	case reflect.Map:
+		if val.Type().Elem().Kind() == reflect.String {
+			if idx := val.MapIndex(reflect.ValueOf(key[0])); idx.IsValid() {
+				return find(idx, key[1:])
+			}
+		}
+
 		for _, k := range val.MapKeys() {
-			if strings.EqualFold(key[0], fmt.Sprintf("%v", k.Interface())) {
+			var mk = mapKey(k)
+			if strings.EqualFold(key[0], mk) {
+				key[0] = mk
 				return find(val.MapIndex(k), key[1:])
 			}
 		}
@@ -418,6 +473,7 @@ func find(val reflect.Value, key []string) *reflect.Value {
 				}
 			}
 			if strings.EqualFold(key[0], t.Name) {
+				key[0] = t.Name
 				return find(f, key[1:])
 			}
 		}
@@ -428,8 +484,9 @@ func find(val reflect.Value, key []string) *reflect.Value {
 }
 
 // Find tries to find the (nested) reflect.Value for key
-func Find(val interface{}, key string) *reflect.Value {
-	return find(reflect.ValueOf(val), strings.Split(key, "/"))
+func Find(val interface{}, key string) (*reflect.Value, string) {
+	var keys = strings.Split(key, "/")
+	return find(reflect.ValueOf(val), keys), strings.Join(keys, "/")
 }
 
 // Assign src to dst
@@ -505,6 +562,13 @@ func AssignString(dst reflect.Value, src string) error {
 		}
 		dst.SetUint(n)
 		return nil
+	case reflect.Float32, reflect.Float64:
+		n, err := strconv.ParseFloat(src, 64)
+		if err != nil {
+			return err
+		}
+		dst.SetFloat(n)
+		return nil
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.Struct, reflect.Interface:
 		var tmp struct {
 			V interface{}
@@ -515,7 +579,7 @@ func AssignString(dst reflect.Value, src string) error {
 			_, err := merge(dst, reflect.ValueOf(tmp.V), &MergeOptions{Overwrite: true, Delete: true})
 			return err
 		} else if dst.Kind() != reflect.Interface {
-			return nil
+			return err
 		}
 
 		fallthrough
@@ -526,7 +590,7 @@ func AssignString(dst reflect.Value, src string) error {
 
 // Get config value via flat index string
 func Get(src interface{}, key string) (interface{}, error) {
-	var val = Find(src, key)
+	val, _ := Find(src, key)
 	if val == nil || !val.CanInterface() {
 		return nil, ErrUnknownKey
 	}
@@ -535,7 +599,7 @@ func Get(src interface{}, key string) (interface{}, error) {
 
 // Set config value via flat index string
 func Set(dst interface{}, key string, val interface{}) error {
-	var f = Find(dst, key)
+	f, key := Find(dst, key)
 	if f != nil && f.CanSet() {
 		return Assign(*f, reflect.ValueOf(val))
 	}
@@ -545,46 +609,46 @@ func Set(dst interface{}, key string, val interface{}) error {
 		return ErrUnknownKey
 	}
 
-	f = Find(dst, parent)
-	if f == nil {
+	p, _ := Find(dst, parent)
+	if p == nil {
 		return ErrUnknownKey
 	}
 
-	switch f.Kind() {
+	switch p.Kind() {
 	case reflect.Map:
-		if f.IsNil() {
-			if err := Set(dst, parent, reflect.MakeMap(f.Type()).Interface()); err != nil {
+		if p.IsNil() {
+			if err := Set(dst, parent, reflect.MakeMap(p.Type()).Interface()); err != nil {
 				return err
 			}
-			f = Find(dst, parent)
-			if f.IsNil() {
+			p, _ = Find(dst, parent)
+			if p.IsNil() {
 				return ErrUnknownKey
 			}
 		}
 
-		var idx = reflect.New(f.Type().Key()).Elem()
+		var idx = reflect.New(p.Type().Key()).Elem()
 		if err := AssignString(idx, key); err != nil {
 			return err
 		}
 
-		var tmp = reflect.New(f.Type().Elem()).Elem()
+		var tmp = reflect.New(p.Type().Elem()).Elem()
 		if err := Assign(tmp, reflect.ValueOf(val)); err != nil {
 			return err
 		}
 
-		f.SetMapIndex(idx, tmp)
+		p.SetMapIndex(idx, tmp)
 		return nil
 	case reflect.Slice:
 		if key != "[]" {
 			return ErrUnknownKey
 		}
 
-		var tmp = reflect.New(f.Type().Elem()).Elem()
+		var tmp = reflect.New(p.Type().Elem()).Elem()
 		if err := Assign(tmp, reflect.ValueOf(val)); err != nil {
 			return err
 		}
 
-		return Set(dst, parent, reflect.Append(*f, tmp).Interface())
+		return Set(dst, parent, reflect.Append(*p, tmp).Interface())
 	default:
 		return ErrUnknownKey
 	}
@@ -592,7 +656,7 @@ func Set(dst interface{}, key string, val interface{}) error {
 
 // Unset config value via flat index string
 func Unset(dst interface{}, key string) (err error) {
-	var f = Find(dst, key)
+	f, key := Find(dst, key)
 	if f == nil {
 		return ErrUnknownKey
 	}
@@ -601,17 +665,17 @@ func Unset(dst interface{}, key string) (err error) {
 	}
 
 	parent, key := ParentKey(key)
-	f = Find(dst, parent)
+	p, _ := Find(dst, parent)
 
-	if f != nil {
-		switch f.Kind() {
+	if p != nil {
+		switch p.Kind() {
 		case reflect.Map:
-			var idx = reflect.New(f.Type().Key()).Elem()
+			var idx = reflect.New(p.Type().Key()).Elem()
 			if err := AssignString(idx, key); err != nil {
 				return err
 			}
 
-			f.SetMapIndex(idx, reflect.Value{})
+			p.SetMapIndex(idx, reflect.Value{})
 			return nil
 		case reflect.Slice:
 			idx, err := strconv.Atoi(key)
@@ -619,8 +683,8 @@ func Unset(dst interface{}, key string) (err error) {
 				return err
 			}
 
-			var len = f.Len()
-			return Set(dst, parent, reflect.AppendSlice(f.Slice(0, idx), f.Slice(idx+1, len)).Interface())
+			var len = p.Len()
+			return Set(dst, parent, reflect.AppendSlice(p.Slice(0, idx), p.Slice(idx+1, len)).Interface())
 		}
 	}
 	return err
@@ -637,7 +701,7 @@ func GetString(src interface{}, key string) (string, error) {
 
 // SetString config value via flat index string
 func SetString(dst interface{}, key string, val string) error {
-	var f = Find(dst, key)
+	f, key := Find(dst, key)
 	if f != nil && f.CanSet() {
 		return AssignString(*f, val)
 	}
@@ -647,14 +711,23 @@ func SetString(dst interface{}, key string, val string) error {
 		return ErrUnknownKey
 	}
 
-	f = Find(dst, parent)
-	if f == nil {
+	p, _ := Find(dst, parent)
+	if p == nil {
 		return ErrUnknownKey
 	}
 
-	switch f.Kind() {
+	switch p.Kind() {
 	case reflect.Map, reflect.Slice:
-		var tmp = reflect.New(f.Type().Elem()).Elem()
+		var tmp reflect.Value
+		var elt = p.Type().Elem()
+
+		// If interface{}, try to preserve element type info from old index
+		if f != nil && elt.Kind() == reflect.Interface && elt.NumMethod() == 0 && !f.IsNil() {
+			tmp = reflect.New(f.Elem().Type()).Elem()
+		} else {
+			tmp = reflect.New(elt).Elem()
+		}
+
 		if err := AssignString(tmp, val); err != nil {
 			return err
 		}

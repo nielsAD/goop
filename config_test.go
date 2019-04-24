@@ -273,6 +273,13 @@ func TestSet(t *testing.T) {
 		t.Fatal("Expected accessuser[niels] to be v")
 	}
 
+	if err := cfg.Set("bnet/default/accessuser/NIELS", gateway.AccessWhitelist); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BNet.Default.AccessUser["niels"] != gateway.AccessWhitelist {
+		t.Fatal("Expected accessuser[niels] to be v")
+	}
+
 	cfg.Unset("bnet/default/accessuser/niels")
 	if _, ok := cfg.BNet.Default.AccessUser["niels"]; ok {
 		t.Fatal("Expected accessuser[niels] to be unset")
@@ -332,6 +339,13 @@ func TestSetString(t *testing.T) {
 		t.Fatal("Expected accessuser[niels] to be v")
 	}
 
+	if err := cfg.Set("bnet/default/accessuser/NIELS", gateway.AccessWhitelist.String()); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BNet.Default.AccessUser["niels"] != gateway.AccessWhitelist {
+		t.Fatal("Expected accessuser[niels] to be v")
+	}
+
 	cfg.SetString("bnet/default/cdkeys[]", "111")
 	cfg.SetString("bnet/default/cdkeys[]", "333")
 	cfg.SetString("bnet/default/cdkeys[]", "555")
@@ -342,3 +356,66 @@ func TestSetString(t *testing.T) {
 		t.Fatal("CDKeys(5) mismatch")
 	}
 }
+
+func benchConfig(n int) *Config {
+	var cfg = DefaultConfig()
+
+	cfg.BNet.Default.AccessUser = make(map[string]gateway.AccessLevel)
+	for i := 0; i < n; i++ {
+		cfg.BNet.Default.AccessUser[fmt.Sprintf("user%d", i)] = gateway.AccessBan
+	}
+
+	return cfg
+}
+
+func benchmarkMerge(b *testing.B, n int) {
+	var cfg = benchConfig(n)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cfg.MergeDefaults()
+	}
+}
+
+func BenchmarkMerge0(b *testing.B)    { benchmarkMerge(b, 0) }
+func BenchmarkMerge100(b *testing.B)  { benchmarkMerge(b, 100) }
+func BenchmarkMerge1000(b *testing.B) { benchmarkMerge(b, 1000) }
+
+func benchmarkCopy(b *testing.B, n int) {
+	var cfg = benchConfig(n)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cfg.Copy()
+	}
+}
+
+func BenchmarkCopy0(b *testing.B)    { benchmarkCopy(b, 0) }
+func BenchmarkCopy100(b *testing.B)  { benchmarkCopy(b, 100) }
+func BenchmarkCopy1000(b *testing.B) { benchmarkCopy(b, 1000) }
+
+func benchmarkMap(b *testing.B, n int) {
+	var cfg = benchConfig(n)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cfg.Map()
+	}
+}
+
+func BenchmarkMap0(b *testing.B)    { benchmarkMap(b, 0) }
+func BenchmarkMap100(b *testing.B)  { benchmarkMap(b, 100) }
+func BenchmarkMap1000(b *testing.B) { benchmarkMap(b, 1000) }
+
+func benchmarkSet(b *testing.B, n int) {
+	var cfg = benchConfig(n)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cfg.Set("BNet/Default/Username", "bench")
+	}
+}
+
+func BenchmarkSet0(b *testing.B)    { benchmarkSet(b, 0) }
+func BenchmarkSet100(b *testing.B)  { benchmarkSet(b, 100) }
+func BenchmarkSet1000(b *testing.B) { benchmarkSet(b, 1000) }

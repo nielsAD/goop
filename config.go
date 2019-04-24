@@ -418,7 +418,15 @@ func (c *Config) MergeDefaults() error {
 			p.Options = make(PluginOptions)
 		}
 
-		if _, err := Merge(p.Options, p.DefaultOptions, &MergeOptions{}); err != nil {
+		// Try to preserve type information from DefaultOptions
+		var o = make(PluginOptions)
+		if _, err := Merge(o, p.DefaultOptions, &MergeOptions{}); err != nil {
+			return err
+		}
+		if _, err := Merge(o, p.Options, &MergeOptions{Overwrite: true}); err != nil {
+			return err
+		}
+		if _, err := Merge(p.Options, o, &MergeOptions{Overwrite: true, Delete: true}); err != nil {
 			return err
 		}
 	}
@@ -487,8 +495,21 @@ func (c *Config) Map() map[string]interface{} {
 		}
 	}
 
-	for _, p := range m["Plugins"].(mi) {
-		DeleteEqual(p.(mi)["Options"].(mi), p.(mi)["DefaultOptions"].(mi))
+	var mp = m["Plugins"].(mi)
+	var pd = Map(plugin.Config{}).(mi)
+	for k, p := range mp {
+		var o = p.(mi)["Options"].(mi)
+		var d = p.(mi)["DefaultOptions"].(mi)
+		DeleteEqual(p.(mi), pd)
+		if len(o) == 0 {
+			delete(p.(mi), "Options")
+		}
+		if len(d) == 0 {
+			delete(p.(mi), "DefaultOptions")
+		}
+		if len(p.(mi)) == 0 {
+			delete(mp, k)
+		}
 	}
 
 	return m
