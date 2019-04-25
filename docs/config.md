@@ -47,8 +47,7 @@ Section|Description
 [[Relay]](relay.md)|Chat relay configuration.
 [[Commands]](commands.md#config)|Command configuration.
 [[Plugins]](plugins.md)|Load external plugins.
-[[StdIO]](stdio.md)|Terminal configuration.
-[[Log]](log.md)|Log format.
+[[StdIO]](terminal.md)|Terminal configuration.
 
 ?> **TIP:**  The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
 Examining the source code is the best way to find out exactly how settings are used.

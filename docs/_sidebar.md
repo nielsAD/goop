@@ -14,5 +14,5 @@
     * [Writing Plugins](plugins_api.md)
 * Other
     * [Access Level](access.md)
-    * [Log Format](log.md)
+    * [Terminal](terminal.md)
     * [Build From Source](build.md)
