@@ -10,8 +10,9 @@
     * [Built-in Commands](commands_builtin.md)
     * [Custom Commands](commands_custom.md)
 * Plugins
-    * [Loading Plugins](loading_plugins.md)
-    * [Writing Plugins](writing_plugins.md)
+    * [List of Plugins](plugins.md)
+    * [Writing Plugins](plugins_api.md)
 * Other
-    * [Build From Source](build.md)
+    * [Access Level](access.md)
     * [Log Format](log.md)
+    * [Build From Source](build.md)

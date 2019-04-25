@@ -29,7 +29,7 @@ Built-in Commands
 ## Settings
 |||
 |--------------------:|-|
-| Access              |[`owner`](commands.md#access-level)|
+| Access              |[`owner`](access.md)|
 | Syntax              |`.settings [action] [key] [new_value]`|
 |_<sub>[action]</sub>_|Find, get, set, or unset.|
 |_<sub>[key]</sub>_   |Key for setting (accepts [glob pattern](commands.md#arguments)).|
@@ -49,7 +49,7 @@ _Example:_
 ## SayPrivate
 |||
 |----------------------:|-|
-| Access                |[`admin`](commands.md#access-level)|
+| Access                |[`admin`](access.md)|
 | Syntax                |`.sayprivate [username] [message...]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 |_<sub>[message]</sub>_ |Message to send.|
@@ -65,7 +65,7 @@ _Example:_
 ## Whois
 |||
 |----------------------:|-|
-| Access                |[`admin`](commands.md#access-level)|
+| Access                |[`admin`](access.md)|
 | Syntax                |`.whois [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -80,10 +80,10 @@ _Example:_
 ## Set
 |||
 |----------------------:|-|
-| Access                |[`admin`](commands.md#access-level)|
+| Access                |[`admin`](access.md)|
 | Syntax                |`.set [username] [access]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
-|_<sub>[access]</sub>_  |[Access level](commands.md#access-level).|
+|_<sub>[access]</sub>_  |[Access level](access.md).|
 
 Change access level for `[username]` to `[level]`.
 
@@ -104,7 +104,7 @@ _Aliases:_
 ## Unset
 |||
 |----------------------:|-|
-| Access                |[`admin`](commands.md#access-level)|
+| Access                |[`admin`](access.md)|
 | Syntax                |`.unset [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -125,10 +125,10 @@ _Aliases:_
 ## List
 |||
 |------------------------:|-|
-| Access                  |[`operator`](commands.md#access-level)|
+| Access                  |[`operator`](access.md)|
 | Syntax                  |`.list [min-access] [max-access]`|
-|_<sub>[min-access]</sub>_|[Access level](commands.md#access-level).|
-|_<sub>[max-access]</sub>_|[Access level](commands.md#access-level) (optional).|
+|_<sub>[min-access]</sub>_|[Access level](access.md).|
+|_<sub>[max-access]</sub>_|[Access level](access.md) (optional).|
 
 List all users with `[min-access]` &le; access level &le; `[max-access]`.
 
@@ -146,7 +146,7 @@ _Aliases:_
 ## Ban
 |||
 |----------------------:|-|
-| Access                |[`operator`](commands.md#access-level)|
+| Access                |[`operator`](access.md)|
 | Syntax                |`.ban [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -165,7 +165,7 @@ _Aliases:_
 ## Unban
 |||
 |----------------------:|-|
-| Access                |[`operator`](commands.md#access-level)|
+| Access                |[`operator`](access.md)|
 | Syntax                |`.unban [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -180,7 +180,7 @@ _Example:_
 ## Kick
 |||
 |----------------------:|-|
-| Access                |[`operator`](commands.md#access-level)|
+| Access                |[`operator`](access.md)|
 | Syntax                |`.kick [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -199,7 +199,7 @@ _Aliases:_
 ## Echo
 |||
 |---------------------:|-|
-| Access               |[`whitelist`](commands.md#access-level)|
+| Access               |[`whitelist`](access.md)|
 | Syntax               |`.echo [message...]`|
 |_<sub>[message]</sub>_|Message to send.|
 
@@ -214,7 +214,7 @@ _Example:_
 ## Say
 |||
 |---------------------:|-|
-| Access               |[`whitelist`](commands.md#access-level)|
+| Access               |[`whitelist`](access.md)|
 | Syntax               |`.say [message...]`|
 |_<sub>[message]</sub>_|Message to send.|
 
@@ -232,7 +232,7 @@ _Aliases:_
 ## Whisper
 |||
 |----------------------:|-|
-| Access                |[`whitelist`](commands.md#access-level)|
+| Access                |[`whitelist`](access.md)|
 | Syntax                |`.whisper [username] [message...]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 |_<sub>[message]</sub>_ |Message to send.|
@@ -251,7 +251,7 @@ _Aliases:_
 ## Ping
 |||
 |----------------------:|-|
-| Access                |[`whitelist`](commands.md#access-level)|
+| Access                |[`whitelist`](access.md)|
 | Syntax                |`.ping [username]`|
 |_<sub>[username]</sub>_|Target user (accepts [glob pattern](commands.md#arguments)).|
 
@@ -266,7 +266,7 @@ _Example:_
 ## PingMe
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.pingme`|
 
 Display [.ping](#ping) info for invoking user.
@@ -280,7 +280,7 @@ _Example:_
 ## Whoami
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.whoami`|
 
 Display [.whois](#whois)  info for invoking user.
@@ -294,7 +294,7 @@ _Example:_
 ## Where
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.where`|
 
 List connected gateways.
@@ -308,7 +308,7 @@ _Example:_
 ## Who
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.who`|
 
 List users online on other gateways.
@@ -322,7 +322,7 @@ _Example:_
 ## Time
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.time`|
 
 Print current time.
@@ -336,7 +336,7 @@ _Example:_
 ## Uptime
 |||
 |----------------------:|-|
-| Access                |[Default (0)](commands.md#access-level)|
+| Access                |[Default (0)](access.md)|
 | Syntax                |`.uptime`|
 
 Print running time.

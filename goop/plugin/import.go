@@ -33,6 +33,7 @@ import (
 
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/goop"
+	"github.com/nielsAD/goop/goop/cmd"
 	"github.com/nielsAD/gowarcraft3/network"
 	"github.com/nielsAD/gowarcraft3/protocol/bncs"
 	"github.com/nielsAD/gowarcraft3/protocol/capi"
@@ -146,10 +147,12 @@ func importMap(ls *lua.LState, m map[string]interface{}) *lua.LTable {
 
 // goop.Command wrapper for plugins
 type cmdCallback func(t *gateway.Trigger, gw gateway.Gateway) error
-type cmd struct{ cb cmdCallback }
+type cmdWrapper struct{ cb cmdCallback }
 
-func (c *cmd) CanExecute(t *gateway.Trigger) bool                                 { return true }
-func (c *cmd) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error { return c.cb(t, gw) }
+func (c *cmdWrapper) CanExecute(t *gateway.Trigger) bool { return true }
+func (c *cmdWrapper) Execute(t *gateway.Trigger, gw gateway.Gateway, g *goop.Goop) error {
+	return c.cb(t, gw)
+}
 
 var _global = map[string]interface{}{
 	"gotypeof": func(i interface{}) string {
@@ -181,7 +184,10 @@ var _global = map[string]interface{}{
 		return 1
 	},
 	"command": func(cb cmdCallback) goop.Command {
-		return &cmd{cb}
+		return &cmdWrapper{cb}
+	},
+	"command_alias": func(alias *cmd.Alias) *cmd.Alias {
+		return alias
 	},
 }
 
