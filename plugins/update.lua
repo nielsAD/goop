@@ -2,7 +2,7 @@
 -- Project: goop (https://github.com/nielsAD/goop)
 -- License: Mozilla Public License, v2.0
 --
--- Greet users when they join the channel
+-- Check for available updates
 
 defoptions({
     Interval = "24h", -- Check interval

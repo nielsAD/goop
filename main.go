@@ -2,7 +2,7 @@
 // Project: goop (https://github.com/nielsAD/goop)
 // License: Mozilla Public License, v2.0
 
-// Goop (GO OPerator) is a BNet Channel Operator.
+// Goop (GO OPerator) is a classic Battle.net chat bot.
 //
 // Main package basically loads/updates configuration files and creates a Goop instance.
 // Configuration structure works with "Default" structs that are recursively merged into

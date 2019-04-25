@@ -5,9 +5,9 @@
 -- Ban Battle.net users with specified patterns in their name
 
 defoptions({
-    Patterns      = {"|[cnr]"},   -- Patterns to match
-    AccessProtect = access.Voice, -- Min access level
-    Kick          = false,        -- Kick instead of ban
+    Patterns      = {"|[cnr]"},       -- Patterns to match
+    AccessProtect = access.Whitelist, -- Protected access level
+    Kick          = false,            -- Kick instead of ban
 })
 
 goop:On(events.Join, function(ev)
