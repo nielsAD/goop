@@ -120,7 +120,7 @@ _Options:_
 |Interval     |`"24h"`   |Check interval.|
 
 
-## Weather
+## weather
 Add weather command that prints weather on location.
 
 _Options:_
