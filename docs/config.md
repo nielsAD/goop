@@ -49,7 +49,7 @@ Section|Description
 [[Plugins]](plugins.md)|Load external plugins.
 [[StdIO]](terminal.md)|Terminal configuration.
 
-?> **TIP:**  The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
+?> **TIP:** The configuration structure directly correlates with the `Config` struct in [`config.go`](https://github.com/nielsAD/goop/blob/master/config.go).  
 Examining the source code is the best way to find out exactly how settings are used.
 
 

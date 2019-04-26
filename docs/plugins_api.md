@@ -5,6 +5,8 @@ Plugins are written in a subset of [Lua 5.1](https://www.lua.org/manual/5.1/manu
 
 The plugin API is almost a direct mapping of the Go API, this means that source code [documentation](https://godoc.org/github.com/nielsAD/goop) is a very good starting point for script documentation. Typically, a plugin will subscribe to one or more events and execute a callback function whenever such an event occurs.
 
+?> **TIP:** Enable the [debug](plugins.md#debug) plugin to find out what events are fired.
+
 
 Global Imports
 --------------
@@ -92,7 +94,7 @@ Options
 The global `options` table can be used to read and write persistent configuration settings. Use `defoptions` to define a set of default options to fall back on when no user configuration is available for a certain setting.
 
 Users can modify these settings through the regular interfaces (configuration [file](plugins.md) or the [.settings](commands_builtin.md#settings) command).  
-Any changes to the table made by the script itself will be persisted as well.
+Scripts can use `options` table for persistent storage, fieldnames starting with underscore ("_") are treated as private.
 
 
 _Example:_
