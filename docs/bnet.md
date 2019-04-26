@@ -31,6 +31,8 @@ _Example:_
   AccessUser = { niels = "owner", grubby = "admin" }
 ```
 
+?> **NOTE:** Your API key might be invalid or expired if you are repeatedly getting `Run[Connect]:websocket: close 1005 (no status)` errors. Try requesting a new one.
+
 
 CD-Keys
 -------
