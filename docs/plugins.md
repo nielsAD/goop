@@ -110,6 +110,18 @@ _Options:_
 |AccessTrigger|`voice`   |Access level required to trigger command.|
 
 
+## sed
+Find and execute sed substitute patterns in chat messages.
+
+_Options:_
+
+|    Option   | Default  | Description |
+|-------------|----------|-------------|
+|Access       |`voice`   |Min access level.|
+|History      |`10`      |Number of messages to search back.|
+|SkipTrigger  |`true`    |Ignore messages starting with trigger.|
+
+
 ## update
 Check for available updates.
 

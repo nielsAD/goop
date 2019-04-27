@@ -10,22 +10,20 @@ defoptions({
 
 goop:On(events.Chat, function(ev)
     local msg = ev.Arg
-    local gw  = ev.Opt[1]
-
     if msg.User.Access < options.Access then
         return
     end
 
+    local gw = ev.Opt[1]
     gw:Say(msg.Content)
 end)
 
 goop:On(events.PrivateChat, function(ev)
     local msg = ev.Arg
-    local gw  = ev.Opt[1]
-
     if msg.User.Access < options.Access then
         return
     end
 
+    local gw  = ev.Opt[1]
     gw:SayPrivate(msg.User.ID, msg.Content)
 end)
