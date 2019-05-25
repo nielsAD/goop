@@ -5,7 +5,7 @@
 -- Ban Battle.net users with specified patterns in their name
 
 defoptions({
-    Patterns      = {"|[cnr]"},       -- Patterns to match
+    Patterns      = {"|[cCnNrR]"},    -- Patterns to match
     AccessProtect = access.Whitelist, -- Protected access level
     Kick          = false,            -- Kick instead of ban
 })
