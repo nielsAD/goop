@@ -418,7 +418,7 @@ func (c *Channel) updateOnline() {
 					var a = ""
 					switch {
 					case o.User.Access >= gateway.AccessOperator:
-						a = "⚔️"
+						a = "⚔"
 					case o.User.Access >= gateway.AccessWhitelist:
 						a = "⭐"
 					case o.User.Access >= gateway.AccessVoice:
