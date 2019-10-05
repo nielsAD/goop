@@ -113,7 +113,7 @@ goop:On(events.Chat, function(ev)
     if msg.User.Access < options.Access then
         return
     end
-    local gw  = ev.Opt[1]
+    local gw = ev.Opt[1]
     if options.SkipTrigger and starts_with(msg.Content, gw:Trigger()) then
         return
     end

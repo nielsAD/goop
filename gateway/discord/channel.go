@@ -429,7 +429,7 @@ func (c *Channel) updateOnline() {
 						a = "💩"
 					}
 
-					var s = fmt.Sprintf("%s `%-15s@ %-9s\u200B` *%s*\n", a, o.User.Name, o.Discr, fmtDuration(now.Sub(o.Since)))
+					var s = fmt.Sprintf("%s `%-15s@%-7s\u200B` *%s*\n", a, o.User.Name, o.Discr, fmtDuration(now.Sub(o.Since)))
 					if len(content)+len(s) >= 2000 {
 						break
 					}
