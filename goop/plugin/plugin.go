@@ -5,8 +5,8 @@
 package plugin
 
 import (
-	luar "github.com/layeh/gopher-luar"
 	lua "github.com/yuin/gopher-lua"
+	luar "layeh.com/gopher-luar"
 )
 
 // Config stores the configuration of a single plugin

@@ -28,8 +28,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/fatih/color"
 	"github.com/gorilla/websocket"
-	luar "github.com/layeh/gopher-luar"
 	lua "github.com/yuin/gopher-lua"
+	luar "layeh.com/gopher-luar"
 
 	"github.com/nielsAD/goop/gateway"
 	"github.com/nielsAD/goop/goop"

@@ -21,5 +21,5 @@
 	path = vendor/github.com/yuin/gopher-lua
 	url = https://github.com/yuin/gopher-lua.git
 [submodule "vendor/github.com/layeh/gopher-luar"]
-	path = vendor/github.com/layeh/gopher-luar
+	path = vendor/layeh.com/gopher-luar
 	url = https://github.com/layeh/gopher-luar.git

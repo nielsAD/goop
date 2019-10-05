@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	luar "github.com/layeh/gopher-luar"
 	lua "github.com/yuin/gopher-lua"
+	luar "layeh.com/gopher-luar"
 )
 
 // Timers registers all active timers
