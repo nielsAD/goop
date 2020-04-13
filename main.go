@@ -23,7 +23,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -77,11 +77,11 @@ func Load(files ...string) (*Config, *Config, error) {
 		if p.Path != "" {
 			continue
 		}
-		if path.Ext(name) == "" {
+		if filepath.Ext(name) == "" {
 			name += ".lua"
 		}
-		if !path.IsAbs(name) {
-			name = path.Join("plugins", name)
+		if !filepath.IsAbs(name) {
+			name = filepath.Join("plugins", name)
 		}
 		p.Path = name
 	}
