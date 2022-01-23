@@ -101,7 +101,7 @@ func (c *Channel) ChannelUsers() []gateway.User {
 	var res = make([]gateway.User, 0, len(g.Presences))
 	for _, p := range g.Presences {
 		perm, err := c.session.State.UserChannelPermissions(p.User.ID, c.ChannelID)
-		if err != nil || perm&discordgo.PermissionReadMessages == 0 {
+		if err != nil || perm&discordgo.PermissionViewChannel == 0 {
 			continue
 		}
 

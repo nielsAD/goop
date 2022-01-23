@@ -262,7 +262,7 @@ func main() {
 	}
 
 	var sig = make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	// Prevent closing stdin before restart
 	var pw io.Writer = os.Stdout

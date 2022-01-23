@@ -27,14 +27,10 @@ func fixsep(in string) string {
 	return strings.Replace(in, "/", string(os.PathSeparator), -1)
 }
 
-var ignorePat = regexp.MustCompile("^.*/_.*$")
+var ignorePat = regexp.MustCompile(`^.*/_.*$`)
 
 func ignore(key string, val interface{}) bool {
-	if ignorePat.MatchString(key) {
-		return true
-	}
-
-	return false
+	return ignorePat.MatchString(key)
 }
 
 func findKeys(m map[string]interface{}, pat ...string) []string {

@@ -449,8 +449,8 @@ func (b *Gateway) FindTrigger(s string) *gateway.Trigger {
 	return gateway.ExtractTrigger(s[idx+2:])
 }
 
-var banPat = regexp.MustCompile("^([^ ]+) was banned by ([^ ]+).*\\.$")
-var unbanPat = regexp.MustCompile("^([^ ]+) was unbanned by ([^ ]+).*\\.$")
+var banPat = regexp.MustCompile(`^([^ ]+) was banned by ([^ ]+).*\.$`)
+var unbanPat = regexp.MustCompile(`^([^ ]+) was unbanned by ([^ ]+).*\.$`)
 
 func (b *Gateway) onMessageEvent(ev *network.Event) {
 	var pkt = ev.Arg.(*pcapi.MessageEvent)

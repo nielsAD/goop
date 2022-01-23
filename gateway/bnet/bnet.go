@@ -490,8 +490,8 @@ func (b *Gateway) onChannel(ev *network.Event) {
 	b.Fire(&gateway.Channel{ID: c.Name, Name: c.Name})
 }
 
-var banPat = regexp.MustCompile("^([^ ]+) was banned by ([^ ]+).*\\.$")
-var unbanPat = regexp.MustCompile("^([^ ]+) was unbanned by ([^ ]+).*\\.$")
+var banPat = regexp.MustCompile(`^([^ ]+) was banned by ([^ ]+).*\.$`)
+var unbanPat = regexp.MustCompile(`^([^ ]+) was unbanned by ([^ ]+).*\.$`)
 
 func (b *Gateway) onSystemMessage(ev *network.Event) {
 	var msg = ev.Arg.(*bnet.SystemMessage)

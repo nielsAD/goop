@@ -32,7 +32,7 @@ func ParentKey(key string) (string, string) {
 		return "", ""
 	}
 
-	return key[0:idx], key[idx+1 : len(key)]
+	return key[0:idx], key[idx+1:]
 }
 
 // DeleteEqual entries where dst[k] == src[k] (recursively)

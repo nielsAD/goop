@@ -1,25 +1,3 @@
-[submodule "vendor/github.com/nielsAD/gowarcraft3"]
-	path = vendor/github.com/nielsAD/gowarcraft3
+[submodule "third_party/gowarcraft3"]
+	path = third_party/gowarcraft3
 	url = https://github.com/nielsAD/gowarcraft3.git
-	ignore = dirty
-[submodule "vendor/github.com/fatih/color"]
-	path = vendor/github.com/fatih/color
-	url = https://github.com/fatih/color.git
-[submodule "vendor/github.com/BurntSushi/toml"]
-	path = vendor/github.com/BurntSushi/toml
-	url = https://github.com/BurntSushi/toml.git
-[submodule "vendor/golang.org/x/crypto"]
-	path = vendor/golang.org/x/crypto
-	url = https://github.com/golang/crypto.git
-[submodule "vendor/github.com/bwmarrin/discordgo"]
-	path = vendor/github.com/bwmarrin/discordgo
-	url = https://github.com/bwmarrin/discordgo.git
-[submodule "vendor/github.com/gorilla/websocket"]
-	path = vendor/github.com/gorilla/websocket
-	url = https://github.com/gorilla/websocket.git
-[submodule "vendor/github.com/yuin/gopher-lua"]
-	path = vendor/github.com/yuin/gopher-lua
-	url = https://github.com/yuin/gopher-lua.git
-[submodule "vendor/github.com/layeh/gopher-luar"]
-	path = vendor/layeh.com/gopher-luar
-	url = https://github.com/layeh/gopher-luar.git

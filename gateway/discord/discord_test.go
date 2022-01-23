@@ -58,7 +58,7 @@ func TestChannel(t *testing.T) {
 	gw := gateway.Gateway(c)
 	gw.On(&network.AsyncError{}, func(ev *network.Event) {
 		err := ev.Arg.(*network.AsyncError)
-		if err, ok := err.Err.(*discordgo.RESTError); ok && err.Response.StatusCode == http.StatusNotFound {
+		if err, ok := err.Err.(*discordgo.RESTError); ok && err.Response.StatusCode == http.StatusMethodNotAllowed {
 			return
 		}
 

@@ -45,7 +45,7 @@ func New(in io.ReadCloser, out *log.Logger, conf *Config) *Gateway {
 	}
 }
 
-const uid = "stdio"
+const stdioUID = "stdio"
 
 func (o *Gateway) read() error {
 	var r = bufio.NewReader(o.In)
@@ -61,7 +61,7 @@ func (o *Gateway) read() error {
 
 		var chat = gateway.PrivateChat{
 			User: gateway.User{
-				ID:        uid,
+				ID:        stdioUID,
 				Name:      "stdin",
 				Access:    o.Access,
 				AvatarURL: o.AvatarURL,
@@ -77,7 +77,7 @@ func (o *Gateway) read() error {
 
 		if t := o.Config.FindTrigger(chat.Content); t != nil {
 			t.User = chat.User
-			t.Resp = o.Responder(o, uid, true)
+			t.Resp = o.Responder(o, stdioUID, true)
 			o.Fire(t, &chat)
 		}
 	}
@@ -117,7 +117,7 @@ func (o *Gateway) Say(s string) error {
 
 // SayPrivate sends a private chat message to uid
 func (o *Gateway) SayPrivate(uid string, s string) error {
-	if uid != uid {
+	if uid != stdioUID {
 		return gateway.ErrNoChannel
 	}
 

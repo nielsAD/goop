@@ -102,7 +102,7 @@ var Placeholders = map[string]Replacer{
 	},
 }
 
-var replacersInt = regexp.MustCompile("\\d+")
+var replacersInt = regexp.MustCompile(`\d+`)
 var replacersPat = regexp.MustCompile((func() string {
 	var s = []string{}
 	for k := range Placeholders {

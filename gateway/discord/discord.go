@@ -61,6 +61,8 @@ func New(conf *Config) (*Gateway, error) {
 	s.State.TrackVoice = false
 	s.State.MaxMessageCount = 0
 
+	s.Identify.Presence.Game.Name = conf.Presence
+
 	var d = Gateway{
 		Session:  s,
 		Config:   conf,
@@ -260,14 +262,6 @@ func (d *Gateway) onDisconnect(s *discordgo.Session, msg *discordgo.Disconnect) 
 }
 
 func (d *Gateway) onReady(s *discordgo.Session, r *discordgo.Ready) {
-	if d.Presence != "" {
-		go func() {
-			if err := s.UpdateStatus(0, d.Presence); err != nil {
-				d.Fire(&network.AsyncError{Src: "onReady[UpdateStatus]", Err: err})
-			}
-		}()
-	}
-
 	d.clear()
 
 	for _, g := range r.Guilds {
@@ -311,7 +305,7 @@ func (d *Gateway) updatePresence(guildID string, presence *discordgo.Presence) {
 		}
 
 		// Check if user is allowed to read channel
-		if perm&discordgo.PermissionReadMessages == 0 && !online {
+		if perm&discordgo.PermissionViewChannel == 0 && !online {
 			continue
 		}
 
@@ -404,7 +398,7 @@ func (d *Gateway) onPresenceUpdate(s *discordgo.Session, msg *discordgo.Presence
 	d.updatePresence(msg.GuildID, &msg.Presence)
 }
 
-var emotijiPat = regexp.MustCompile("<a?:([^:]*):[^>]*>")
+var emotijiPat = regexp.MustCompile(`<a?:([^:]*):[^>]*>`)
 
 func replaceContentReferences(s *discordgo.Session, msg *discordgo.Message) string {
 	var res = msg.Content

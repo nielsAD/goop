@@ -2,8 +2,8 @@
 # Project: goop (https://github.com/nielsAD/goop)
 # License: Mozilla Public License, v2.0
 
-GOW3=vendor/github.com/nielsAD/gowarcraft3
-VENDOR=$(GOW3)/vendor/bncsutil/build/libbncsutil_static.a
+GOW3=third_party/gowarcraft3
+THIRD_PARTY=$(GOW3)/third_party/bncsutil/build/libbncsutil.a
 
 GO_LDFLAGS=
 GO_FLAGS=
@@ -11,18 +11,13 @@ GOTEST_FLAGS=-cover -cpu=1,2,4 -timeout=2m
 
 GO=go
 GOFMT=gofmt
-GOLINT:=$(shell $(GO) env GOPATH)/bin/golint
+STATICCHECK=$(shell $(GO) env GOPATH)/bin/staticcheck
 
 DIR_BIN=bin
 DIR_PRE=github.com/nielsAD/goop
 
 PKG:=$(shell $(GO) list ./...)
 DIR:=$(subst $(DIR_PRE),.,$(PKG))
-
-ARCH:=$(shell $(GO) env GOARCH)
-ifeq ($(ARCH),amd64)
-	TEST_RACE=1
-endif
 
 ifeq ($(TEST_RACE),1)
 	GOTEST_FLAGS+= -race
@@ -78,36 +73,40 @@ END
 endef
 export RES
 
-.PHONY: all release check test fmt lint vet list clean res.syso
+.PHONY: all release check test fmt lint vet list clean install-tools res.syso
 
 all: test release
 
 $(DIR_BIN):
 	mkdir -p $@
 
-$(PKG): $(VENDOR)
+$(PKG): $(THIRD_PARTY)
 	$(GO) build $@
 
-$(GOW3)/vendor/%:
-	$(MAKE) -C $(GOW3)/vendor $(subst $(GOW3)/vendor/,,$@)
+$(GOW3)/third_party/%:
+	$(MAKE) -C $(GOW3)/third_party $(subst $(GOW3)/third_party/,,$@)
 
 res.syso:
 	echo "$$RES" | $(WINDRES) -c 65001 -O coff -o $@
 
-release: $(VENDOR) $(DIR_BIN) res.syso
+release: $(THIRD_PARTY) $(DIR_BIN) res.syso
 	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(GIT_TAG) -X main.BuildCommit=$(GIT_COMMIT) -X main.buildDate=$(shell date +'%s') $(GO_LDFLAGS)' $(DIR_PRE)
 
-check: $(VENDOR)
+check: $(THIRD_PARTY)
 	$(GO) build $(PKG)
 
 test: check fmt lint vet
 	$(GO) test $(GOTEST_FLAGS) $(PKG)
 
 fmt:
-	$(GOFMT) -l $(filter-out .,$(DIR)) $(wildcard *.go)
+	@GOFMT_OUT=$$($(GOFMT) -d $(filter-out .,$(DIR)) $(wildcard *.go) 2>&1); \
+	if [ -n "$$GOFMT_OUT" ]; then \
+		echo "$$GOFMT_OUT"; \
+		exit 1; \
+	fi
 
 lint:
-	$(GOLINT) -set_exit_status $(PKG)
+	$(STATICCHECK) $(PKG)
 	cd plugins; $(LUACHECK) .
 
 vet:
@@ -118,5 +117,9 @@ list:
 
 clean:
 	-rm -r $(DIR_BIN) res.syso
-	go clean $(PKG)
-	$(MAKE) -C $(GOW3)/vendor clean
+	$(GO) clean $(PKG)
+	$(MAKE) -C $(GOW3)/third_party clean
+
+install-tools:
+	$(GO) mod download
+	grep -o '"[^"]\+"' tools.go | xargs -n1 $(GO) install
