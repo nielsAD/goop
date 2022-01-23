@@ -439,7 +439,7 @@ func find(val reflect.Value, key []string) *reflect.Value {
 		}
 		return find(val.Elem(), key)
 	case reflect.Slice, reflect.Array:
-		n, err := strconv.ParseInt(key[0], 0, 64)
+		n, err := strconv.ParseInt(key[0], 0, 0)
 		if err != nil || n < 0 || n >= int64(val.Len()) {
 			return nil
 		}

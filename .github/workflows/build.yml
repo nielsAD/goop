@@ -1,0 +1,82 @@
+name: Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.run.name }}, go${{ matrix.go }}
+    runs-on: ${{ matrix.run.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        run:
+          - { name: 'linux', os: ubuntu-latest, shell: bash }
+          - { name: 'macos', os: macos-latest,  shell: bash }
+          - { name: 'windows_x86', os: windows-latest, shell: 'msys2 {0}', msys: mingw32 }
+          - { name: 'windows_x64', os: windows-latest, shell: 'msys2 {0}', msys: mingw64 }
+        go: [1.17]
+
+    defaults:
+      run:
+        shell: ${{ matrix.run.shell }}
+
+    steps:
+      - name: Checkout repository and submodules
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Set up Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.run.msys }}
+          install: >-
+            make
+          pacboy: >-
+            go:p
+            gcc:p
+            cmake:p
+
+      - name: Install tools
+        run: make install-tools
+      - name: Build
+        run: make check
+      - name: Test
+        run: make test
+      - name: Release
+        run: make release GIT_TAG="$GITHUB_REF_NAME" GIT_COMMIT="$GITHUB_SHA"
+
+      - name: Prepare artifacts
+        run: |
+          echo -e "Author:   Niels A.D.
+          Project:  goop (https://github.com/nielsAD/goop)
+          Platform: `go env GOOS`/`go env GOARCH` (`go env GOVERSION`)
+          Release:  $GITHUB_REF_NAME ($GITHUB_SHA)
+          Date:     `date --utc`" > VERSION.txt
+          mv bin/goop.exe goop-$GITHUB_REF_NAME.exe || true
+          mv bin/goop goop-$GITHUB_REF_NAME         || true
+          mv config.toml.example config.toml
+          mv LICENSE LICENSE.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: goop_${{ github.ref_name }}_${{ matrix.run.name }}
+          path: |
+            goop-*
+            plugins/*.lua
+            config.toml
+            LICENSE.txt
+            VERSION.txt

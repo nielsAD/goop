@@ -34,16 +34,23 @@ ifndef WINDRES
 endif
 
 GIT=git
-GIT_TAG:=$(shell $(GIT) describe --abbrev=0 --tags)
-GIT_COMMIT:=$(shell $(GIT) rev-parse HEAD)
+GIT_TAG=$(shell $(GIT) describe --abbrev=0 --tags)
+GIT_COMMIT=$(shell $(GIT) rev-parse HEAD)
 
-comma=,
-VERSION:=$(subst v,,$(subst .,$(comma),$(GIT_TAG)),$(shell date +'%y%m'))
+BUILD_TAG:=$(GIT_TAG)
+BUILD_COMMIT:=$(GIT_COMMIT)
+
+ifeq ($(shell echo "$(BUILD_TAG)" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+$$'),)
+	RES_VERSION:=0,0,0,$(shell date +'%y%m')
+else
+	comma=,
+	RES_VERSION:=$(subst v,,$(subst .,$(comma),$(BUILD_TAG)),$(shell date +'%y%m'))
+endif
 
 define RES
 1 VERSIONINFO
-FILEVERSION     $(VERSION)
-PRODUCTVERSION  $(VERSION)
+FILEVERSION     $(RES_VERSION)
+PRODUCTVERSION  $(RES_VERSION)
 FILEFLAGSMASK   0X3FL
 FILEFLAGS       0L
 FILEOS          0X40004L
@@ -56,12 +63,12 @@ BEGIN
 		BEGIN
 			VALUE "CompanyName", "nielsAD"
 			VALUE "FileDescription", "Goop is a BNCS Channel Operator."
-			VALUE "FileVersion", "$(GIT_TAG)"
+			VALUE "FileVersion", "$(BUILD_TAG)"
 			VALUE "InternalName", "goop"
 			VALUE "LegalCopyright", "© nielsAD. All rights reserved."
 			VALUE "OriginalFilename", "goop.exe"
 			VALUE "ProductName", "Goop"
-			VALUE "ProductVersion", "$(GIT_TAG)"
+			VALUE "ProductVersion", "$(BUILD_TAG)"
 		END
 	END
 	BLOCK "VarFileInfo"
@@ -90,7 +97,7 @@ res.syso:
 	echo "$$RES" | $(WINDRES) -c 65001 -O coff -o $@
 
 release: $(THIRD_PARTY) $(DIR_BIN) res.syso
-	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(GIT_TAG) -X main.BuildCommit=$(GIT_COMMIT) -X main.buildDate=$(shell date +'%s') $(GO_LDFLAGS)' $(DIR_PRE)
+	cd $(DIR_BIN); $(GO) build $(GO_FLAGS) -ldflags '-X main.BuildTag=$(BUILD_TAG) -X main.BuildCommit=$(BUILD_COMMIT) -X main.buildDate=$(shell date +'%s') $(GO_LDFLAGS)' $(DIR_PRE)
 
 check: $(THIRD_PARTY)
 	$(GO) build $(PKG)
