@@ -56,24 +56,26 @@ jobs:
       - name: Test
         run: make test
       - name: Release
-        run: make release GIT_TAG="$GITHUB_REF_NAME" GIT_COMMIT="$GITHUB_SHA"
+        run: make release GIT_TAG="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" GIT_COMMIT="$GITHUB_SHA"
 
       - name: Prepare artifacts
         run: |
+          REF_NAME=$(echo "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" | sed 's/[^a-zA-Z0-9\-_.]/-/g')
+          echo "ref_name=$REF_NAME" >> $GITHUB_ENV
           echo -e "Author:   Niels A.D.
           Project:  goop (https://github.com/nielsAD/goop)
           Platform: `go env GOOS`/`go env GOARCH` (`go env GOVERSION`)
-          Release:  $GITHUB_REF_NAME ($GITHUB_SHA)
+          Release:  $REF_NAME ($GITHUB_SHA)
           Date:     `date --utc`" > VERSION.txt
-          mv bin/goop.exe goop-$GITHUB_REF_NAME.exe || true
-          mv bin/goop goop-$GITHUB_REF_NAME         || true
+          mv bin/goop.exe goop-$REF_NAME.exe || true
+          mv bin/goop goop-$REF_NAME         || true
           mv config.toml.example config.toml
           mv LICENSE LICENSE.txt
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: goop_${{ github.ref_name }}_${{ matrix.run.name }}
+          name: goop_${{ env.ref_name }}_${{ matrix.run.name }}
           path: |
             goop-*
             plugins/*.lua
