@@ -9,7 +9,7 @@ require (
 	github.com/bwmarrin/discordgo v0.23.2
 	github.com/fatih/color v1.13.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/nielsAD/gowarcraft3 v1.7.0
+	github.com/nielsAD/gowarcraft3 v1.7.1
 	github.com/yuin/gopher-lua v0.0.0-20210529063254-f4c35e4016d9
 	honnef.co/go/tools v0.2.2
 	layeh.com/gopher-luar v1.0.10
