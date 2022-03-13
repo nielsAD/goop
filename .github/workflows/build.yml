@@ -66,7 +66,7 @@ jobs:
           Project:  goop (https://github.com/nielsAD/goop)
           Platform: `go env GOOS`/`go env GOARCH` (`go env GOVERSION`)
           Release:  $REF_NAME ($GITHUB_SHA)
-          Date:     `date --utc`" > VERSION.txt
+          Date:     `date -u`" > VERSION.txt
           mv bin/goop.exe goop-$REF_NAME.exe || true
           mv bin/goop goop-$REF_NAME         || true
           mv config.toml.example config.toml
