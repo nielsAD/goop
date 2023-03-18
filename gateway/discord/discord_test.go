@@ -45,7 +45,7 @@ func Test(t *testing.T) {
 }
 
 func TestChannel(t *testing.T) {
-	s, err := discordgo.New()
+	s, err := discordgo.New("")
 	if err != nil {
 		t.Fatal(err)
 	}
